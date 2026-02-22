@@ -118,19 +118,19 @@ const LoginView: React.FC = () => {
           <motion.div 
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
-            className="inline-block p-4 bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 mb-6"
+            className="inline-block p-3 bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 mb-6"
           >
             <img 
               src={logoUrl} 
               alt="Logo" 
-              className="w-16 h-16 object-contain"
+              className="w-12 h-12 object-contain"
               onError={(e) => (e.currentTarget.src = 'https://ui-avatars.com/api/?name=F&background=000&color=fff')}
             />
           </motion.div>
-          <h1 className="text-3xl font-black text-white uppercase tracking-tighter mb-2">
+          <h1 className="text-xl font-black text-white uppercase tracking-tighter mb-2">
             Faithhouse Chapel international
           </h1>
-          <p className="text-white/40 text-[10px] font-bold uppercase tracking-[0.4em]">
+          <p className="text-white/40 text-[9px] font-bold uppercase tracking-[0.4em]">
             Authorized Personnel Access
           </p>
         </div>

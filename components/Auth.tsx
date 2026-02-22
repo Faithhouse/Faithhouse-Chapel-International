@@ -169,7 +169,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 0.2, duration: 0.5 }}
-            className="w-24 h-24 bg-white/5 border border-white/10 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl backdrop-blur-xl overflow-hidden p-4"
+            className="w-16 h-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-2xl backdrop-blur-xl overflow-hidden p-3"
           >
             <img 
               src="https://lh3.googleusercontent.com/d/1la57sO6NOuNEZaqa9zDxuxRnWPBavkjH" 
@@ -180,8 +180,8 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
               }}
             />
           </motion.div>
-          <h1 className="text-3xl font-black text-white uppercase tracking-tighter mb-2">Faithhouse Chapel international</h1>
-          <p className="text-white/40 text-[10px] font-bold uppercase tracking-[0.4em]">Authorized Personnel Access</p>
+          <h1 className="text-xl font-black text-white uppercase tracking-tighter mb-2">Faithhouse Chapel international</h1>
+          <p className="text-white/40 text-[9px] font-bold uppercase tracking-[0.4em]">Authorized Personnel Access</p>
         </div>
 
         <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-10 shadow-3xl">
@@ -297,31 +297,6 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
                 <>
                   {isLogin ? 'Initialize Session' : 'Create Identity'}
                   <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-
-            <div className="relative py-4">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/10"></div>
-              </div>
-              <div className="relative flex justify-center text-[8px] font-black uppercase tracking-widest">
-                <span className="bg-[#121212] px-4 text-white/20">External Protocols</span>
-              </div>
-            </div>
-
-            <button 
-              type="button"
-              onClick={handleGithubBridge}
-              disabled={githubLoading}
-              className="w-full py-5 bg-white/5 border border-white/10 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] hover:bg-white/10 active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-            >
-              {githubLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  <Github className="w-4 h-4" />
-                  Bridge with GitHub
                 </>
               )}
             </button>
