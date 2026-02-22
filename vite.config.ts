@@ -18,8 +18,8 @@ export default defineConfig(({ mode }) => {
           registerType: 'autoUpdate',
           includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
           manifest: {
-            name: 'FaithHouse Church Management',
-            short_name: 'FaithHouse CMS',
+            name: 'Church Governance & Oversight',
+            short_name: 'Governance',
             description: 'Official Church Management System for FaithHouse Chapel International',
             theme_color: '#0f172a',
             background_color: '#f8fafc',
