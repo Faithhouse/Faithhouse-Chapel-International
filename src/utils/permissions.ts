@@ -4,9 +4,9 @@ export type ClearanceLevel = 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4';
 
 export const CLEARANCE_LEVELS: Record<ClearanceLevel, UserRole[]> = {
   LEVEL_4: ['System Administrator'],
-  LEVEL_3: ['System Administrator', 'Head Pastor', 'General Admin', 'Church Admin', 'Finance / Treasury'],
-  LEVEL_2: ['System Administrator', 'Head Pastor', 'General Admin', 'Evangelism Ministry', 'Music Ministry', 'Follow-up & Visitation', 'Ministry Head'],
-  LEVEL_1: ['System Administrator', 'Head Pastor', 'General Admin', 'Security & Facilities', 'Assistant'],
+  LEVEL_3: ['System Administrator', 'Head Pastor', 'General Admin', 'Church Admin', 'Finance / Treasury', 'General Office'],
+  LEVEL_2: ['System Administrator', 'Head Pastor', 'General Admin', 'Evangelism Ministry', 'Music Ministry', 'Follow-up & Visitation', 'Ministry Head', 'General Office'],
+  LEVEL_1: ['System Administrator', 'Head Pastor', 'General Admin', 'Security & Facilities', 'Assistant', 'General Office'],
 };
 
 /**

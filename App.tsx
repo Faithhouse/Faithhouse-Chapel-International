@@ -205,7 +205,7 @@ const App: React.FC = () => {
           return <MinistriesView userProfile={profile} setActiveItem={setActiveItem as any} />;
         
         case 'Visitation & Follow-up':
-          if (!['System Administrator', 'Head Pastor', 'Follow-up & Visitation', 'Evangelism Ministry'].includes(role || '')) {
+          if (!['System Administrator', 'Head Pastor', 'Follow-up & Visitation', 'Evangelism Ministry', 'General Office'].includes(role || '')) {
             return <SecurityDenied module={activeItem} />;
           }
           return <VisitationView userProfile={profile} />;

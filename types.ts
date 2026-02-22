@@ -9,6 +9,7 @@ export type UserRole =
   | 'Security & Facilities' 
   | 'Finance / Treasury' 
   | 'General Admin'
+  | 'General Office'
   | 'Assistant'
   | 'Ministry Head'
   | 'Church Admin';
