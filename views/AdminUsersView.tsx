@@ -25,6 +25,7 @@ const ministryDirectory: DirectoryTemplate[] = [
   { label: 'Music Ministry', email: 'music@faithhouse.church', role: 'Music Ministry', level: 'Level 2', genesisKey: 'FHCI_Sound_Worship!2026', desc: 'Logistics & Rehearsals' },
   { label: 'Security & Facilities', email: 'ops@faithhouse.church', role: 'Security & Facilities', level: 'Level 1', genesisKey: 'FHCI_Ops_Secure!2026', desc: 'Asset & Safety Logs' },
   { label: 'General Admin', email: 'admin@faithhouse.church', role: 'General Admin', level: 'Level 3', genesisKey: 'FHCI_System_Admin!2026', desc: 'System Master Management' },
+  { label: 'General Office', email: 'office@faithhouse.church', role: 'General Office', level: 'Level 4', genesisKey: 'FHCI_Office_GodMode!2026', desc: 'Administrative God Mode Access' },
 ];
 
 const AdminUsersView: React.FC<AdminUsersViewProps> = ({ userProfile }) => {
@@ -212,7 +213,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({ userProfile }) => {
   };
 
   const getLevelBadge = (role: UserRole) => {
-    if (role === 'System Administrator') return { text: 'ROOT LEVEL 4', color: 'bg-slate-950 text-fh-gold ring-1 ring-fh-gold/50' };
+    if (role === 'System Administrator' || role === 'General Office') return { text: 'ROOT LEVEL 4', color: 'bg-slate-950 text-fh-gold ring-1 ring-fh-gold/50' };
     if (['Head Pastor', 'Finance / Treasury', 'General Admin'].includes(role)) return { text: 'LEVEL 3', color: 'bg-fh-green text-fh-gold' };
     if (['Security & Facilities'].includes(role)) return { text: 'LEVEL 1', color: 'bg-slate-100 text-slate-500' };
     return { text: 'LEVEL 2', color: 'bg-indigo-50 text-indigo-600' };
@@ -295,7 +296,7 @@ CREATE POLICY "Allow all for staff" ON public.profiles FOR ALL USING (true) WITH
                       <tr key={u.id} className="hover:bg-fh-slate/50 transition-colors group">
                         <td className="px-10 py-6">
                           <div className="flex items-center gap-5">
-                            <div className={`w-14 h-14 rounded-[1.25rem] flex items-center justify-center font-black text-xs border border-white/10 shadow-lg group-hover:scale-110 transition-transform ${u.role === 'System Administrator' ? 'bg-fh-gold text-fh-green-dark ring-2 ring-fh-gold/50 shadow-fh-gold/20' : 'bg-slate-950 text-fh-gold'}`}>
+                            <div className={`w-14 h-14 rounded-[1.25rem] flex items-center justify-center font-black text-xs border border-white/10 shadow-lg group-hover:scale-110 transition-transform ${['System Administrator', 'General Office'].includes(u.role) ? 'bg-fh-gold text-fh-green-dark ring-2 ring-fh-gold/50 shadow-fh-gold/20' : 'bg-slate-950 text-fh-gold'}`}>
                               {u.first_name?.[0] || '?'}{u.last_name?.[0] || '?'}
                             </div>
                             <div>
@@ -306,7 +307,7 @@ CREATE POLICY "Allow all for staff" ON public.profiles FOR ALL USING (true) WITH
                         </td>
                         <td className="px-10 py-6">
                           <div className="flex flex-col gap-1.5">
-                            <span className={`text-[9px] font-black uppercase tracking-widest ${u.role === 'System Administrator' ? 'text-fh-gold' : 'text-slate-900'}`}>{u.role}</span>
+                            <span className={`text-[9px] font-black uppercase tracking-widest ${['System Administrator', 'General Office'].includes(u.role) ? 'text-fh-gold' : 'text-slate-900'}`}>{u.role}</span>
                             <span className={`w-fit px-2.5 py-1 rounded-md text-[7px] font-black uppercase tracking-tighter shadow-sm ${badge.color}`}>
                               {badge.text}
                             </span>
@@ -343,11 +344,11 @@ CREATE POLICY "Allow all for staff" ON public.profiles FOR ALL USING (true) WITH
               
               <div className="space-y-1 max-h-[550px] overflow-y-auto scrollbar-hide px-6 pb-10">
                  {ministryDirectory.map((m, idx) => (
-                   <div key={idx} className={`group p-5 hover:bg-white/10 rounded-[2rem] border transition-all mb-4 ${m.role === 'System Administrator' ? 'bg-fh-gold/5 border-fh-gold/20' : 'bg-white/5 border-white/5'}`}>
+                   <div key={idx} className={`group p-5 hover:bg-white/10 rounded-[2rem] border transition-all mb-4 ${['System Administrator', 'General Office'].includes(m.role) ? 'bg-fh-gold/5 border-fh-gold/20' : 'bg-white/5 border-white/5'}`}>
                      <div className="flex justify-between items-start mb-4">
                         <div className="space-y-1">
                           <p className="text-[10px] font-black text-white uppercase tracking-tight">{m.label}</p>
-                          <p className={`text-[8px] font-bold uppercase tracking-widest ${m.role === 'System Administrator' ? 'text-fh-gold animate-pulse' : 'text-fh-gold opacity-60'}`}>{m.level} Clearance</p>
+                          <p className={`text-[8px] font-bold uppercase tracking-widest ${['System Administrator', 'General Office'].includes(m.role) ? 'text-fh-gold animate-pulse' : 'text-fh-gold opacity-60'}`}>{m.level} Clearance</p>
                         </div>
                         <button onClick={() => deployTemplate(m)} className="px-4 py-2 bg-fh-gold/10 hover:bg-fh-gold text-fh-gold hover:text-fh-green rounded-xl text-[8px] font-black uppercase tracking-widest transition-all shadow-inner">Deploy</button>
                      </div>

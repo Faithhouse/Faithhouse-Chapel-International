@@ -15,7 +15,7 @@ export const CLEARANCE_LEVELS: Record<ClearanceLevel, UserRole[]> = {
  */
 export const canAccess = (role: UserRole | undefined, level: ClearanceLevel): boolean => {
   if (!role) return false;
-  if (role === 'System Administrator') return true;
+  if (role === 'System Administrator' || role === 'General Office') return true;
   return CLEARANCE_LEVELS[level].includes(role);
 };
 
@@ -30,5 +30,5 @@ export const permissions = {
   canManageUsers: (role: UserRole | undefined) => canAccess(role, 'LEVEL_3'),
   isLeadership: (role: UserRole | undefined) => canAccess(role, 'LEVEL_3'),
   isFollowUpTeam: (role: UserRole | undefined) => 
-    ['System Administrator', 'Head Pastor', 'Follow-up & Visitation', 'Evangelism Ministry'].includes(role || ''),
+    ['System Administrator', 'Head Pastor', 'Follow-up & Visitation', 'Evangelism Ministry', 'General Office'].includes(role || ''),
 };

@@ -35,8 +35,8 @@ const menuItems: MenuItem[] = [
   { name: 'Upcoming Events', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7' },
   { name: 'SYSTEM', icon: '', isHeader: true },
   { name: 'Recurring Tasks', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', roles: ['Head Pastor', 'General Admin', 'System Administrator', 'General Office'] },
-  { name: 'Admin Users', icon: 'M12 11c0 3.517-1.009 6.799-2.753 9.571', roles: ['System Administrator'] },
-  { name: 'Settings', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0', roles: ['System Administrator'] },
+  { name: 'Admin Users', icon: 'M12 11c0 3.517-1.009 6.799-2.753 9.571', roles: ['System Administrator', 'General Office'] },
+  { name: 'Settings', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0', roles: ['System Administrator', 'General Office'] },
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({ activeItem, setActiveItem, isOpen, toggleSidebar, userProfile, handleLogout }) => {
@@ -47,7 +47,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeItem, setActiveItem, isOpen, to
 
   const canAccess = (item: MenuItem) => {
     if (item.isHeader) return true;
-    if (role === 'System Administrator') return true;
+    if (role === 'System Administrator' || role === 'General Office') return true;
     if (!item.roles) return true;
     return item.roles.includes(role);
   };
