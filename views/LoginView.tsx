@@ -127,11 +127,11 @@ const LoginView: React.FC = () => {
               onError={(e) => (e.currentTarget.src = 'https://ui-avatars.com/api/?name=F&background=000&color=fff')}
             />
           </motion.div>
-          <h1 className="text-4xl font-light tracking-tighter uppercase mb-2">
-            Faithhouse <span className="font-bold text-blue-500">Vault</span>
+          <h1 className="text-3xl font-black text-white uppercase tracking-tighter mb-2">
+            Faithhouse Chapel international
           </h1>
-          <p className="text-[10px] font-bold text-white/40 uppercase tracking-[0.4em]">
-            {mode === 'login' ? 'Secure Authorization' : 'New Identity Registration'}
+          <p className="text-white/40 text-[10px] font-bold uppercase tracking-[0.4em]">
+            Authorized Personnel Access
           </p>
         </div>
 

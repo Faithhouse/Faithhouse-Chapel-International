@@ -169,12 +169,19 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 0.2, duration: 0.5 }}
-            className="w-20 h-20 bg-white/5 border border-white/10 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl backdrop-blur-xl"
+            className="w-24 h-24 bg-white/5 border border-white/10 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl backdrop-blur-xl overflow-hidden p-4"
           >
-            <ShieldCheck className="w-10 h-10 text-fh-gold" />
+            <img 
+              src="https://lh3.googleusercontent.com/d/1la57sO6NOuNEZaqa9zDxuxRnWPBavkjH" 
+              alt="FaithHouse Logo" 
+              className="w-full h-full object-contain"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=F&background=007bff&color=fff&bold=true';
+              }}
+            />
           </motion.div>
-          <h1 className="text-4xl font-black text-white uppercase tracking-tighter mb-2">Faithhouse Central</h1>
-          <p className="text-white/40 text-[10px] font-bold uppercase tracking-[0.4em]">Secure Access Protocol v4.0</p>
+          <h1 className="text-3xl font-black text-white uppercase tracking-tighter mb-2">Faithhouse Chapel international</h1>
+          <p className="text-white/40 text-[10px] font-bold uppercase tracking-[0.4em]">Authorized Personnel Access</p>
         </div>
 
         <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-10 shadow-3xl">
