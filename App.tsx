@@ -107,9 +107,10 @@ const App: React.FC = () => {
       }
       
       if (data) {
-        // God Level Access for Prince Monovis
+        // God Level Access for Prince Monovis and Admin Email
         const fullName = `${data.first_name || ''} ${data.last_name || ''}`.trim();
-        if (fullName.toLowerCase().includes('prince monovis')) {
+        const email = data.email?.toLowerCase() || '';
+        if (fullName.toLowerCase().includes('prince monovis') || email === 'admin@faithhouse.church') {
           data.role = 'System Administrator';
         }
       }
