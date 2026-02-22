@@ -41,6 +41,7 @@ export type NavItem =
   | 'Branches'
   | 'Admin Users'
   | 'WhatsApp Hub'
+  | 'Recurring Tasks'
   | 'Member Profile'
   | 'Settings';
 
@@ -188,6 +189,29 @@ export interface Role {
   name: string;
   description: string;
   permissions: Permission[];
+}
+
+export interface RecurringTaskTemplate {
+  id: string;
+  title: string;
+  description?: string;
+  service_type: 'Prophetic Word Service' | 'Help from above service' | 'Special services' | 'Conferences' | 'All';
+  assigned_ministry?: string;
+  created_at?: string;
+}
+
+export interface TaskInstance {
+  id: string;
+  template_id?: string;
+  event_id: string;
+  title: string;
+  description?: string;
+  status: 'Pending' | 'In Progress' | 'Completed' | 'Blocked';
+  assigned_to?: string;
+  due_date: string;
+  completed_at?: string;
+  completed_by?: string;
+  created_at?: string;
 }
 
 export interface Ministry {

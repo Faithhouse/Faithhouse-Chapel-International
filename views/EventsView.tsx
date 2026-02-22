@@ -81,7 +81,7 @@ const EventsView: React.FC<EventsViewProps> = ({ userProfile }) => {
         branch_id: formData.branch_id || null
       };
       
-      const { error } = await supabase.from('events').insert([eventPayload]);
+      const { data: newEvent, error } = await supabase.from('events').insert([eventPayload]).select().single();
       if (error) throw error;
       
       // 2. Automatically create a Service Log in Attendance (except for Conferences)
@@ -93,16 +93,30 @@ const EventsView: React.FC<EventsViewProps> = ({ userProfile }) => {
           branch_id: formData.branch_id || null
         };
         
-        const { error: logError } = await supabase.from('attendance_events').insert([serviceLog]);
-        if (logError) {
-          console.warn("Event created, but service log failed:", logError);
-          setNotification("Event created, but Attendance Log failed to sync.");
-        } else {
-          setNotification("Event scheduled and Attendance Log initialized.");
-        }
-      } else {
-        setNotification("Conference scheduled successfully.");
+        await supabase.from('attendance_events').insert([serviceLog]);
       }
+
+      // 3. Generate Task Instances from Recurring Templates
+      const { data: templates } = await supabase
+        .from('recurring_task_templates')
+        .select('*')
+        .or(`service_type.eq.${formData.category},service_type.eq.All`);
+
+      if (templates && templates.length > 0) {
+        const taskInstances = templates.map(t => ({
+          template_id: t.id,
+          event_id: newEvent.id,
+          title: t.title,
+          description: t.description,
+          status: 'Pending',
+          due_date: formData.date
+        }));
+
+        const { error: taskError } = await supabase.from('task_instances').insert(taskInstances);
+        if (taskError) console.warn("Event created, but tasks failed to generate:", taskError);
+      }
+      
+      setNotification("Event scheduled and service protocols initialized.");
       
       setIsModalOpen(false);
       setFormData({ 

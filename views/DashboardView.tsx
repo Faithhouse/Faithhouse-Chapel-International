@@ -22,6 +22,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
   const [chartData, setChartData] = useState<any[]>([]);
   const [recentMembers, setRecentMembers] = useState<any[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
+  const [todayTasks, setTodayTasks] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // Permission Helpers
@@ -108,7 +109,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
       if (eErr) console.warn("Upcoming events fetch failed:", eErr);
       setUpcomingEvents(events || []);
 
-      // 4. Conditional Fetch: Growth Chart
+      // 4. Fetch Today's Tasks
+      const today = new Date().toISOString().split('T')[0];
+      const { data: tasks, error: tErr } = await supabase
+        .from('task_instances')
+        .select('*')
+        .eq('due_date', today)
+        .order('status', { ascending: false });
+      
+      if (tErr) console.warn("Today's tasks fetch failed:", tErr);
+      setTodayTasks(tasks || []);
+
+      // 5. Conditional Fetch: Growth Chart
       if (isLeadership || isFinance) {
         const sixMonthsAgo = new Date();
         sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
@@ -157,6 +169,25 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
     if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
     return date.toLocaleDateString();
+  };
+
+  const toggleTaskStatus = async (taskId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'Completed' ? 'Pending' : 'Completed';
+    try {
+      const { error } = await supabase
+        .from('task_instances')
+        .update({ 
+          status: newStatus,
+          completed_at: newStatus === 'Completed' ? new Date().toISOString() : null,
+          completed_by: newStatus === 'Completed' ? userProfile?.id : null
+        })
+        .eq('id', taskId);
+      
+      if (error) throw error;
+      fetchDashboardData();
+    } catch (err) {
+      console.error("Error updating task:", err);
+    }
   };
 
   return (
@@ -352,6 +383,36 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
               )) : (
                 <div className="py-8 text-center">
                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">No upcoming programmes</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Service Checklist */}
+          <div className="bg-white rounded-[2.5rem] overflow-hidden border border-slate-50 shadow-sm">
+            <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between bg-fh-green/5">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-fh-green">Service Checklist</h3>
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+            </div>
+            <div className="p-6 space-y-2">
+              {todayTasks.length > 0 ? todayTasks.map((task, i) => (
+                <div 
+                  key={i} 
+                  onClick={() => toggleTaskStatus(task.id, task.status)}
+                  className={`flex items-center gap-4 p-4 rounded-2xl border transition-all cursor-pointer ${task.status === 'Completed' ? 'bg-emerald-50/50 border-emerald-100 opacity-60' : 'bg-white border-slate-100 hover:border-fh-gold'}`}
+                >
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center border-2 transition-all ${task.status === 'Completed' ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200'}`}>
+                    {task.status === 'Completed' && <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                  </div>
+                  <div className="flex-1">
+                    <p className={`text-xs font-black uppercase tracking-tight ${task.status === 'Completed' ? 'text-emerald-700 line-through' : 'text-slate-800'}`}>{task.title}</p>
+                    {task.description && <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5 truncate">{task.description}</p>}
+                  </div>
+                </div>
+              )) : (
+                <div className="py-8 text-center">
+                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">No tasks for today's service</p>
+                   <button onClick={() => setActiveItem('Recurring Tasks')} className="mt-4 text-[9px] font-black text-cms-blue uppercase tracking-widest hover:underline">Manage Protocols</button>
                 </div>
               )}
             </div>

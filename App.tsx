@@ -21,6 +21,7 @@ import WhatsAppSchedulerView from './views/WhatsAppSchedulerView';
 import MemberProfileView from './views/MemberProfileView';
 import PlaceholderView from './views/PlaceholderView';
 import Auth from './components/Auth';
+import RecurringTasksView from './views/RecurringTasksView';
 import { NavItem, UserProfile } from './types';
 import { canAccess } from './src/utils/permissions';
 import { supabase } from './supabaseClient';
@@ -212,6 +213,10 @@ const App: React.FC = () => {
         case 'WhatsApp Hub':
           if (!canAccess(role, 'LEVEL_3')) return <SecurityDenied module={activeItem} />;
           return <WhatsAppSchedulerView userProfile={profile} />;
+
+        case 'Recurring Tasks':
+          if (!canAccess(role, 'LEVEL_2')) return <SecurityDenied module={activeItem} />;
+          return <RecurringTasksView userProfile={profile} />;
 
         case 'Admin Users':
         case 'Settings':
