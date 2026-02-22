@@ -216,7 +216,7 @@ const LoginView: React.FC = () => {
                 required 
                 value={email} 
                 onChange={e => setEmail(e.target.value)}
-                placeholder="name@faithhouse.church"
+                placeholder=""
                 className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm font-medium focus:bg-white/10 focus:border-white/20 outline-none transition-all placeholder:text-white/10"
               />
             </div>

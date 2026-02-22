@@ -251,7 +251,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white text-xs font-bold focus:ring-2 focus:ring-fh-gold/20 outline-none transition-all"
-                  placeholder="admin@faithhouse.church"
+                  placeholder=""
                 />
               </div>
             </div>
@@ -259,9 +259,6 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
             <div className="space-y-2">
               <div className="flex items-center justify-between px-2">
                 <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Access Key</label>
-                {isLogin && (
-                  <button type="button" className="text-[8px] font-black text-fh-gold uppercase tracking-widest hover:underline">Lost Key?</button>
-                )}
               </div>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
