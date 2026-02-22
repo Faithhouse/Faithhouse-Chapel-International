@@ -33,7 +33,14 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    // Check active session
+    // Check for simulated session first
+    const simulatedUserId = localStorage.getItem('fci_simulated_user_id');
+    if (simulatedUserId) {
+      fetchProfile(simulatedUserId);
+      return;
+    }
+
+    // Check active Supabase session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         fetchProfile(session.user.id);
@@ -46,7 +53,7 @@ const App: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         fetchProfile(session.user.id);
-      } else {
+      } else if (!localStorage.getItem('fci_simulated_user_id')) {
         setProfile(null);
         setLoading(false);
       }
@@ -65,6 +72,12 @@ const App: React.FC = () => {
 
       if (error) {
         if (error.code === 'PGRST116') { // Record not found
+          // If it's a simulated ID, we can't auto-repair via Supabase Auth
+          if (userId.startsWith('github_')) {
+            setLoading(false);
+            return;
+          }
+
           console.warn("Profile missing for active session. Attempting auto-repair...");
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
@@ -86,6 +99,12 @@ const App: React.FC = () => {
         }
         throw error;
       }
+      
+      // If successful, persist if it's a simulated ID
+      if (userId.startsWith('github_')) {
+        localStorage.setItem('fci_simulated_user_id', userId);
+      }
+      
       setProfile(data);
     } catch (err) {
       console.error("Error fetching profile:", err);
@@ -96,6 +115,7 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     setLoading(true);
+    localStorage.removeItem('fci_simulated_user_id');
     await supabase.auth.signOut();
     setProfile(null);
     setLoading(false);

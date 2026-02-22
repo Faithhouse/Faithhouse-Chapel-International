@@ -19,7 +19,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
+    const handleMessage = async (event: MessageEvent) => {
       // Validate origin
       const origin = event.origin;
       if (!origin.endsWith('.run.app') && !origin.includes('localhost')) {
@@ -27,11 +27,56 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
       }
 
       if (event.data?.type === 'OAUTH_AUTH_SUCCESS' && event.data?.provider === 'github') {
-        // For this demo/bridge, we'll just show a success message
-        // In a real app, you'd use the code from the callback to sign in via Supabase
-        // or your own backend.
-        alert('GitHub Bridge Established! You can now proceed with standard authentication.');
-        setGithubLoading(false);
+        const githubUser = event.data.user;
+        
+        // In a real app with Supabase, you'd use the access token to sign in.
+        // For this implementation, we'll use the email to "bridge" the session.
+        // We'll attempt to find or create a profile for this user.
+        
+        setGithubLoading(true);
+        setError(null);
+
+        try {
+          // Check if user exists in profiles
+          const { data: existingProfile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('email', githubUser.email)
+            .single();
+
+          if (profileError && profileError.code !== 'PGRST116') {
+            throw profileError;
+          }
+
+          if (existingProfile) {
+            // User exists, log them in
+            onAuthSuccess(existingProfile.id);
+          } else {
+            // User doesn't exist, we'll "simulate" a signup by creating a profile
+            // Note: In production, you'd use supabase.auth.admin to create the user first
+            // but here we'll just use a deterministic ID based on the github_id for the demo
+            const simulatedUserId = `github_${githubUser.github_id}`;
+            
+            const { error: createError } = await supabase.from('profiles').upsert([
+              {
+                id: simulatedUserId,
+                email: githubUser.email,
+                first_name: githubUser.name.split(' ')[0] || 'GitHub',
+                last_name: githubUser.name.split(' ').slice(1).join(' ') || 'User',
+                role: 'General Admin',
+                avatar_url: githubUser.avatar
+              }
+            ]);
+
+            if (createError) throw createError;
+            onAuthSuccess(simulatedUserId);
+          }
+        } catch (err: any) {
+          console.error('GitHub Bridge Error:', err);
+          setError('GitHub synchronization failed: ' + err.message);
+        } finally {
+          setGithubLoading(false);
+        }
       }
     };
 
