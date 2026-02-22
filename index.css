@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cms-blue: #007bff;
+  --color-cms-purple: #6f42c1;
+  --color-cms-emerald: #20c997;
+  --color-cms-rose: #f86c6b;
+  --color-cms-sidebar: #343a40;
+  --color-cms-accent: #3c8dbc;
+  
+  --color-fh-green: #09420B;
+  --color-fh-gold: #CC923E;
+  --color-fh-slate: #F4F6F9;
+}
+
+body {
+  @apply bg-fh-slate text-slate-900 antialiased;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.cms-card {
+  @apply bg-white rounded-lg shadow-sm border-t-4 border-slate-200 transition-all duration-200;
+}
+
+.sidebar-active {
+  @apply bg-white/10 text-white border-l-4 border-cms-blue;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes spin-reverse {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
+.animate-spin-reverse {
+  animation: spin-reverse 1s linear infinite;
+}

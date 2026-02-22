@@ -1,0 +1,7 @@
+{
+  "name": "Remix: FCI",
+  "description": "A comprehensive church management system for Faithhouse Chapel International, featuring member registry, attendance tracking, financial management, and automated WhatsApp outreach.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

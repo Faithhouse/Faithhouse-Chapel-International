@@ -1,0 +1,472 @@
+
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient';
+import { AttendanceEvent, AttendanceRecord, Member, Branch, UserProfile } from '../types';
+
+interface AttendanceViewProps {
+  userProfile: UserProfile | null;
+}
+
+interface EventStats {
+  present: number;
+  absent: number;
+  unmarked: number;
+}
+
+const AttendanceView: React.FC<AttendanceViewProps> = ({ userProfile }) => {
+  const [events, setEvents] = useState<AttendanceEvent[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [eventStats, setEventStats] = useState<Record<string, EventStats>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeEvent, setActiveEvent] = useState<AttendanceEvent | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [notification, setNotification] = useState<string | null>(null);
+  const [schemaError, setSchemaError] = useState<string | null>(null);
+
+  // Filters
+  const [branchFilter, setBranchFilter] = useState('All');
+  const [typeFilter, setTypeFilter] = useState('All');
+
+  // Form State for New Service
+  const [newService, setNewService] = useState({
+    event_name: '',
+    event_type: 'Prophetic Word Service' as AttendanceEvent['event_type'],
+    event_date: new Date().toISOString().split('T')[0],
+    branch_id: ''
+  });
+
+  useEffect(() => {
+    fetchInitialData();
+  }, [branchFilter, typeFilter]);
+
+  const fetchInitialData = async () => {
+    setIsLoading(true);
+    setSchemaError(null);
+    try {
+      const { data: bData } = await supabase.from('branches').select('*').order('name');
+      setBranches(bData || []);
+
+      let eventQuery = supabase.from('attendance_events').select('*, branches(*)').order('event_date', { ascending: false });
+      if (branchFilter !== 'All') eventQuery = eventQuery.eq('branch_id', branchFilter);
+      if (typeFilter !== 'All') eventQuery = eventQuery.eq('event_type', typeFilter);
+
+      const { data: eventData, error: eventError } = await eventQuery;
+      if (eventError) {
+         if (eventError.code === '42P01') throw new Error("ATTENDANCE_TABLE_MISSING");
+         throw eventError;
+      }
+      setEvents(eventData || []);
+
+      // Optimize: Fetch records only for the events displayed
+      const eventIds = (eventData || []).map(e => e.id);
+      let recordsQuery = supabase.from('attendance_records').select('attendance_event_id, status');
+      if (eventIds.length > 0) {
+        recordsQuery = recordsQuery.in('attendance_event_id', eventIds);
+      } else {
+        // If no events, no records to fetch
+        setEventStats({});
+        setMembers([]);
+        return;
+      }
+
+      const { data: allRecords } = await recordsQuery;
+      
+      const statsMap: Record<string, EventStats> = {};
+      allRecords?.forEach(rec => {
+        if (!statsMap[rec.attendance_event_id]) {
+          statsMap[rec.attendance_event_id] = { present: 0, absent: 0, unmarked: 0 };
+        }
+        if (rec.status === 'Present') statsMap[rec.attendance_event_id].present++;
+        if (rec.status === 'Absent') statsMap[rec.attendance_event_id].absent++;
+        if (rec.status === 'Unmarked') statsMap[rec.attendance_event_id].unmarked++;
+      });
+      setEventStats(statsMap);
+
+      const { data: memberData } = await supabase.from('members').select('*, branches(*)').eq('status', 'Active').order('first_name', { ascending: true });
+      setMembers(memberData || []);
+    } catch (err: any) {
+      console.error("Attendance Sync Error:", err);
+      if (err.message === "ATTENDANCE_TABLE_MISSING") setSchemaError("INITIALIZATION_REQUIRED");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateService = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase.from('attendance_events').insert([newService]);
+      if (error) throw error;
+      setIsModalOpen(false);
+      setNewService({
+        event_name: '',
+        event_type: 'Prophetic Word Service',
+        event_date: new Date().toISOString().split('T')[0],
+        branch_id: ''
+      });
+      fetchInitialData();
+    } catch (err: any) {
+      alert(`Provision Failure: ${err.message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const openSheet = async (event: AttendanceEvent) => {
+    setIsLoading(true);
+    setActiveEvent(event);
+    try {
+      const { data, error } = await supabase.from('attendance_records').select('*').eq('attendance_event_id', event.id);
+      if (error) throw error;
+      
+      // Pre-populate records for all active members to ensure full synchronization
+      const existingRecords = data || [];
+      const fullRecords: AttendanceRecord[] = members.map(m => {
+        const existing = existingRecords.find(r => r.member_id === m.id);
+        if (existing) return existing;
+        return {
+          attendance_event_id: event.id,
+          member_id: m.id,
+          status: 'Unmarked'
+        };
+      });
+      
+      setRecords(fullRecords);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleStatusChange = (memberId: string, status: AttendanceRecord['status']) => {
+    setRecords(prev => {
+      const idx = prev.findIndex(r => r.member_id === memberId);
+      if (idx > -1) {
+        const up = [...prev];
+        // Toggle logic: if clicking the same status, set to 'Unmarked'
+        const newStatus = up[idx].status === status ? 'Unmarked' : status;
+        up[idx] = { ...up[idx], status: newStatus };
+        return up;
+      }
+      return [...prev, { attendance_event_id: activeEvent!.id, member_id: memberId, status }];
+    });
+  };
+
+  const saveAttendance = async () => {
+    if (!activeEvent) return;
+    setIsSaving(true);
+    try {
+      // Logic Fix: Omit 'id' for new records to prevent Null Constraint Violation
+      const cleanRecords = records.map(({ id, ...rest }) => id ? { id, ...rest } : rest);
+      
+      const { error } = await supabase.from('attendance_records').upsert(cleanRecords, { onConflict: 'attendance_event_id, member_id' });
+      
+      if (error) {
+         if (error.message.includes('column "id"') || error.code === '23502') {
+           setSchemaError("PRIMARY_KEY_DEFAULT_MISSING");
+           throw new Error("Vault Schema Conflict: The database requires manual repair to support automatic ID generation.");
+         }
+         if (error.message.includes('unique or exclusion constraint')) {
+           setSchemaError("UNIQUE_CONSTRAINT_MISSING");
+           throw new Error("Vault Schema Conflict: Missing unique constraint for attendance synchronization.");
+         }
+         throw error;
+      }
+      setActiveEvent(null);
+      fetchInitialData();
+    } catch (err: any) {
+      alert(`Sync Conflict: ${err.message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteEvent = async () => {
+    if (!deleteConfirmId) return;
+    
+    setIsDeleting(deleteConfirmId);
+    try {
+      const { error } = await supabase.from('attendance_events').delete().eq('id', deleteConfirmId);
+      if (error) throw error;
+      
+      setDeleteConfirmId(null);
+      setNotification("Attendance log deleted successfully.");
+      setTimeout(() => setNotification(null), 3000);
+      fetchInitialData();
+    } catch (err: any) {
+      alert(`Deletion Failed: ${err.message}`);
+    } finally {
+      setIsDeleting(null);
+    }
+  };
+
+  if (schemaError) {
+     let repairSQL = '';
+     
+     if (schemaError === "INITIALIZATION_REQUIRED") {
+       repairSQL = `-- ATTENDANCE MASTER INITIALIZATION
+CREATE TABLE IF NOT EXISTS public.attendance_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_name TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  event_date DATE NOT NULL,
+  branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Ensure branch_id exists if table was created previously
+ALTER TABLE public.attendance_events ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL;
+
+CREATE TABLE IF NOT EXISTS public.attendance_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  attendance_event_id UUID NOT NULL REFERENCES attendance_events(id) ON DELETE CASCADE,
+  member_id UUID NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+  status TEXT NOT NULL,
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  UNIQUE(attendance_event_id, member_id)
+);
+
+ALTER TABLE public.attendance_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.attendance_records ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all" ON public.attendance_events FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON public.attendance_records FOR ALL USING (true) WITH CHECK (true);`;
+     } else {
+       repairSQL = `-- SCHEMA REPAIR: ADD UUID DEFAULTS & UNIQUE CONSTRAINTS
+ALTER TABLE public.attendance_records 
+ALTER COLUMN id SET DEFAULT gen_random_uuid();
+
+-- ENSURE UNIQUE CONSTRAINT IS ACTIVE FOR UPSERT
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'unique_event_member') THEN
+    ALTER TABLE public.attendance_records ADD CONSTRAINT unique_event_member UNIQUE (attendance_event_id, member_id);
+  END IF;
+EXCEPTION
+  WHEN duplicate_table THEN NULL;
+  WHEN others THEN
+    -- Fallback if the above fails: try to drop and recreate if it exists under a different name or just force it
+    ALTER TABLE public.attendance_records DROP CONSTRAINT IF EXISTS attendance_records_attendance_event_id_member_id_key;
+    ALTER TABLE public.attendance_records ADD CONSTRAINT unique_event_member UNIQUE (attendance_event_id, member_id);
+END $$;`;
+     }
+
+     return (
+       <div className="max-w-4xl mx-auto py-12 px-4 animate-in zoom-in-95">
+         <div className="bg-white p-12 rounded-[4rem] shadow-2xl text-center border-b-[16px] border-rose-500">
+           <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner">
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+           </div>
+           <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-4">Vault Sync Conflict Detected</h2>
+           <p className="text-slate-500 mb-10 text-[11px] font-bold uppercase tracking-widest max-w-lg mx-auto">The attendance registry requires a schema update to support automatic identification nodes. Execute the recovery script below.</p>
+           <pre className="bg-slate-950 text-fh-gold p-8 rounded-[2rem] text-[10px] font-mono text-left h-48 overflow-y-auto mb-10 shadow-2xl border border-white/5 scrollbar-hide">{repairSQL}</pre>
+           <div className="flex gap-4 justify-center">
+              <button onClick={() => { navigator.clipboard.writeText(repairSQL); alert('Repair protocol copied.'); }} className="px-10 py-5 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-95">Copy Script</button>
+              <button onClick={fetchInitialData} className="px-16 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-xl border-b-4 border-black active:scale-95">Re-Authorize Sync</button>
+           </div>
+         </div>
+       </div>
+     );
+  }
+
+  if (activeEvent) {
+    return (
+      <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-center gap-6">
+            <button onClick={() => setActiveEvent(null)} className="p-4 bg-white border border-slate-200 rounded-[1.5rem] shadow-sm hover:bg-slate-50 transition-all text-slate-400 hover:text-cms-blue">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+            </button>
+            <div>
+              <h2 className="text-3xl font-black tracking-tighter text-slate-900 uppercase leading-none">{activeEvent.event_name}</h2>
+              <p className="text-cms-blue font-black text-[10px] uppercase tracking-[0.4em] mt-2">{activeEvent.branches?.name || 'Main Office'} • {new Date(activeEvent.event_date).toLocaleDateString()}</p>
+            </div>
+          </div>
+          <button onClick={saveAttendance} disabled={isSaving} className="px-10 py-5 bg-fh-green text-fh-gold rounded-[1.75rem] font-black uppercase text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30 flex items-center gap-3">
+             {isSaving ? <div className="w-4 h-4 border-2 border-white/50 border-t-white animate-spin rounded-full" /> : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+             Authorize Sync
+          </button>
+        </div>
+
+        <div className="cms-card cms-card-blue bg-white rounded-[3rem] overflow-hidden border-none shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] border-b border-slate-100">
+                <tr>
+                  <th className="px-10 py-6">Identity</th>
+                  <th className="px-10 py-6 text-center">Status Toggle</th>
+                  <th className="px-10 py-6 text-right">Site</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {members.map(m => {
+                  const record = records.find(r => r.member_id === m.id);
+                  const s = record?.status || 'Unmarked';
+                  return (
+                    <tr key={m.id} className="hover:bg-slate-50/50 transition-all group">
+                      <td className="px-10 py-6">
+                        <div className="flex items-center gap-5">
+                          <div className={`w-12 h-12 rounded-[1rem] flex items-center justify-center font-black text-xs shadow-inner ${
+                            s === 'Present' ? 'bg-cms-emerald text-white' : 
+                            s === 'Absent' ? 'bg-cms-rose text-white' :
+                            s === 'Excused' ? 'bg-cms-purple text-white' :
+                            'bg-slate-100 text-slate-400'
+                          }`}>
+                            {m.first_name[0]}{m.last_name ? m.last_name[0] : ''}
+                          </div>
+                          <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{m.first_name} {m.last_name}</p>
+                        </div>
+                      </td>
+                      <td className="px-10 py-6">
+                        <div className="flex justify-center gap-2 bg-slate-50 p-2 rounded-2xl w-fit mx-auto border border-slate-100 shadow-inner">
+                          {(['Present', 'Absent', 'Excused'] as const).map(st => (
+                            <button key={st} onClick={() => handleStatusChange(m.id, st)} className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${s === st ? (st === 'Present' ? 'bg-cms-emerald text-white shadow-lg' : st === 'Absent' ? 'bg-cms-rose text-white shadow-lg' : 'bg-cms-purple text-white shadow-lg') : 'text-slate-400 hover:bg-white'}`}>{st}</button>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-10 py-6 text-right">
+                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{m.branches?.name || '---'}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-700 pb-20 relative">
+      {/* Notification */}
+      {notification && (
+        <div className="fixed top-10 right-10 z-[300] bg-emerald-500 text-white px-8 py-4 rounded-2xl shadow-2xl animate-in slide-in-from-right-10 font-black uppercase text-[10px] tracking-widest flex items-center gap-3 border-b-4 border-black/20">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+          {notification}
+        </div>
+      )}
+
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-1">
+          <h2 className="text-3xl font-black text-fh-green tracking-tighter uppercase leading-none">Attendance Matrix</h2>
+          <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em]">Service Growth & Vitality Ledger</p>
+        </div>
+        <button onClick={() => setIsModalOpen(true)} className="px-10 py-5 bg-fh-green text-fh-gold rounded-[1.75rem] font-black uppercase tracking-widest text-[10px] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30 flex items-center gap-3">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+          Initialize Service Log
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-12">
+        {events.length > 0 ? events.map(ev => {
+          const stats = eventStats[ev.id] || { present: 0, absent: 0 };
+          return (
+            <div key={ev.id} className="cms-card cms-card-purple bg-white rounded-[2.5rem] p-8 hover:shadow-2xl transition-all group overflow-hidden flex flex-col hover:-translate-y-2 duration-500 border-b-[8px] border-slate-50 hover:border-fh-gold">
+              <div className="flex justify-between items-start mb-8">
+                <span className="px-4 py-1.5 bg-cms-purple/10 text-cms-purple text-[9px] font-black uppercase tracking-widest rounded-xl border border-cms-purple/10">{ev.event_type}</span>
+                <div className="flex flex-col items-end gap-2">
+                   <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-cms-emerald"></span><span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">Present: {stats.present}</span></div>
+                   <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-cms-rose"></span><span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">Absent: {stats.absent}</span></div>
+                </div>
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 leading-tight mb-8 group-hover:text-cms-blue transition-colors uppercase tracking-tight">{ev.event_name}</h3>
+              <div className="space-y-4 mb-8">
+                 <div className="flex items-center gap-4 text-[10px] font-black text-slate-400 uppercase tracking-widest"><svg className="w-4 h-4 text-cms-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7" /></svg>{new Date(ev.event_date).toLocaleDateString()}</div>
+                 <div className="flex items-center gap-4 text-[10px] font-black text-slate-400 uppercase tracking-widest"><svg className="w-4 h-4 text-cms-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>{ev.branches?.name || 'Main Campus'}</div>
+              </div>
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => openSheet(ev)} 
+                  className="flex-1 py-5 bg-slate-950 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] active:scale-95 transition-all group-hover:bg-cms-blue"
+                >
+                  Access Sheet
+                </button>
+                <button 
+                  onClick={() => setDeleteConfirmId(ev.id)}
+                  className="px-5 py-5 bg-rose-50 text-rose-500 rounded-2xl hover:bg-rose-500 hover:text-white transition-all active:scale-95 flex items-center justify-center"
+                  title="Delete Log"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          );
+        }) : (
+           <div className="col-span-full py-40 text-center bg-white rounded-[4rem] border-2 border-dashed border-slate-200"><p className="text-slate-300 font-black uppercase tracking-[0.5em] italic">No operational logs recorded</p></div>
+        )}
+      </div>
+
+      {/* DELETE CONFIRMATION MODAL */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-md" onClick={() => setDeleteConfirmId(null)} />
+          <div className="relative bg-white w-full max-w-sm rounded-[3rem] p-10 text-center shadow-2xl border-t-[12px] border-rose-500 animate-in zoom-in-95">
+            <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-inner">
+               <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            </div>
+            <h3 className="text-xl font-black text-slate-900 uppercase mb-2 tracking-tighter">Confirm Deletion</h3>
+            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-8 leading-relaxed">
+              Are you sure you want to permanently remove this attendance log? This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setDeleteConfirmId(null)}
+                className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleDeleteEvent}
+                disabled={!!isDeleting}
+                className="flex-1 py-4 bg-rose-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-rose-200 active:scale-95 transition-all flex items-center justify-center gap-2"
+              >
+                {isDeleting ? (
+                  <div className="w-4 h-4 border-2 border-white/50 border-t-white animate-spin rounded-full" />
+                ) : (
+                  "Delete Now"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-fh-green-dark/95 backdrop-blur-md animate-in fade-in" onClick={() => setIsModalOpen(false)} />
+          <div className="relative bg-white w-full max-w-xl rounded-[4rem] shadow-2xl overflow-hidden animate-in zoom-in-95 border-b-[16px] border-fh-gold">
+            <div className="p-12 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+               <div className="flex items-center gap-6">
+                 <div className="w-16 h-16 bg-fh-green text-fh-gold rounded-[2rem] flex items-center justify-center shadow-xl"><svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7" /></svg></div>
+                 <div><h3 className="text-3xl font-black text-fh-green uppercase leading-none tracking-tighter">Log Service</h3><p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">Initialize Attendance Tracking</p></div>
+               </div>
+               <button onClick={() => setIsModalOpen(false)} className="p-5 hover:bg-slate-100 rounded-full transition-all text-slate-400 active:scale-90"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg></button>
+            </div>
+            <form onSubmit={handleCreateService} className="p-12 space-y-8">
+              <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Service Designation</label><input required value={newService.event_name} onChange={e => setNewService({...newService, event_name: e.target.value})} placeholder="e.g. Mid-week Power Service" className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800" /></div>
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Relay Type</label><select value={newService.event_type} onChange={e => setNewService({...newService, event_type: e.target.value as any})} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800"><option>Prophetic Word Service</option><option>Help from above service</option><option>Special services</option><option>Conferences</option></select></div>
+                <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Site Assignment</label><select required value={newService.branch_id} onChange={e => setNewService({...newService, branch_id: e.target.value})} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800"><option value="">Select Branch...</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
+              </div>
+              <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Deployment Date</label><input type="date" required value={newService.event_date} onChange={e => setNewService({...newService, event_date: e.target.value})} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800" /></div>
+              <button type="submit" disabled={isSubmitting} className="w-full py-6 bg-fh-green text-fh-gold rounded-[2.5rem] font-black uppercase text-xs tracking-[0.4em] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30 flex items-center justify-center gap-3">{isSubmitting ? <div className="w-5 h-5 border-2 border-white/50 border-t-white animate-spin rounded-full" /> : "Authorize Deployment"}</button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default AttendanceView;

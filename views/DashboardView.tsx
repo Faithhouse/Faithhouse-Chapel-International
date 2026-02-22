@@ -1,0 +1,365 @@
+import React, { useState, useEffect } from 'react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { supabase } from '../supabaseClient';
+import { UserProfile, NavItem } from '../types';
+import { permissions } from '../src/utils/permissions';
+
+interface DashboardViewProps {
+  userProfile?: UserProfile | null;
+  setActiveItem: (item: NavItem) => void;
+}
+
+const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveItem }) => {
+  console.log("DashboardView rendering with profile:", userProfile?.id);
+  const [isLoading, setIsLoading] = useState(true);
+  const [stats, setStats] = useState({ 
+    members: 0, 
+    visitors: 0, 
+    events: 0, 
+    followUp: 0 
+  });
+
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [recentMembers, setRecentMembers] = useState<any[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  // Permission Helpers
+  const role = userProfile?.role;
+  const isLeadership = permissions.isLeadership(role);
+  const isFinance = permissions.canManageFinance(role);
+  const canSeeRegistry = permissions.canSeeRegistry(role);
+  const isFollowUpTeam = permissions.isFollowUpTeam(role);
+
+  useEffect(() => {
+    fetchDashboardData();
+
+    // Set up real-time subscription for events
+    const channel = supabase
+      .channel('dashboard-updates')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'events' },
+        () => {
+          console.log('Real-time update detected in events table');
+          fetchDashboardData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'members' },
+        () => {
+          console.log('Real-time update detected in members table');
+          fetchDashboardData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userProfile]);
+
+  const fetchDashboardData = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      // 1. Fetch Global Stats (Head only queries)
+      const { count: memberCount, error: mErr } = await supabase.from('members').select('*', { count: 'exact', head: true });
+      if (mErr) console.warn("Member count fetch failed:", mErr);
+
+      const { count: visitorCount } = await supabase.from('members').select('*', { count: 'exact', head: true }).eq('status', 'Visitor');
+      const { count: pendingFollowUp } = await supabase.from('visitation_records').select('*', { count: 'exact', head: true }).eq('status', 'Pending');
+      
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+      
+      const { count: eventCount } = await supabase.from('events')
+        .select('*', { count: 'exact', head: true })
+        .gte('date', firstDay)
+        .lte('date', lastDay);
+
+      setStats({
+        members: memberCount || 0,
+        visitors: visitorCount || 0,
+        followUp: pendingFollowUp || 0,
+        events: eventCount || 0
+      });
+
+      // 2. Conditional Fetch: Recent Members
+      if (canSeeRegistry) {
+        const { data: recent, error: rErr } = await supabase
+          .from('members')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(4);
+        if (rErr) console.warn("Recent members fetch failed:", rErr);
+        setRecentMembers(recent || []);
+      }
+
+      // 3. Fetch Upcoming Events
+      const { data: events, error: eErr } = await supabase
+        .from('events')
+        .select('*')
+        .gte('date', now.toISOString().split('T')[0])
+        .order('date', { ascending: true })
+        .limit(5);
+      if (eErr) console.warn("Upcoming events fetch failed:", eErr);
+      setUpcomingEvents(events || []);
+
+      // 4. Conditional Fetch: Growth Chart
+      if (isLeadership || isFinance) {
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        
+        const { data: growthData, error: gErr } = await supabase
+          .from('members')
+          .select('created_at')
+          .gte('created_at', sixMonthsAgo.toISOString());
+        
+        if (gErr) console.warn("Growth data fetch failed:", gErr);
+
+        if (growthData) {
+          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          const currentMonth = new Date().getMonth();
+          const last6Months = [];
+          
+          for (let i = 5; i >= 0; i--) {
+            const d = new Date();
+            d.setMonth(currentMonth - i);
+            const monthName = months[d.getMonth()];
+            const count = growthData.filter(m => {
+              if (!m.created_at) return false;
+              const mDate = new Date(m.created_at);
+              return mDate.getMonth() === d.getMonth() && mDate.getFullYear() === d.getFullYear();
+            }).length;
+            last6Months.push({ name: monthName, count: count });
+          }
+          setChartData(last6Months);
+        }
+      }
+
+    } catch (err: any) {
+      console.error("Dashboard Data Sync Error:", err);
+      setError(err.message || "Failed to synchronize with the vault.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getRelativeTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  return (
+    <div className="space-y-10 pb-16">
+      
+      {/* 1. Header Relay */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-2">
+          <h2 className="text-4xl font-black text-fh-green tracking-tighter uppercase leading-none">
+            {isLeadership ? 'Apostolic Oversight' : 'Staff Insight'}
+          </h2>
+          <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.5em]">
+            {userProfile?.role} Node • v1.2
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3 px-6 py-3 bg-white border border-slate-100 rounded-full shadow-sm">
+           <span className={`w-2 h-2 rounded-full ${isLoading ? 'bg-amber-400 animate-pulse' : error ? 'bg-rose-500' : 'bg-emerald-500 animate-pulse'}`}></span>
+           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+             {isLoading ? 'Synchronizing Node...' : error ? 'Sync Interrupted' : 'Vault Synchronized'}
+           </span>
+        </div>
+      </div>
+
+      {error && (
+        <div className="p-6 bg-rose-50 border border-rose-100 rounded-[2rem] flex items-center gap-4 text-rose-800">
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <p className="text-xs font-bold uppercase tracking-wide">{error}</p>
+        </div>
+      )}
+      
+      {/* 2. Stat Bar - ROLE FILTERED */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        
+        {/* Total Members */}
+        {canSeeRegistry && (
+          <div className="bg-white rounded-[2rem] shadow-sm p-6 flex flex-col justify-between border-b-4 border-cms-blue">
+            <div className="flex justify-between items-start mb-4">
+               <div className="w-12 h-12 bg-blue-50 text-cms-blue rounded-xl flex items-center justify-center">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+               </div>
+            </div>
+            <div>
+              <h2 className="text-3xl font-black text-slate-900 tracking-tighter">{isLoading ? '...' : stats.members}</h2>
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1">Active Registry</p>
+            </div>
+          </div>
+        )}
+
+        {/* Visitors */}
+        {(isLeadership || isFollowUpTeam) && (
+          <div className="bg-white rounded-[2rem] shadow-sm p-6 flex flex-col justify-between border-b-4 border-cms-purple">
+            <div className="flex justify-between items-start mb-4">
+               <div className="w-12 h-12 bg-purple-50 text-cms-purple rounded-xl flex items-center justify-center">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+               </div>
+            </div>
+            <div>
+              <h2 className="text-3xl font-black text-slate-900 tracking-tighter">{isLoading ? '...' : stats.visitors}</h2>
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1">New Souls</p>
+            </div>
+          </div>
+        )}
+
+        {/* Follow-up Needed */}
+        {isFollowUpTeam && (
+          <div 
+            onClick={() => setActiveItem('Visitation & Follow-up')}
+            className="bg-white rounded-[2rem] shadow-sm p-6 flex flex-col justify-between border-b-4 border-cms-emerald cursor-pointer active:scale-95"
+          >
+            <div className="flex justify-between items-start mb-4">
+               <div className="w-12 h-12 bg-emerald-50 text-cms-emerald rounded-xl flex items-center justify-center">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 12h.01M12 12h.01M16 12h.01" /></svg>
+               </div>
+            </div>
+            <div>
+              <h2 className="text-3xl font-black text-slate-900 tracking-tighter">{isLoading ? '...' : stats.followUp}</h2>
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1">Retention Priority</p>
+            </div>
+          </div>
+        )}
+
+        {/* Events */}
+        <div 
+          onClick={() => setActiveItem('Upcoming Events' as any)}
+          className="bg-white rounded-[2rem] shadow-sm p-6 flex flex-col justify-between border-b-4 border-cms-rose cursor-pointer"
+        >
+          <div className="flex justify-between items-start mb-4">
+             <div className="w-12 h-12 bg-rose-50 text-cms-rose rounded-xl flex items-center justify-center">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7V3m8 4V3m-9 8h10" /></svg>
+             </div>
+          </div>
+          <div>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tighter">{isLoading ? '...' : stats.events}</h2>
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1">Upcoming Programmes</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        {/* Left Column */}
+        <div className="lg:col-span-8 space-y-8">
+          
+          {/* Growth Trend */}
+          {isLeadership ? (
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-50 shadow-sm">
+               <div className="flex items-center justify-between mb-8">
+                  <div>
+                     <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Growth Delta</h3>
+                     <p className="text-xl font-black text-slate-900 tracking-tighter mt-1">Expansion Velocity</p>
+                  </div>
+               </div>
+               <div className="h-[220px] w-full">
+                  {chartData && chartData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={chartData}>
+                        <defs>
+                          <linearGradient id="colorGrowth" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#20c997" stopOpacity={0.15}/>
+                            <stop offset="95%" stopColor="#20c997" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="5 5" vertical={false} stroke="#f8fafc" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#cbd5e1', fontSize: 10, fontWeight: '800'}} />
+                        <YAxis hide />
+                        <Tooltip />
+                        <Area type="monotone" dataKey="count" stroke="#20c997" strokeWidth={4} fill="url(#colorGrowth)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                        {isLoading ? 'Calculating Growth...' : 'Insufficient Data for Analysis'}
+                      </p>
+                    </div>
+                  )}
+               </div>
+            </div>
+          ) : (
+            <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Growth analytics reserved for Leadership</p>
+            </div>
+          )}
+
+          {/* Recent Registry */}
+          {canSeeRegistry && (
+            <div className="bg-white rounded-[2.5rem] overflow-hidden border border-slate-50 shadow-sm">
+              <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Recent Entries</h3>
+                <button onClick={() => setActiveItem('Members')} className="text-[10px] font-black text-cms-blue uppercase tracking-widest">Global Vault</button>
+              </div>
+              <div className="p-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {recentMembers.length > 0 ? recentMembers.map((m, idx) => (
+                    <div key={idx} className="flex items-center gap-4 p-4 border border-slate-100 rounded-2xl">
+                      <div className="w-12 h-12 rounded-xl bg-slate-950 text-fh-gold flex items-center justify-center font-black text-[10px]">
+                        {m.first_name ? m.first_name[0] : '?'}{m.last_name ? m.last_name[0] : ''}
+                      </div>
+                      <div className="flex-1 overflow-hidden">
+                        <p className="text-xs font-black text-slate-900 uppercase truncate">{m.first_name || 'Unknown'} {m.last_name || ''}</p>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">{m.created_at ? getRelativeTime(m.created_at) : '---'}</p>
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="col-span-2 py-8 text-center">
+                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">No recent entries found</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right Column */}
+        <div className="lg:col-span-4 space-y-8">
+          <div className="bg-white rounded-[2.5rem] overflow-hidden border border-slate-50 shadow-sm">
+            <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Upcoming Programmes</h3>
+            </div>
+            <div className="p-6 space-y-3">
+              {upcomingEvents.length > 0 ? upcomingEvents.map((ev, i) => (
+                <div key={i} className="flex items-center gap-4 p-4 rounded-2xl border border-slate-50 hover:bg-slate-50">
+                  <div className="w-12 h-12 bg-slate-900 rounded-xl flex flex-col items-center justify-center text-white leading-none">
+                    <p className="text-[10px] font-black">{ev.date ? new Date(ev.date).getDate() : '?'}</p>
+                    <p className="text-[7px] font-bold opacity-40 uppercase mt-1">{ev.date ? new Date(ev.date).toLocaleDateString('en-US', { month: 'short' }) : '---'}</p>
+                  </div>
+                  <div className="overflow-hidden">
+                    <p className="text-xs font-black text-slate-900 uppercase truncate">{ev.title || 'Unnamed Programme'}</p>
+                  </div>
+                </div>
+              )) : (
+                <div className="py-8 text-center">
+                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">No upcoming programmes</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default DashboardView;

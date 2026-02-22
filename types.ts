@@ -1,0 +1,215 @@
+
+// Expanded UserRole to include roles used in AdminUsersView
+export type UserRole = 
+  | 'System Administrator'
+  | 'Head Pastor' 
+  | 'Evangelism Ministry' 
+  | 'Follow-up & Visitation' 
+  | 'Music Ministry' 
+  | 'Security & Facilities' 
+  | 'Finance / Treasury' 
+  | 'General Admin'
+  | 'Assistant'
+  | 'Ministry Head'
+  | 'Church Admin';
+
+export interface UserProfile {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: UserRole;
+  branch_id?: string;
+  created_at?: string;
+}
+
+export type NavItem = 
+  | 'Dashboard'
+  | 'Members'
+  | 'Attendance'
+  | 'Ministers & Pastors'
+  | 'Ministries'
+  | 'Media Ministry'
+  | 'Music Ministry'
+  | 'Ushering Ministry'
+  | 'Prayer Ministry'
+  | 'Evangelism'
+  | 'Children Ministry'
+  | 'Visitation & Follow-up'
+  | 'Finance'
+  | 'Events'
+  | 'Branches'
+  | 'Admin Users'
+  | 'WhatsApp Hub'
+  | 'Member Profile'
+  | 'Settings';
+
+export interface Branch {
+  id: string;
+  name: string;
+  location: string;
+  pastor_in_charge?: string;
+  phone?: string;
+  email?: string;
+  created_at?: string;
+}
+
+export interface Member {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email?: string;
+  phone?: string;
+  gender?: string;
+  dob?: string;
+  date_joined?: string;
+  branch_id: string;
+  status: 'Active' | 'Inactive' | 'Visitor' | 'Probation';
+  ministry?: string;
+  gps_address?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  notify_birthday?: boolean;
+  notify_events?: boolean;
+  created_at?: string;
+  branches?: Branch;
+}
+
+export interface ScheduledMessage {
+  id: string;
+  title: string;
+  message: string;
+  scheduled_for: string;
+  target_group: 'All' | 'Visitors' | 'Active Members' | 'Ministry Heads' | 'Absentees';
+  branch_context?: string;
+  event_id?: string;
+  status: 'Pending' | 'Sent' | 'Failed' | 'Draft';
+  created_at?: string;
+  created_by?: string;
+}
+
+export interface VisitationRecord {
+  id: string;
+  member_id: string;
+  visitor_id?: string;
+  visit_date: string;
+  category: 'First-time Visitor' | 'Sick/Hospital' | 'Bereaved' | 'New Convert' | 'Inactive/Backslidden';
+  status: 'Pending' | 'Contacted' | 'Visited' | 'Completed';
+  priority: 'High' | 'Medium' | 'Low';
+  notes?: string;
+  outcome?: string;
+  created_at?: string;
+  members?: Member;
+}
+
+export interface FinancialRecord {
+  id: string;
+  service_date: string;
+  service_type: string;
+  branch_id?: string;
+  tithes: number;
+  offerings: number;
+  seed: number;
+  expenses: number;
+  other_income: number;
+  total_income: number;
+  bank_deposit: number;
+  momo_deposit: number;
+  bank_balance: number;
+  momo_balance: number;
+  witness1_name: string;
+  witness2_name: string;
+  notes?: string;
+  status: 'Draft' | 'Posted';
+  created_at?: string;
+}
+
+export interface RecentActivity {
+  id: string;
+  user: string;
+  action: string;
+  target: string;
+  time: string;
+  type: 'member' | 'finance' | 'event' | 'system';
+}
+
+export interface ChurchEvent {
+  id: string;
+  title: string;
+  category: 'Prophetic Word Service' | 'Help from above service' | 'Special services' | 'Conferences';
+  date: string;
+  time: string;
+  location: string;
+  description: string;
+  status: 'Upcoming' | 'Completed' | 'Cancelled';
+}
+
+export interface Minister {
+  id: string;
+  member_id: string;
+  branch_id: string;
+  role: string;
+  ministry?: string;
+  ordination_date?: string;
+  status: 'Active' | 'Inactive';
+  created_at?: string;
+  members?: Member;
+  branches?: Branch;
+}
+
+export interface AttendanceEvent {
+  id: string;
+  event_name: string;
+  event_type: 'Prophetic Word Service' | 'Help from above service' | 'Special services' | 'Conferences';
+  event_date: string;
+  branch_id?: string;
+  created_at?: string;
+  branches?: Branch;
+}
+
+export interface AttendanceRecord {
+  id?: string;
+  attendance_event_id: string;
+  member_id: string;
+  status: 'Present' | 'Absent' | 'Excused' | 'Unmarked';
+  notes?: string;
+  created_at?: string;
+}
+
+export interface Permission {
+  module: string;
+  read: boolean;
+  write: boolean;
+  delete: boolean;
+}
+
+export interface Role {
+  id: string;
+  name: string;
+  description: string;
+  permissions: Permission[];
+}
+
+export interface Ministry {
+  id: string;
+  name: string;
+  leader_name?: string;
+  description?: string;
+  meeting_schedule?: string;
+  status: 'Active' | 'Inactive';
+  created_at?: string;
+}
+
+export interface Volunteer {
+  id: string;
+  member_id: string;
+  branch_id: string;
+  ministry: string;
+  skill?: string;
+  availability: string;
+  status: 'Active' | 'Inactive';
+  joined_date?: string;
+  created_at?: string;
+  members?: Member;
+  branches?: Branch;
+}
