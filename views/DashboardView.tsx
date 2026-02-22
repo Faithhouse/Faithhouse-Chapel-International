@@ -194,21 +194,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
     <div className="space-y-10 pb-16">
       
       {/* 1. Header Relay */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="space-y-2">
-          <h2 className="text-4xl font-black text-fh-green tracking-tighter uppercase leading-none">
-            {isLeadership ? 'Apostolic Oversight' : 'Staff Insight'}
+      <div className="flex flex-col items-center text-center py-4">
+        <div className="space-y-4">
+          <h2 className="text-4xl md:text-5xl font-black text-fh-green tracking-tighter uppercase leading-none">
+            {isLeadership ? 'Church Governance & Oversight' : 'Staff Insight'}
           </h2>
-          <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.5em]">
-            {userProfile?.role} Node • v1.2
+          <p className="text-xs md:text-sm text-slate-400 font-medium italic tracking-wide max-w-2xl mx-auto leading-relaxed">
+            "Know the state of your flocks, and put your heart into caring for your herds," 
+            <span className="block mt-2 font-black uppercase tracking-[0.3em] not-italic text-[10px] text-fh-gold">Proverbs 27:23</span>
           </p>
-        </div>
-
-        <div className="flex items-center gap-3 px-6 py-3 bg-white border border-slate-100 rounded-full shadow-sm">
-           <span className={`w-2 h-2 rounded-full ${isLoading ? 'bg-amber-400 animate-pulse' : error ? 'bg-rose-500' : 'bg-emerald-500 animate-pulse'}`}></span>
-           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-             {isLoading ? 'Synchronizing Node...' : error ? 'Sync Interrupted' : 'Vault Synchronized'}
-           </span>
         </div>
       </div>
 
