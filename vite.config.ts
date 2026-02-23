@@ -18,23 +18,25 @@ export default defineConfig(({ mode }) => {
           registerType: 'autoUpdate',
           includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
           manifest: {
-            name: 'Church Governance & Oversight',
-            short_name: 'Governance',
-            description: 'Official Church Management System for FaithHouse Chapel International',
-            theme_color: '#0f172a',
-            background_color: '#f8fafc',
+            name: 'Faithhouse Chapel International',
+            short_name: 'Faithhouse',
+            description: 'Official Church Management System for Faithhouse Chapel International',
+            theme_color: '#004d40',
+            background_color: '#ffffff',
             display: 'standalone',
             orientation: 'portrait',
             icons: [
               {
                 src: 'https://lh3.googleusercontent.com/d/1la57sO6NOuNEZaqa9zDxuxRnWPBavkjH',
                 sizes: '192x192',
-                type: 'image/png'
+                type: 'image/png',
+                purpose: 'any'
               },
               {
                 src: 'https://lh3.googleusercontent.com/d/1la57sO6NOuNEZaqa9zDxuxRnWPBavkjH',
                 sizes: '512x512',
-                type: 'image/png'
+                type: 'image/png',
+                purpose: 'maskable'
               }
             ]
           }

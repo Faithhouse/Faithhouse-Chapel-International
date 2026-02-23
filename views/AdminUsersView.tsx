@@ -198,6 +198,19 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({ userProfile }) => {
     }
   };
 
+  const resetNodePassword = async (email: string) => {
+    if (!confirm(`Protocol Reset: Send password recovery instructions to [${email}]?`)) return;
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      });
+      if (error) throw error;
+      alert(`Recovery Dispatched: An access key reset link has been sent to ${email}.`);
+    } catch (err: any) {
+      alert(`Reset Failed: ${err.message}`);
+    }
+  };
+
   const handleEditUser = (user: UserProfile) => {
     setEditingUserId(user.id);
     setFormData({
@@ -315,6 +328,11 @@ CREATE POLICY "Allow all for staff" ON public.profiles FOR ALL USING (true) WITH
                         </td>
                         <td className="px-10 py-6 text-right">
                            <div className="flex justify-end gap-2">
+                             {['System Administrator', 'General Office'].includes(userProfile?.role || '') && (
+                               <button onClick={() => resetNodePassword(u.email)} className="p-3 text-slate-300 hover:text-fh-gold hover:bg-fh-gold/5 rounded-xl transition-all active:scale-90" title="Reset Access Key">
+                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+                               </button>
+                             )}
                              <button onClick={() => handleEditUser(u)} className="p-3 text-slate-300 hover:text-fh-green hover:bg-fh-green/5 rounded-xl transition-all active:scale-90" title="Edit Node Metadata">
                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                              </button>

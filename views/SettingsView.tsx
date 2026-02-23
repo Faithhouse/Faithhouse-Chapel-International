@@ -1,9 +1,11 @@
 
 import React, { useState } from 'react';
 import { Role, UserProfile, RecentActivity } from '../types';
+import { supabase } from '../supabaseClient';
 
 interface SettingsViewProps {
   userProfile: UserProfile | null;
+  initialTab?: 'General' | 'Roles' | 'Security';
 }
 
 const defaultRoles: Role[] = [
@@ -45,9 +47,49 @@ const mockActivities: RecentActivity[] = [
   { id: '3', user: 'Finance', action: 'posted', target: 'Sunday Service Ledger', time: '2h ago', type: 'finance' }
 ];
 
-const SettingsView: React.FC<SettingsViewProps> = ({ userProfile }) => {
+const SettingsView: React.FC<SettingsViewProps> = ({ userProfile, initialTab }) => {
   const [roles, setRoles] = useState<Role[]>(defaultRoles);
-  const [activeTab, setActiveTab] = useState<'General' | 'Roles'>('General');
+  const [activeTab, setActiveTab] = useState<'General' | 'Roles' | 'Security'>(initialTab || 'General');
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordError("New passwords do not match.");
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      setPasswordError("Password must be at least 6 characters.");
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: passwordData.newPassword
+      });
+
+      if (error) throw error;
+
+      setPasswordSuccess("Password updated successfully.");
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err: any) {
+      setPasswordError(err.message || "Failed to update password.");
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [roleFormData, setRoleFormData] = useState({
@@ -127,6 +169,14 @@ const SettingsView: React.FC<SettingsViewProps> = ({ userProfile }) => {
         >
           Roles & Permissions
         </button>
+        {['System Administrator', 'General Office'].includes(userProfile?.role || '') && (
+          <button 
+            onClick={() => setActiveTab('Security')}
+            className={`px-8 py-4 text-xs font-black uppercase tracking-widest transition-all border-b-2 ${activeTab === 'Security' ? 'border-fh-green text-fh-green' : 'border-transparent text-slate-400 hover:text-slate-700'}`}
+          >
+            Security & Access
+          </button>
+        )}
       </div>
 
       {activeTab === 'Roles' ? (
@@ -209,6 +259,64 @@ const SettingsView: React.FC<SettingsViewProps> = ({ userProfile }) => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      ) : activeTab === 'Security' ? (
+        <div className="max-w-2xl animate-in slide-in-from-right-4 duration-500">
+          <div className="royal-card p-10 rounded-[3rem] bg-white border border-slate-100 shadow-sm">
+            <div className="mb-8">
+              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Change Access Key</h3>
+              <p className="text-xs text-slate-500 font-medium mt-1">Update your security credentials for the Faithhouse Vault.</p>
+            </div>
+
+            <form onSubmit={handlePasswordChange} className="space-y-6">
+              {passwordError && (
+                <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 text-[10px] font-black uppercase tracking-widest text-center">
+                  {passwordError}
+                </div>
+              )}
+              {passwordSuccess && (
+                <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-emerald-600 text-[10px] font-black uppercase tracking-widest text-center">
+                  {passwordSuccess}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">New Access Key</label>
+                <input 
+                  type="password"
+                  required 
+                  value={passwordData.newPassword} 
+                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                  className="w-full px-6 py-4 bg-slate-100 border border-slate-200 rounded-2xl font-black text-slate-800 outline-none focus:ring-4 focus:ring-fh-green/5 transition-all"
+                  placeholder="••••••••••••"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Confirm New Key</label>
+                <input 
+                  type="password"
+                  required 
+                  value={passwordData.confirmPassword} 
+                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                  className="w-full px-6 py-4 bg-slate-100 border border-slate-200 rounded-2xl font-black text-slate-800 outline-none focus:ring-4 focus:ring-fh-green/5 transition-all"
+                  placeholder="••••••••••••"
+                />
+              </div>
+
+              <button 
+                type="submit"
+                disabled={isUpdatingPassword}
+                className="w-full py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-xl hover:bg-black transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+              >
+                {isUpdatingPassword ? (
+                  <div className="w-4 h-4 border-2 border-fh-gold/20 border-t-fh-gold animate-spin rounded-full"></div>
+                ) : (
+                  'Update Security Credentials'
+                )}
+              </button>
+            </form>
           </div>
         </div>
       ) : (

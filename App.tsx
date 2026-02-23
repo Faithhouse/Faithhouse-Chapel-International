@@ -32,6 +32,7 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
   
   useEffect(() => {
     // Check for simulated session first
@@ -51,7 +52,12 @@ const App: React.FC = () => {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsRecoveryMode(true);
+        setActiveItem('Settings');
+      }
+      
       if (session?.user) {
         fetchProfile(session.user.id);
       } else if (!localStorage.getItem('fci_simulated_user_id')) {
@@ -110,7 +116,9 @@ const App: React.FC = () => {
         // God Level Access for Prince Monovis and Admin Email
         const fullName = `${data.first_name || ''} ${data.last_name || ''}`.trim();
         const email = data.email?.toLowerCase() || '';
-        if (fullName.toLowerCase().includes('prince monovis') || email === 'admin@faithhouse.church') {
+        if (fullName.toLowerCase().includes('prince monovis') || 
+            email === 'admin@faithhouse.church' || 
+            email === 'sysadmin@faithhouse.church') {
           data.role = 'System Administrator';
         }
       }
@@ -230,7 +238,14 @@ const App: React.FC = () => {
         case 'Admin Users':
         case 'Settings':
           if (!canAccess(role, 'LEVEL_3')) return <SecurityDenied module={activeItem} />;
-          return activeItem === 'Settings' ? <SettingsView userProfile={profile} /> : <AdminUsersView userProfile={profile} />;
+          return activeItem === 'Settings' ? (
+            <SettingsView 
+              userProfile={profile} 
+              initialTab={isRecoveryMode ? 'Security' : 'General'} 
+            />
+          ) : (
+            <AdminUsersView userProfile={profile} />
+          );
 
         // Dynamic Ministry Modules
         case 'Media Ministry':
