@@ -26,6 +26,7 @@ const EventsView: React.FC<EventsViewProps> = ({ userProfile }) => {
   const [notification, setNotification] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('All');
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // Form State for New Event
   const [formData, setFormData] = useState({
@@ -65,7 +66,7 @@ const EventsView: React.FC<EventsViewProps> = ({ userProfile }) => {
 
       const { data: eventData, error: eventError } = await supabase.from('events').select('*').order('date', { ascending: false });
       if (eventError) {
-        if (eventError.code === '42P01' || eventError.message.includes('not found') || eventError.message.includes('schema cache') || eventError.message.includes('Could not find')) {
+        if (eventError.code === '42P01' || eventError.code === '42703' || eventError.message.includes('not found') || eventError.message.includes('schema cache') || eventError.message.includes('Could not find') || eventError.message.includes('column')) {
           setTableMissing(true);
           return;
         }
@@ -77,6 +78,123 @@ const EventsView: React.FC<EventsViewProps> = ({ userProfile }) => {
       console.error("Sync Error:", err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const autoGenerateServices = async () => {
+    if (!permissions.canEditEvents(userProfile?.role)) return;
+    if (branches.length === 0) {
+      alert("No branches found. Please ensure at least one branch exists.");
+      return;
+    }
+
+    const confirmGen = window.confirm("Generate Sunday and Friday services for the next 4 weeks?");
+    if (!confirmGen) return;
+
+    setIsGenerating(true);
+    try {
+      const defaultBranchId = branches[0].id;
+      const today = new Date();
+      const generatedEvents = [];
+
+      // Generate for next 28 days
+      for (let i = 0; i < 28; i++) {
+        const d = new Date();
+        d.setDate(today.getDate() + i);
+        const day = d.getDay(); // 0: Sunday, 5: Friday
+        
+        // Use local date string to avoid timezone shifts
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+        if (day === 0) { // Sunday
+          generatedEvents.push({
+            title: 'Sunday Miracle Service',
+            category: 'Prophetic Word Service',
+            date: dateStr,
+            time: '08:00',
+            location: 'Main Sanctuary',
+            branch_id: defaultBranchId,
+            status: 'Upcoming'
+          });
+        } else if (day === 5) { // Friday
+          generatedEvents.push({
+            title: 'Help From Above Service',
+            category: 'Help from above service',
+            date: dateStr,
+            time: '18:00',
+            location: 'Main Sanctuary',
+            branch_id: defaultBranchId,
+            status: 'Upcoming'
+          });
+        }
+      }
+
+      let createdCount = 0;
+      for (const ev of generatedEvents) {
+        // Check if exists for THIS branch and THIS date/category
+        const { data: existing, error: checkError } = await supabase
+          .from('events')
+          .select('id')
+          .eq('date', ev.date)
+          .eq('category', ev.category)
+          .eq('branch_id', ev.branch_id)
+          .limit(1);
+
+        if (checkError) {
+          console.error("Check Error:", checkError);
+          continue;
+        }
+
+        if (!existing || existing.length === 0) {
+          // Create Event
+          const { data: newEvent, error: evError } = await supabase.from('events').insert([ev]).select().single();
+          if (evError) {
+            console.error("Event Insert Error:", evError);
+            continue;
+          }
+
+          // Create Attendance Event
+          const { error: attError } = await supabase.from('attendance_events').insert([{
+            event_name: ev.title,
+            event_type: ev.category,
+            event_date: ev.date,
+            branch_id: ev.branch_id
+          }]);
+          if (attError) console.error("Attendance Event Error:", attError);
+
+          // Generate Tasks
+          // Fix: Remove double quotes from the or filter as it might be interpreted as column names
+          const { data: templates, error: tempError } = await supabase
+            .from('recurring_task_templates')
+            .select('*')
+            .or(`service_type.eq.${ev.category},service_type.eq.All`);
+
+          if (tempError) {
+            console.error("Template Fetch Error:", tempError);
+          } else if (templates && templates.length > 0) {
+            const taskInstances = templates.map(t => ({
+              template_id: t.id,
+              event_id: newEvent.id,
+              title: t.title,
+              description: t.description,
+              status: 'Pending',
+              due_date: ev.date
+            }));
+            const { error: taskError } = await supabase.from('task_instances').insert(taskInstances);
+            if (taskError) console.error("Task Instance Error:", taskError);
+          }
+          createdCount++;
+        }
+      }
+
+      setNotification(`Generated ${createdCount} new service sessions.`);
+      setTimeout(() => setNotification(null), 3000);
+      fetchInitialData();
+    } catch (err: any) {
+      console.error("Generation Error:", err);
+      alert("Error generating services: " + err.message);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -241,14 +359,30 @@ CREATE POLICY "Allow all for staff" ON public.events FOR ALL USING (true) WITH C
           <h2 className="text-3xl font-black text-fh-green tracking-tighter uppercase">Upcoming Events</h2>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Programmes & Vitality Management</p>
         </div>
-        {permissions.canEditEvents(userProfile?.role) && (
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="px-8 py-4 bg-fh-green text-fh-gold rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl border-b-4 border-black/20"
-          >
-            Schedule Programme
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {permissions.canEditEvents(userProfile?.role) && (
+            <>
+              <button 
+                onClick={autoGenerateServices}
+                disabled={isGenerating}
+                className="px-6 py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2 disabled:opacity-50"
+              >
+                {isGenerating ? (
+                  <div className="w-3 h-3 border-2 border-slate-300 border-t-slate-600 animate-spin rounded-full" />
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                )}
+                Auto-Generate
+              </button>
+              <button 
+                onClick={() => setIsModalOpen(true)}
+                className="px-8 py-4 bg-fh-green text-fh-gold rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl border-b-4 border-black/20"
+              >
+                Schedule Programme
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Search and Filters */}

@@ -89,7 +89,7 @@ const VisitationWhatsAppView: React.FC<VisitationWhatsAppViewProps> = ({ userPro
   const startInstantRelay = () => {
     if (absentees.length === 0) return alert("No absentees detected for this session.");
     
-    const confirmMsg = `Initialize instant follow-up for ${absentees.length} absentees? This will open WhatsApp links sequentially.`;
+    const confirmMsg = `Start instant follow-up for ${absentees.length} absentees? This will open WhatsApp links sequentially.`;
     if (!confirm(confirmMsg)) return;
 
     absentees.forEach((abs, index) => {
@@ -188,7 +188,7 @@ CREATE POLICY "Allow all" ON public.visitation_whatsapp_schedules FOR ALL USING 
              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
           </div>
           <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-4">Visitation Relay Reset</h2>
-          <p className="text-slate-500 mb-10 text-[11px] font-bold uppercase tracking-widest max-w-lg mx-auto">The visitation communication engine is not initialized. Run the script to authorize.</p>
+          <p className="text-slate-500 mb-10 text-[11px] font-bold uppercase tracking-widest max-w-lg mx-auto">The visitation communication system is not ready. Run the script to authorize.</p>
           <pre className="bg-slate-950 text-fh-gold p-8 rounded-[2rem] text-[10px] font-mono text-left h-48 overflow-y-auto mb-10 shadow-2xl border border-white/5 scrollbar-hide">{repairSQL}</pre>
           <button onClick={fetchInitialData} className="px-16 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-xl border-b-4 border-black active:scale-95">Verify Protocols</button>
         </div>
@@ -219,7 +219,7 @@ CREATE POLICY "Allow all" ON public.visitation_whatsapp_schedules FOR ALL USING 
             <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-10">
               <div className="space-y-3">
                  <h3 className="text-3xl font-black text-white uppercase tracking-tighter leading-none">Absentee Detection Radar</h3>
-                 <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.4em]">Initialize immediate follow-up for missed service sessions.</p>
+                 <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.4em]">Start immediate follow-up for missed service sessions.</p>
               </div>
               <div className="flex-1 max-w-lg flex items-center gap-4">
                 <select value={selectedEventId} onChange={(e) => { setSelectedEventId(e.target.value); fetchAbsentees(e.target.value); }} className="flex-1 px-8 py-5 bg-white/5 border border-white/10 rounded-[1.75rem] font-black text-xs uppercase tracking-widest text-fh-gold outline-none focus:ring-4 focus:ring-emerald-500/20 transition-all cursor-pointer">
@@ -280,7 +280,7 @@ CREATE POLICY "Allow all" ON public.visitation_whatsapp_schedules FOR ALL USING 
                 {schedules.find(s => s.status === 'Pending')?.title || 'No Pending Care Relay'}
               </h3>
            </div>
-           <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-6 relative z-10">Visitation Node v1.0</p>
+           <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-6 relative z-10">Visitation System v1.0</p>
         </div>
       </div>
 
@@ -344,7 +344,7 @@ CREATE POLICY "Allow all" ON public.visitation_whatsapp_schedules FOR ALL USING 
                  </div>
                  <div>
                     <h3 className="text-3xl font-black text-fh-green uppercase leading-none tracking-tighter">Care Dispatch</h3>
-                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">Initialize Visitation Outreach Relays</p>
+                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">Start Visitation Outreach</p>
                  </div>
                </div>
                <button onClick={() => setIsModalOpen(false)} className="p-5 hover:bg-slate-100 rounded-full transition-all text-slate-400 active:scale-90"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg></button>

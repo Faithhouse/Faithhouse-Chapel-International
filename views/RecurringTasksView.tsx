@@ -59,7 +59,7 @@ const RecurringTasksView: React.FC<RecurringTasksViewProps> = ({ userProfile }) 
 
       if (error) throw error;
 
-      setNotification("Recurring task template established.");
+      setNotification("Recurring task template created.");
       setIsModalOpen(false);
       setFormData({ title: '', description: '', service_type: 'All', assigned_ministry: '' });
       fetchTemplates();
@@ -70,7 +70,7 @@ const RecurringTasksView: React.FC<RecurringTasksViewProps> = ({ userProfile }) 
   };
 
   const handleDeleteTemplate = async (id: string) => {
-    if (!window.confirm("Permanently remove this recurring task protocol?")) return;
+    if (!window.confirm("Permanently remove this recurring task template?")) return;
     try {
       const { error } = await supabase
         .from('recurring_task_templates')
@@ -78,7 +78,7 @@ const RecurringTasksView: React.FC<RecurringTasksViewProps> = ({ userProfile }) 
         .eq('id', id);
 
       if (error) throw error;
-      setNotification("Protocol purged.");
+      setNotification("Template removed.");
       fetchTemplates();
       setTimeout(() => setNotification(null), 3000);
     } catch (err: any) {
@@ -123,7 +123,7 @@ CREATE POLICY "Allow all for staff" ON public.task_instances FOR ALL USING (true
       <div className="max-w-4xl mx-auto py-12 px-4">
         <div className="bg-white p-12 rounded-[3rem] text-center border-2 border-rose-100 shadow-2xl">
           <ShieldAlert className="w-16 h-16 text-rose-500 mx-auto mb-6" />
-          <h2 className="text-2xl font-black text-slate-900 uppercase mb-4">Task Protocols Offline</h2>
+          <h2 className="text-2xl font-black text-slate-900 uppercase mb-4">Task Templates Offline</h2>
           <p className="text-slate-500 mb-8">The recurring task database has not been initialized. Run the following script in your Supabase SQL Editor.</p>
           <pre className="bg-slate-900 text-fh-gold p-6 rounded-2xl text-[10px] font-mono text-left overflow-x-auto mb-8">
             {repairSQL}
@@ -149,7 +149,7 @@ CREATE POLICY "Allow all for staff" ON public.task_instances FOR ALL USING (true
 
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-black text-fh-green tracking-tighter uppercase">Recurring Protocols</h2>
+          <h2 className="text-3xl font-black text-fh-green tracking-tighter uppercase">Recurring Tasks</h2>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Automated Service Checklists</p>
         </div>
         <button 
@@ -157,13 +157,13 @@ CREATE POLICY "Allow all for staff" ON public.task_instances FOR ALL USING (true
           className="px-8 py-4 bg-fh-green text-fh-gold rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
-          New Protocol
+          New Template
         </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {isLoading ? (
-          <div className="col-span-full py-20 text-center text-slate-400 font-bold uppercase text-xs tracking-widest">Accessing Protocols...</div>
+          <div className="col-span-full py-20 text-center text-slate-400 font-bold uppercase text-xs tracking-widest">Accessing Templates...</div>
         ) : templates.length > 0 ? templates.map(t => (
           <div key={t.id} className="bg-white rounded-[2.5rem] border border-slate-100 p-8 shadow-sm hover:shadow-md transition-all relative group">
             <div className="flex items-center justify-between mb-4">
@@ -188,7 +188,7 @@ CREATE POLICY "Allow all for staff" ON public.task_instances FOR ALL USING (true
         )) : (
           <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
             <Clock className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">No recurring protocols established</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">No recurring tasks created</p>
           </div>
         )}
       </div>
@@ -197,7 +197,7 @@ CREATE POLICY "Allow all for staff" ON public.task_instances FOR ALL USING (true
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
           <form onSubmit={handleCreateTemplate} className="relative bg-white w-full max-w-md rounded-[3rem] p-10 space-y-6 shadow-2xl border-b-[12px] border-fh-gold">
-            <h2 className="text-2xl font-black text-fh-green uppercase">New Task Protocol</h2>
+            <h2 className="text-2xl font-black text-fh-green uppercase">New Task Template</h2>
             
             <div className="space-y-2">
               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2">Task Title</label>
@@ -231,7 +231,7 @@ CREATE POLICY "Allow all for staff" ON public.task_instances FOR ALL USING (true
             </div>
 
             <button type="submit" className="w-full py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase shadow-lg tracking-widest mt-4">
-              Establish Protocol
+              Create Template
             </button>
           </form>
         </div>

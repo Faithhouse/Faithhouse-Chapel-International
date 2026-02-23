@@ -193,7 +193,7 @@ CREATE POLICY "Allow all" ON public.whatsapp_schedules FOR ALL USING (true) WITH
              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
           </div>
           <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-4">WhatsApp Hub Reset</h2>
-          <p className="text-slate-500 mb-10 text-[11px] font-bold uppercase tracking-widest max-w-lg mx-auto">The communication engine and gateway config are not initialized. Run the script to authorize.</p>
+          <p className="text-slate-500 mb-10 text-[11px] font-bold uppercase tracking-widest max-w-lg mx-auto">The communication system is not ready. Run the script to authorize.</p>
           <pre className="bg-slate-950 text-fh-gold p-8 rounded-[2rem] text-[10px] font-mono text-left h-48 overflow-y-auto mb-10 shadow-2xl border border-white/5 scrollbar-hide">{repairSQL}</pre>
           <button onClick={fetchInitialData} className="px-16 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-xl border-b-4 border-black active:scale-95">Verify Protocols</button>
         </div>
@@ -207,7 +207,7 @@ CREATE POLICY "Allow all" ON public.whatsapp_schedules FOR ALL USING (true) WITH
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-2">
           <h2 className="text-3xl font-black text-fh-green tracking-tighter uppercase leading-none">WhatsApp Broadcast Hub</h2>
-          <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em]">Official Communication & Gateway Matrix</p>
+          <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em]">Official Communication Gateway</p>
         </div>
         <div className="flex gap-4">
             <div className="flex bg-white p-2 rounded-[2rem] border border-slate-100 shadow-sm">
@@ -251,7 +251,7 @@ CREATE POLICY "Allow all" ON public.whatsapp_schedules FOR ALL USING (true) WITH
                     {schedules.find(s => s.status === 'Pending')?.title || 'No Pending Relay'}
                   </h3>
                </div>
-               <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-6 relative z-10">Automation Node v2.1</p>
+               <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-6 relative z-10">Automation System v2.1</p>
             </div>
           </div>
 
@@ -318,7 +318,7 @@ CREATE POLICY "Allow all" ON public.whatsapp_schedules FOR ALL USING (true) WITH
                     </div>
                     <div>
                        <h3 className="text-3xl font-black text-slate-900 uppercase leading-none tracking-tighter">Direct Relay</h3>
-                       <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">Individual Outreach Matrix</p>
+                       <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">Individual Outreach</p>
                     </div>
                  </div>
               </div>
@@ -369,8 +369,8 @@ CREATE POLICY "Allow all" ON public.whatsapp_schedules FOR ALL USING (true) WITH
                        <div className="w-20 h-20 bg-white/5 rounded-[2rem] flex items-center justify-center mx-auto mb-4 border border-white/10">
                           <svg className="w-10 h-10 text-fh-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                        </div>
-                       <h4 className="text-2xl font-black uppercase tracking-tight">Quick Relay Node</h4>
-                       <p className="text-slate-400 text-xs font-medium leading-relaxed uppercase tracking-widest">Select a congregant from the matrix to initialize a direct communication link via the official gateway.</p>
+                       <h4 className="text-2xl font-black uppercase tracking-tight">Quick Relay</h4>
+                       <p className="text-slate-400 text-xs font-medium leading-relaxed uppercase tracking-widest">Select a congregant to start a direct communication link via the official gateway.</p>
                        <div className="pt-6">
                           <span className="px-6 py-3 bg-white/5 border border-white/10 rounded-full text-[9px] font-black text-fh-gold uppercase tracking-[0.3em]">Ready for Dispatch</span>
                        </div>
@@ -401,7 +401,7 @@ CREATE POLICY "Allow all" ON public.whatsapp_schedules FOR ALL USING (true) WITH
                        <select value={config.provider} onChange={e => setConfig({...config, provider: e.target.value})} className="w-full px-8 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 outline-none transition-all">
                           <option>Meta Official API</option>
                           <option>Twilio for WhatsApp</option>
-                          <option>Third-Party Node (UltraMsg/Wati)</option>
+                          <option>Third-Party System (UltraMsg/Wati)</option>
                           <option>Manual Browser Bridge</option>
                        </select>
                     </div>
@@ -446,7 +446,7 @@ CREATE POLICY "Allow all" ON public.whatsapp_schedules FOR ALL USING (true) WITH
                  </div>
                  <div>
                     <h3 className="text-3xl font-black text-fh-green uppercase leading-none tracking-tighter">Multi-Slot Dispatch</h3>
-                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">Initialize Multiple Daily Reminders</p>
+                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">Start Multiple Daily Reminders</p>
                  </div>
                </div>
                <button onClick={() => setIsModalOpen(false)} className="p-5 hover:bg-slate-100 rounded-full transition-all text-slate-400 active:scale-90"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg></button>

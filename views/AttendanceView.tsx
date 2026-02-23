@@ -193,11 +193,11 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ userProfile }) => {
       if (error) {
          if (error.message.includes('column "id"') || error.code === '23502') {
            setSchemaError("PRIMARY_KEY_DEFAULT_MISSING");
-           throw new Error("Vault Schema Conflict: The database requires manual repair to support automatic ID generation.");
+           throw new Error("Database Schema Conflict: The database requires manual repair to support automatic ID generation.");
          }
          if (error.message.includes('unique or exclusion constraint')) {
            setSchemaError("UNIQUE_CONSTRAINT_MISSING");
-           throw new Error("Vault Schema Conflict: Missing unique constraint for attendance synchronization.");
+           throw new Error("Database Schema Conflict: Missing unique constraint for attendance synchronization.");
          }
          throw error;
       }
@@ -285,8 +285,8 @@ END $$;`;
            <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner">
               <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
            </div>
-           <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-4">Vault Sync Conflict Detected</h2>
-           <p className="text-slate-500 mb-10 text-[11px] font-bold uppercase tracking-widest max-w-lg mx-auto">The attendance registry requires a schema update to support automatic identification nodes. Execute the recovery script below.</p>
+           <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-4">Database Sync Conflict Detected</h2>
+           <p className="text-slate-500 mb-10 text-[11px] font-bold uppercase tracking-widest max-w-lg mx-auto">The attendance registry requires a schema update to support automatic identification. Execute the recovery script below.</p>
            <pre className="bg-slate-950 text-fh-gold p-8 rounded-[2rem] text-[10px] font-mono text-left h-48 overflow-y-auto mb-10 shadow-2xl border border-white/5 scrollbar-hide">{repairSQL}</pre>
            <div className="flex gap-4 justify-center">
               <button onClick={() => { navigator.clipboard.writeText(repairSQL); alert('Repair protocol copied.'); }} className="px-10 py-5 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-95">Copy Script</button>

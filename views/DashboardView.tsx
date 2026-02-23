@@ -24,6 +24,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
   const [todayTasks, setTodayTasks] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [tableMissing, setTableMissing] = useState(false);
+  const [missingTableName, setMissingTableName] = useState<string | null>(null);
 
   // Permission Helpers
   const role = userProfile?.role;
@@ -152,7 +154,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
 
     } catch (err: any) {
       console.error("Dashboard Data Sync Error:", err);
-      setError(err.message || "Failed to synchronize with the database.");
+      if (err.code === '42P01') {
+        setTableMissing(true);
+        setMissingTableName(err.message.match(/'public\.(.*)'/)?.[1] || "database table");
+      } else {
+        setError(err.message || "Failed to synchronize with the database.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -187,6 +194,62 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
       console.error("Error updating task:", err);
     }
   };
+
+  if (tableMissing) {
+    const repairSQL = `-- SYSTEM REPAIR SCRIPT
+CREATE TABLE IF NOT EXISTS public.recurring_task_templates (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT,
+  service_type TEXT NOT NULL,
+  assigned_ministry TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.task_instances (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  template_id UUID REFERENCES public.recurring_task_templates(id) ON DELETE SET NULL,
+  event_id UUID REFERENCES public.events(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT,
+  status TEXT DEFAULT 'Pending',
+  assigned_to TEXT,
+  due_date DATE NOT NULL,
+  completed_at TIMESTAMP WITH TIME ZONE,
+  completed_by UUID REFERENCES public.profiles(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+ALTER TABLE public.recurring_task_templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.task_instances ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow all for staff" ON public.recurring_task_templates;
+CREATE POLICY "Allow all for staff" ON public.recurring_task_templates FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all for staff" ON public.task_instances;
+CREATE POLICY "Allow all for staff" ON public.task_instances FOR ALL USING (true) WITH CHECK (true);`;
+
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-24 h-24 bg-rose-50 text-rose-500 rounded-[2.5rem] flex items-center justify-center shadow-xl border border-rose-100 mb-8">
+          <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+        </div>
+        <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight mb-4">Database Table Missing</h2>
+        <p className="text-slate-500 max-w-md mx-auto mb-10 leading-relaxed">
+          The system detected that the <b>{missingTableName}</b> table is missing. Run the following repair script in your Supabase SQL Editor to restore functionality.
+        </p>
+        <pre className="bg-slate-900 text-fh-gold p-8 rounded-[2rem] text-[10px] font-mono text-left max-w-2xl w-full h-64 overflow-y-auto mb-10 shadow-inner leading-relaxed border border-fh-gold/10">
+          {repairSQL}
+        </pre>
+        <button 
+          onClick={() => { setTableMissing(false); fetchDashboardData(); }}
+          className="px-12 py-4 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-black transition-all"
+        >
+          Verify Restoration
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-10 pb-16">
@@ -375,8 +438,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
               {upcomingEvents.length > 0 ? upcomingEvents.map((ev, i) => (
                 <div key={i} className="flex items-center gap-4 p-4 rounded-2xl border border-slate-50 hover:bg-slate-50">
                   <div className="w-12 h-12 bg-slate-900 rounded-xl flex flex-col items-center justify-center text-white leading-none">
-                    <p className="text-[10px] font-black">{ev.date ? new Date(ev.date).getDate() : '?'}</p>
-                    <p className="text-[7px] font-bold opacity-40 uppercase mt-1">{ev.date ? new Date(ev.date).toLocaleDateString('en-US', { month: 'short' }) : '---'}</p>
+                    <p className="text-[10px] font-black">{ev.date ? ev.date.split('-')[2] : '?'}</p>
+                    <p className="text-[7px] font-bold opacity-40 uppercase mt-1">
+                      {ev.date ? new Date(ev.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short' }) : '---'}
+                    </p>
                   </div>
                   <div className="overflow-hidden">
                     <p className="text-xs font-black text-slate-900 uppercase truncate">{ev.title || 'Unnamed Programme'}</p>

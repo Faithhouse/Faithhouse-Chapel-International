@@ -142,7 +142,7 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ userProfile, setActiveI
   };
 
   if (tableError) {
-    const repairSQL = `-- MASTER MINISTRIES VAULT REPAIR SCRIPT
+    const repairSQL = `-- MASTER MINISTRIES DATABASE REPAIR SCRIPT
 CREATE TABLE IF NOT EXISTS public.ministries (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
@@ -163,9 +163,9 @@ CREATE POLICY "Allow all for staff" ON public.ministries FOR ALL USING (true) WI
           <div className="w-24 h-24 bg-rose-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-10 shadow-inner">
              <svg className="w-12 h-12 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           </div>
-          <h2 className="text-3xl font-black text-slate-900 uppercase mb-4 tracking-tighter">Ministries Vault Inaccessible</h2>
+          <h2 className="text-3xl font-black text-slate-900 uppercase mb-4 tracking-tighter">Ministries Database Inaccessible</h2>
           <p className="text-slate-500 mb-10 font-medium max-w-lg mx-auto leading-relaxed">
-            The organizational structure vault is missing. Run the restoration script to establish relational connectivity.
+            The organizational structure database is missing. Run the restoration script to establish connectivity.
           </p>
           <pre className="bg-slate-900 text-fh-gold-pale p-8 rounded-[2rem] text-[10px] font-mono text-left h-48 overflow-y-auto mb-10 shadow-inner leading-relaxed border border-fh-gold/10 scrollbar-hide">
             {repairSQL}
@@ -210,7 +210,7 @@ CREATE POLICY "Allow all for staff" ON public.ministries FOR ALL USING (true) WI
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
         {isLoading && ministries.length === 0 ? (
-          <div className="col-span-full py-12 text-center text-slate-300 font-black uppercase tracking-[0.3em] animate-pulse">Scanning Vault...</div>
+          <div className="col-span-full py-12 text-center text-slate-300 font-black uppercase tracking-[0.3em] animate-pulse">Scanning Database...</div>
         ) : ministries.length > 0 ? ministries.map((min) => (
           <div key={min.id} className="royal-card bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl transition-all group overflow-hidden flex flex-col hover:-translate-y-1 duration-300 border-b-4 hover:border-fh-gold">
             <div className="p-4 flex-1">
@@ -256,7 +256,7 @@ CREATE POLICY "Allow all for staff" ON public.ministries FOR ALL USING (true) WI
             </div>
           </div>
         )) : (
-          <div className="col-span-full py-20 text-center bg-white rounded-3xl border border-slate-100 shadow-inner italic text-slate-300 font-black uppercase tracking-widest text-xs">No administrative nodes detected.</div>
+          <div className="col-span-full py-20 text-center bg-white rounded-3xl border border-slate-100 shadow-inner italic text-slate-300 font-black uppercase tracking-widest text-xs">No departments detected.</div>
         )}
       </div>
 
@@ -276,7 +276,7 @@ CREATE POLICY "Allow all for staff" ON public.ministries FOR ALL USING (true) WI
                 <div className="md:col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Description</label><textarea name="description" value={formData.description} onChange={handleInputChange} rows={3} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-fh-gold/5 font-bold text-slate-800 shadow-inner resize-none" placeholder="Brief mission statement..." /></div>
               </div>
               <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-fh-green text-fh-gold rounded-[2rem] font-black uppercase text-[10px] tracking-[0.4em] shadow-xl active:scale-95 transition-all border-b-4 border-black/30">
-                {isSubmitting ? 'Syncing...' : (editingId ? 'Update Registry' : 'Initialize Dept')}
+                {isSubmitting ? 'Syncing...' : (editingId ? 'Update Registry' : 'Add Department')}
               </button>
             </form>
           </div>

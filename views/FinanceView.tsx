@@ -55,7 +55,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
         setRecords(data || []);
       }
     } catch (err) {
-      console.error('Vault Access Error:', err);
+      console.error('Database Access Error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -70,7 +70,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
   const initiatePosting = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.witness1_name?.trim() || !formData.witness2_name?.trim()) {
-      return alert("Security Protocol: Dual witness signatures are mandatory for vault entry.");
+      return alert("Security Protocol: Dual witness signatures are mandatory for posting.");
     }
     setIsPinModalOpen(true);
   };
@@ -90,7 +90,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
       const { error } = await supabase.from('financial_records').insert([payload]);
       if (error) throw error;
       
-      alert("Vault Entry Successful: Service revenue has been permanently posted.");
+      alert("Posting Successful: Service revenue has been recorded.");
       setIsModalOpen(false);
       setIsPinModalOpen(false);
       setAccessKey('');
@@ -101,7 +101,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
         setIsPinModalOpen(false);
         setIsModalOpen(false);
       } else {
-        alert(`Vault Sync Failure: ${err.message}`);
+        alert(`Database Sync Failure: ${err.message}`);
       }
     } finally {
       setIsSubmitting(false);
@@ -150,7 +150,7 @@ CREATE POLICY "Allow all actions for staff" ON public.financial_records FOR ALL 
           </div>
           <h2 className="text-3xl font-black text-fh-green tracking-tighter uppercase mb-4">Financial Records Missing</h2>
           <p className="text-slate-500 mb-10 font-medium max-w-lg mx-auto leading-relaxed uppercase text-[10px] tracking-widest">
-            The fiscal repository has not been initialized. Run the Master SQL Script in your Supabase Editor to continue.
+            The financial database has not been initialized. Run the SQL Script in your Supabase Editor to continue.
           </p>
           <pre className="bg-slate-900 text-fh-gold p-8 rounded-[2rem] text-[10px] font-mono text-left h-48 overflow-y-auto mb-10 shadow-inner border border-fh-gold/10 leading-relaxed scrollbar-hide">
             {repairSQL}
@@ -183,7 +183,7 @@ CREATE POLICY "Allow all actions for staff" ON public.financial_records FOR ALL 
         </div>
       </div>
 
-      {/* 2. Visual KPI Matrix (Matches Dashboard Colors) */}
+      {/* 2. Visual KPI Summary (Matches Dashboard Colors) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         
         {/* Row 1: Income (Solid bold colors like Dashboard) */}
@@ -255,20 +255,20 @@ CREATE POLICY "Allow all actions for staff" ON public.financial_records FOR ALL 
         </div>
       </div>
 
-      {/* 3. Transaction Matrix */}
+      {/* 3. Transaction History */}
       <div className="cms-card cms-card-emerald bg-white rounded-[3.5rem] overflow-hidden border-none shadow-sm">
         <div className="p-10 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
-           <h3 className="text-sm font-black text-fh-green uppercase tracking-widest leading-none">Vault Ledger Repository</h3>
+           <h3 className="text-sm font-black text-fh-green uppercase tracking-widest leading-none">Financial Ledger Repository</h3>
            <span className="px-5 py-1.5 bg-white border border-slate-200 rounded-full text-[9px] font-black text-fh-green uppercase shadow-sm">Verified Audit Trail Active</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] border-b border-slate-100">
-              <tr><th className="px-10 py-6">Timeline / Service</th><th className="px-10 py-6">Revenue Matrix</th><th className="px-10 py-6">Security Verification</th><th className="px-10 py-6 text-right">Status</th></tr>
+              <tr><th className="px-10 py-6">Timeline / Service</th><th className="px-10 py-6">Revenue Summary</th><th className="px-10 py-6">Security Verification</th><th className="px-10 py-6 text-right">Status</th></tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {isLoading ? (
-                <tr><td colSpan={4} className="px-10 py-24 text-center animate-pulse text-slate-300 font-black uppercase tracking-[0.5em]">Synchronizing Vault...</td></tr>
+                <tr><td colSpan={4} className="px-10 py-24 text-center animate-pulse text-slate-300 font-black uppercase tracking-[0.5em]">Synchronizing Database...</td></tr>
               ) : records.length > 0 ? (
                 records.map(rec => (
                   <tr key={rec.id} className="hover:bg-slate-50 transition-all group text-xs">
@@ -289,7 +289,7 @@ CREATE POLICY "Allow all actions for staff" ON public.financial_records FOR ALL 
                       </div>
                     </td>
                     <td className="px-10 py-6 text-right">
-                      <span className="px-4 py-1.5 bg-emerald-50 text-cms-emerald text-[8px] font-black uppercase tracking-[0.2em] rounded-lg border border-emerald-100">Vaulted</span>
+                      <span className="px-4 py-1.5 bg-emerald-50 text-cms-emerald text-[8px] font-black uppercase tracking-[0.2em] rounded-lg border border-emerald-100">Recorded</span>
                     </td>
                   </tr>
                 ))
@@ -382,7 +382,7 @@ CREATE POLICY "Allow all actions for staff" ON public.financial_records FOR ALL 
               </div>
 
               <button type="submit" className="w-full py-6 bg-fh-green text-fh-gold rounded-[2.5rem] font-black uppercase text-xs tracking-[0.4em] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30">
-                 Finalize Vault Inbound
+                 Finalize Record Entry
               </button>
             </form>
           </div>
@@ -397,8 +397,8 @@ CREATE POLICY "Allow all actions for staff" ON public.financial_records FOR ALL 
              <div className="w-24 h-24 bg-fh-gold/10 text-fh-gold rounded-[2.5rem] flex items-center justify-center mx-auto mb-10 shadow-inner border border-fh-gold/20">
                 <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
              </div>
-             <h4 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none mb-4">Vault Authorization</h4>
-             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.4em] mb-12">Authorized Master Key Required for Sync</p>
+             <h4 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none mb-4">Confirm Posting</h4>
+             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.4em] mb-12">Authorized Access Key Required for Sync</p>
              
              <div className="space-y-6">
                 <input 

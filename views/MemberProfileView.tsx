@@ -68,7 +68,7 @@ const MemberProfileView: React.FC<MemberProfileViewProps> = ({ memberId, onBack,
     return (
       <div className="flex flex-col items-center justify-center py-40 space-y-6">
         <div className="w-16 h-16 border-4 border-fh-green/10 border-t-fh-green rounded-full animate-spin" />
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.5em]">Accessing Identity Vault...</p>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.5em]">Accessing Database...</p>
       </div>
     );
   }
@@ -139,7 +139,7 @@ const MemberProfileView: React.FC<MemberProfileViewProps> = ({ memberId, onBack,
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
                 </div>
                 <div>
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Branch Node</p>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Branch</p>
                   <p className="text-sm font-bold text-slate-700">{member.branches?.name || 'Main Campus'}</p>
                 </div>
               </div>

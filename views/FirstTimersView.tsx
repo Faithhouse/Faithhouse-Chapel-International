@@ -179,7 +179,7 @@ CREATE POLICY "Allow all" ON public.first_timers FOR ALL USING (true) WITH CHECK
              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
           </div>
           <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-4">First Timers Registry Reset</h2>
-          <p className="text-slate-500 mb-10 text-[11px] font-bold uppercase tracking-widest max-w-lg mx-auto">The guest intake engine is not initialized. Run the script to authorize.</p>
+          <p className="text-slate-500 mb-10 text-[11px] font-bold uppercase tracking-widest max-w-lg mx-auto">The guest intake system is not ready. Run the script to authorize.</p>
           <pre className="bg-slate-950 text-fh-gold p-8 rounded-[2rem] text-[10px] font-mono text-left h-48 overflow-y-auto mb-10 shadow-2xl border border-white/5 scrollbar-hide">{repairSQL}</pre>
           <button onClick={fetchInitialData} className="px-16 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-xl border-b-4 border-black active:scale-95">Verify Protocols</button>
         </div>
@@ -220,7 +220,7 @@ CREATE POLICY "Allow all" ON public.first_timers FOR ALL USING (true) WITH CHECK
                 {visitors[0] ? `${visitors[0].first_name} ${visitors[0].last_name}` : 'No Guests Logged'}
               </h3>
            </div>
-           <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-6 relative z-10">Reception Node v1.0</p>
+           <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-6 relative z-10">Reception System v1.0</p>
         </div>
       </div>
 
@@ -317,7 +317,7 @@ CREATE POLICY "Allow all" ON public.first_timers FOR ALL USING (true) WITH CHECK
                  </div>
                  <div>
                     <h3 className="text-3xl font-black text-fh-green uppercase leading-none tracking-tighter">Guest Intake</h3>
-                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">Initialize First Timer Identity Record</p>
+                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">Create First Timer Record</p>
                  </div>
                </div>
                <button onClick={() => setIsModalOpen(false)} className="p-5 hover:bg-slate-100 rounded-full transition-all text-slate-400 active:scale-90"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg></button>

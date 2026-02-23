@@ -176,7 +176,7 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
            <div className="p-10 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-6 bg-slate-50/30">
               <div>
                  <h3 className="text-2xl font-black text-fh-green uppercase tracking-tighter">Ministry Workforce</h3>
-                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Departmental Node Registry</p>
+                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Departmental Registry</p>
               </div>
               <button 
                 onClick={() => setIsAddModalOpen(true)} 

@@ -82,7 +82,7 @@ app.get(['/auth/callback', '/auth/callback/'], async (req, res) => {
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#09420B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
             </div>
             <h2 style="font-weight: 900; text-transform: uppercase; letter-spacing: 0.2em; margin: 0 0 8px; font-size: 18px;">Authorization Successful</h2>
-            <p style="opacity: 0.5; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; margin: 0 0 24px;">Synchronizing ${userData.login} with Faithhouse Vault...</p>
+            <p style="opacity: 0.5; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; margin: 0 0 24px;">Synchronizing ${userData.login} with Faithhouse Database...</p>
             <div style="width: 100px; height: 2px; background: rgba(255,255,255,0.1); margin: 0 auto; position: relative; overflow: hidden;">
               <div style="position: absolute; top: 0; left: 0; height: 100%; background: #CC923E; width: 50%; animation: slide 1.5s infinite ease-in-out;"></div>
             </div>

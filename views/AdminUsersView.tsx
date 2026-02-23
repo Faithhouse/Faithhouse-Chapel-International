@@ -199,13 +199,13 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({ userProfile }) => {
   };
 
   const resetUserPassword = async (email: string) => {
-    if (!confirm(`Protocol Reset: Send password recovery instructions to [${email}]?`)) return;
+    if (!confirm(`Password Reset: Send password recovery instructions to [${email}]?`)) return;
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/callback`,
       });
       if (error) throw error;
-      alert(`Recovery Dispatched: An access key reset link has been sent to ${email}.`);
+      alert(`Recovery Sent: An access key reset link has been sent to ${email}.`);
     } catch (err: any) {
       alert(`Reset Failed: ${err.message}`);
     }
@@ -280,7 +280,7 @@ CREATE POLICY "Allow all for staff" ON public.profiles FOR ALL USING (true) WITH
         <div className="space-y-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-fh-gold/10 rounded-full mb-2">
              <span className="w-1.5 h-1.5 rounded-full bg-fh-gold animate-pulse"></span>
-             <span className="text-[10px] font-black text-fh-gold uppercase tracking-[0.2em]">Security Protocol Active</span>
+             <span className="text-[10px] font-black text-fh-gold uppercase tracking-[0.2em]">Security System Active</span>
           </div>
           <h2 className="text-4xl font-black text-fh-green tracking-tighter uppercase leading-none">Security Hierarchy</h2>
           <p className="text-slate-400 font-bold text-xs uppercase tracking-[0.4em]">Administrative User Directory</p>

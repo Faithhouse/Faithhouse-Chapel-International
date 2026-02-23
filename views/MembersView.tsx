@@ -119,7 +119,7 @@ const MembersView: React.FC<MembersViewProps> = ({ userProfile, onSelectMember }
   };
 
   if (tableMissing) {
-    const repairSQL = `-- MASTER REGISTRY VAULT REPAIR SCRIPT
+    const repairSQL = `-- MASTER REGISTRY DATABASE REPAIR SCRIPT
 -- Ensure branches table exists first
 CREATE TABLE IF NOT EXISTS public.branches (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -170,7 +170,7 @@ CREATE POLICY "Allow all for staff" ON public.members FOR ALL USING (true) WITH 
           </div>
           <h2 className="text-3xl font-black text-slate-900 uppercase mb-4 tracking-tighter">Membership Registry Inaccessible</h2>
           <p className="text-slate-500 mb-10 font-medium max-w-lg mx-auto leading-relaxed">
-            The congregant identity vault is missing. Run the restoration script to establish relational connectivity.
+            The congregant database is missing. Run the restoration script to establish connectivity.
           </p>
           <pre className="bg-slate-900 text-fh-gold-pale p-8 rounded-[2rem] text-[10px] font-mono text-left h-48 overflow-y-auto mb-10 shadow-inner leading-relaxed border border-fh-gold/10 scrollbar-hide">
             {repairSQL}
@@ -229,7 +229,7 @@ CREATE POLICY "Allow all for staff" ON public.members FOR ALL USING (true) WITH 
         }
       }
 
-      showNotify(`Protocol Success: ${idsToDelete.length} redundant nodes deleted.`);
+      showNotify(`Success: ${idsToDelete.length} records deleted.`);
       setIsDeDupModalOpen(false);
       await fetchInitialData();
     } catch (err: any) {
@@ -536,7 +536,7 @@ CREATE POLICY "Allow all for staff" ON public.members FOR ALL USING (true) WITH 
         </div>
       </div>
 
-      {/* Unified Search Matrix */}
+      {/* Unified Search & Filters */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="relative group">
           <svg className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
@@ -886,7 +886,7 @@ CREATE POLICY "Allow all for staff" ON public.members FOR ALL USING (true) WITH 
                          <h5 className="text-xs font-black text-slate-900 uppercase tracking-widest">Provisioning Preview</h5>
                          <div className="flex gap-4">
                             <button onClick={scrubImportBuffer} className="px-4 py-2 bg-rose-50 text-rose-500 rounded-lg text-[8px] font-black uppercase tracking-widest border border-rose-100">Cleanse Cluster Duplicates</button>
-                            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">{parsedData.length} Identified Nodes</span>
+                            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">{parsedData.length} Identified Members</span>
                          </div>
                       </div>
 
@@ -922,7 +922,7 @@ CREATE POLICY "Allow all for staff" ON public.members FOR ALL USING (true) WITH 
                       <div className="flex gap-4">
                          <button onClick={() => { setParsedData([]); setRawImportData(''); }} className="flex-1 py-6 bg-slate-100 text-slate-400 rounded-3xl font-black uppercase text-[11px] tracking-widest active:scale-95">Purge Buffer</button>
                          <button onClick={handleBulkCommit} disabled={isImporting || parsedData.length === 0} className="flex-[2] py-6 bg-fh-green text-fh-gold rounded-[2.5rem] font-black uppercase text-[11px] tracking-[0.4em] shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-4 border-b-4 border-black/30 disabled:opacity-50">
-                            {isImporting ? <div className="w-5 h-5 border-2 border-white/50 border-t-white animate-spin rounded-full"></div> : 'Initialize Registry Sync'}
+                            {isImporting ? <div className="w-5 h-5 border-2 border-white/50 border-t-white animate-spin rounded-full"></div> : 'Start Registry Sync'}
                          </button>
                       </div>
                    </div>

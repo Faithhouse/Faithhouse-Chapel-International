@@ -98,7 +98,7 @@ create policy "Allow all on volunteers" on volunteers for all using (true) with 
         <pre className="bg-slate-900 text-slate-300 p-6 rounded-xl text-left text-[10px] mb-6 overflow-x-auto leading-relaxed shadow-inner border border-slate-800">
           {repairSQL}
         </pre>
-        <button onClick={fetchData} className="px-10 py-3 bg-emerald-600 text-white rounded-xl font-black uppercase tracking-widest shadow-xl transition-all hover:bg-emerald-700 active:scale-95">Initialize Volunteers</button>
+        <button onClick={fetchData} className="px-10 py-3 bg-emerald-600 text-white rounded-xl font-black uppercase tracking-widest shadow-xl transition-all hover:bg-emerald-700 active:scale-95">Load Volunteers</button>
       </div>
     );
   }

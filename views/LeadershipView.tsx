@@ -80,7 +80,7 @@ const LeadershipView: React.FC<{ userProfile: UserProfile | null }> = ({ userPro
       setEditingLeader(null);
     } catch (err: any) {
       console.error("Supabase Save Error:", err);
-      alert(`VAULT ERROR: ${err.message || "Unknown database error"}`);
+      alert(`DATABASE ERROR: ${err.message || "Unknown database error"}`);
     }
   };
 
@@ -101,7 +101,7 @@ const LeadershipView: React.FC<{ userProfile: UserProfile | null }> = ({ userPro
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-2">
           <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Church Leadership</h2>
-          <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.5em]">Governance & Oversight Node</p>
+          <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.5em]">Governance & Oversight</p>
         </div>
         <button 
           onClick={() => { setEditingLeader({}); setIsModalOpen(true); }}
