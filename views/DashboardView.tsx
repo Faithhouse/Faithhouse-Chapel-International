@@ -44,8 +44,16 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
       .on('postgres_changes', { event: '*', schema: 'public', table: 'visitation_records' }, () => fetchDashboardData())
       .subscribe();
 
+    // Auto-refresh when the window gains focus (crucial for mobile/PWA)
+    const handleFocus = () => {
+      console.log('App focused, refreshing dashboard data...');
+      fetchDashboardData();
+    };
+    window.addEventListener('focus', handleFocus);
+
     return () => {
       supabase.removeChannel(channel);
+      window.removeEventListener('focus', handleFocus);
     };
   }, [userProfile]);
 
@@ -53,16 +61,19 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
     setIsLoading(true);
     setError(null);
     try {
-      // 1. Fetch Global Stats (Head only queries)
+      // Use local date for more accurate "today" comparison
+      const localNow = new Date();
+      const todayStr = localNow.toLocaleDateString('en-CA'); // YYYY-MM-DD
+      
+      // 1. Fetch Global Stats
       const { count: memberCount, error: mErr } = await supabase.from('members').select('*', { count: 'exact', head: true });
       if (mErr) console.warn("Member count fetch failed:", mErr);
 
       const { count: visitorCount } = await supabase.from('members').select('*', { count: 'exact', head: true }).eq('status', 'Visitor');
       const { count: pendingFollowUp } = await supabase.from('visitation_records').select('*', { count: 'exact', head: true }).eq('status', 'Pending');
       
-      const now = new Date();
-      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+      const firstDay = new Date(localNow.getFullYear(), localNow.getMonth(), 1).toLocaleDateString('en-CA');
+      const lastDay = new Date(localNow.getFullYear(), localNow.getMonth() + 1, 0).toLocaleDateString('en-CA');
       
       const { count: eventCount } = await supabase.from('events')
         .select('*', { count: 'exact', head: true })
@@ -91,18 +102,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
       const { data: events, error: eErr } = await supabase
         .from('events')
         .select('*')
-        .gte('date', now.toISOString().split('T')[0])
+        .gte('date', todayStr)
         .order('date', { ascending: true })
         .limit(5);
       if (eErr) console.warn("Upcoming events fetch failed:", eErr);
       setUpcomingEvents(events || []);
 
       // 4. Fetch Today's Tasks
-      const today = new Date().toISOString().split('T')[0];
       const { data: tasks, error: tErr } = await supabase
         .from('task_instances')
         .select('*')
-        .eq('due_date', today)
+        .eq('due_date', todayStr)
         .order('status', { ascending: false });
       
       if (tErr) console.warn("Today's tasks fetch failed:", tErr);
@@ -182,16 +192,26 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
     <div className="space-y-10 pb-16">
       
       {/* 1. Header Section */}
-      <div className="flex flex-col items-center text-center py-4">
-        <div className="space-y-4">
+      <div className="flex flex-col md:flex-row items-center justify-between gap-6 py-4">
+        <div className="flex-1 text-center md:text-left">
           <h2 className="text-4xl md:text-5xl font-black text-fh-green tracking-tighter uppercase leading-none">
             {isLeadership ? 'Church Governance & Oversight' : 'Staff Insight'}
           </h2>
-          <p className="text-xs md:text-sm text-slate-400 font-medium italic tracking-wide max-w-2xl mx-auto leading-relaxed">
+          <p className="text-xs md:text-sm text-slate-400 font-medium italic tracking-wide mt-4 leading-relaxed">
             "Know the state of your flocks, and put your heart into caring for your herds," 
-            <span className="block mt-2 font-black uppercase tracking-[0.3em] not-italic text-[10px] text-fh-gold">Proverbs 27:23</span>
+            <span className="inline-block ml-2 font-black uppercase tracking-[0.3em] not-italic text-[10px] text-fh-gold">Proverbs 27:23</span>
           </p>
         </div>
+        <button 
+          onClick={fetchDashboardData}
+          disabled={isLoading}
+          className="p-4 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-fh-green transition-all shadow-sm active:scale-95 disabled:opacity-50"
+          title="Refresh Dashboard"
+        >
+          <svg className={`w-6 h-6 ${isLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
       </div>
 
       {error && (
