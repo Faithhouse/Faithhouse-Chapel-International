@@ -50,10 +50,10 @@ const LoginView: React.FC = () => {
         }
 
         if (authData.user && !authData.session) {
-          setSuccess("Identity Created. Please check your email inbox to verify your account. Once verified, you can authorize your entry.");
+          setSuccess("Account Created. Please check your email inbox to verify your account. Once verified, you can sign in.");
           // Don't auto-switch, let them see the message
         } else {
-          setSuccess("Identity Verified. Synchronizing Vault...");
+          setSuccess("Account Verified. Synchronizing Database...");
         }
       } else {
         // 1. Sign In
@@ -64,7 +64,7 @@ const LoginView: React.FC = () => {
 
         if (authError) {
           if (authError.message.includes("Email not confirmed")) {
-            setError("ACCESS DENIED: Your identity has not been verified via email yet. Please check your inbox or click below to resend.");
+            setError("ACCESS DENIED: Your account has not been verified via email yet. Please check your inbox or click below to resend.");
             return;
           }
           throw authError;
@@ -128,10 +128,10 @@ const LoginView: React.FC = () => {
             />
           </motion.div>
           <h1 className="text-xl font-black text-white uppercase tracking-tighter mb-2">
-            Faithhouse Chapel international
+            Faithhouse Chapel International
           </h1>
           <p className="text-white/40 text-[9px] font-bold uppercase tracking-[0.4em]">
-            Authorized Personnel Access
+            Authorized Staff Access
           </p>
         </div>
 
@@ -241,7 +241,7 @@ const LoginView: React.FC = () => {
               {loading ? (
                 <div className="w-4 h-4 border-2 border-black/20 border-t-black animate-spin rounded-full"></div>
               ) : (
-                mode === 'login' ? 'Authorize Entry' : 'Create Identity'
+                mode === 'login' ? 'Sign In' : 'Create Account'
               )}
             </button>
           </form>
@@ -251,7 +251,7 @@ const LoginView: React.FC = () => {
               onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
               className="text-[10px] font-bold text-white/30 uppercase tracking-widest hover:text-white transition-colors"
             >
-              {mode === 'login' ? "Need access? Request Identity" : "Already registered? Return to Entry"}
+              {mode === 'login' ? "Need access? Request Account" : "Already registered? Return to Login"}
             </button>
           </div>
         </div>

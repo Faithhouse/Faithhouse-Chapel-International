@@ -35,25 +35,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
   useEffect(() => {
     fetchDashboardData();
 
-    // Set up real-time subscription for events
+    // Set up real-time subscription for dashboard data
     const channel = supabase
       .channel('dashboard-updates')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'events' },
-        () => {
-          console.log('Real-time update detected in events table');
-          fetchDashboardData();
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'members' },
-        () => {
-          console.log('Real-time update detected in members table');
-          fetchDashboardData();
-        }
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => fetchDashboardData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, () => fetchDashboardData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_instances' }, () => fetchDashboardData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'visitation_records' }, () => fetchDashboardData())
       .subscribe();
 
     return () => {
@@ -154,7 +142,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
 
     } catch (err: any) {
       console.error("Dashboard Data Sync Error:", err);
-      setError(err.message || "Failed to synchronize with the vault.");
+      setError(err.message || "Failed to synchronize with the database.");
     } finally {
       setIsLoading(false);
     }
@@ -193,7 +181,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
   return (
     <div className="space-y-10 pb-16">
       
-      {/* 1. Header Relay */}
+      {/* 1. Header Section */}
       <div className="flex flex-col items-center text-center py-4">
         <div className="space-y-4">
           <h2 className="text-4xl md:text-5xl font-black text-fh-green tracking-tighter uppercase leading-none">
@@ -332,7 +320,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
             <div className="bg-white rounded-[2.5rem] overflow-hidden border border-slate-50 shadow-sm">
               <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Recent Entries</h3>
-                <button onClick={() => setActiveItem('Members')} className="text-[10px] font-black text-cms-blue uppercase tracking-widest">Global Vault</button>
+                <button onClick={() => setActiveItem('Members')} className="text-[10px] font-black text-cms-blue uppercase tracking-widest">View All</button>
               </div>
               <div className="p-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -406,7 +394,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
               )) : (
                 <div className="py-8 text-center">
                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">No tasks for today's service</p>
-                   <button onClick={() => setActiveItem('Recurring Tasks')} className="mt-4 text-[9px] font-black text-cms-blue uppercase tracking-widest hover:underline">Manage Protocols</button>
+                   <button onClick={() => setActiveItem('Recurring Tasks')} className="mt-4 text-[9px] font-black text-cms-blue uppercase tracking-widest hover:underline">Manage Tasks</button>
                 </div>
               )}
             </div>

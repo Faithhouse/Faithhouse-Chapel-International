@@ -161,15 +161,15 @@ const App: React.FC = () => {
         </div>
         
         <div className="space-y-3">
-          <p className="text-white font-light uppercase tracking-[0.8em] text-[10px]">Synchronizing Vault</p>
-          <p className="text-white/20 text-[8px] font-bold uppercase tracking-widest">Establishing Secure Handshake</p>
+          <p className="text-white font-light uppercase tracking-[0.8em] text-[10px]">Synchronizing Database</p>
+          <p className="text-white/20 text-[8px] font-bold uppercase tracking-widest">Establishing Secure Connection</p>
         </div>
         
         <button 
           onClick={() => setLoading(false)}
           className="mt-20 px-8 py-3 border border-white/5 rounded-full text-[9px] font-black text-white/20 uppercase tracking-[0.3em] hover:text-white/60 hover:border-white/10 transition-all"
         >
-          Bypass Security
+          Skip Loading
         </button>
       </div>
     );

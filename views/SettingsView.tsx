@@ -42,7 +42,7 @@ const defaultRoles: Role[] = [
 ];
 
 const mockActivities: RecentActivity[] = [
-  { id: '1', user: 'System', action: 'automated', target: 'Vault Backup', time: 'Just Now', type: 'system' },
+  { id: '1', user: 'System', action: 'automated', target: 'Database Backup', time: 'Just Now', type: 'system' },
   { id: '2', user: 'Secretary', action: 'registered', target: 'New Member Profile', time: '14m ago', type: 'member' },
   { id: '3', user: 'Finance', action: 'posted', target: 'Sunday Service Ledger', time: '2h ago', type: 'finance' }
 ];
@@ -266,7 +266,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ userProfile, initialTab }) 
           <div className="royal-card p-10 rounded-[3rem] bg-white border border-slate-100 shadow-sm">
             <div className="mb-8">
               <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Change Access Key</h3>
-              <p className="text-xs text-slate-500 font-medium mt-1">Update your security credentials for the Faithhouse Vault.</p>
+              <p className="text-xs text-slate-500 font-medium mt-1">Update your security credentials for the Faithhouse System.</p>
             </div>
 
             <form onSubmit={handlePasswordChange} className="space-y-6">
@@ -321,21 +321,21 @@ const SettingsView: React.FC<SettingsViewProps> = ({ userProfile, initialTab }) 
         </div>
       ) : (
         <div className="space-y-10 animate-in slide-in-from-left-4 duration-500">
-           {/* Infrastructure Health Section */}
+           {/* System Health Section */}
            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div className="royal-card p-10 rounded-[3rem] bg-slate-950 text-white overflow-hidden relative shadow-2xl">
                  <div className="absolute top-0 right-0 w-64 h-64 bg-fh-gold/5 blur-[100px] rounded-full translate-x-1/2 -translate-y-1/2"></div>
                  <div className="relative z-10 space-y-6">
                     <div className="flex items-center gap-3">
                       <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                      <h4 className="text-[10px] font-black text-fh-gold uppercase tracking-[0.4em]">Infrastructure Audit</h4>
+                      <h4 className="text-[10px] font-black text-fh-gold uppercase tracking-[0.4em]">System Audit</h4>
                     </div>
                     <div className="flex items-end justify-between">
                        <div>
                          <p className="text-4xl font-black tracking-tighter leading-none mb-2">Sync: 100%</p>
-                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Distributed Vault Access Active</p>
+                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Database Access Active</p>
                        </div>
-                       <button className="px-6 py-2.5 bg-fh-gold/10 text-fh-gold border border-fh-gold/20 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-fh-gold/20 transition-all">Re-Validate Node</button>
+                       <button className="px-6 py-2.5 bg-fh-gold/10 text-fh-gold border border-fh-gold/20 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-fh-gold/20 transition-all">Re-Verify Connection</button>
                     </div>
                  </div>
               </div>
@@ -343,7 +343,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ userProfile, initialTab }) 
               <div className="royal-card p-10 rounded-[3rem] bg-white border border-slate-100 flex items-center justify-between shadow-sm">
                  <div>
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] mb-3">Security Protocol</h4>
-                    <p className="text-2xl font-black text-fh-green tracking-tight leading-none mb-1">AES-256 Vault</p>
+                    <p className="text-2xl font-black text-fh-green tracking-tight leading-none mb-1">AES-256 Encryption</p>
                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">End-to-End Encryption Active</p>
                  </div>
                  <div className="w-16 h-16 bg-slate-50 rounded-[1.75rem] flex items-center justify-center text-slate-400">
@@ -366,7 +366,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ userProfile, initialTab }) 
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead className="bg-slate-50/50 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] border-b border-slate-100">
-                    <tr><th className="px-10 py-6">Origin Node</th><th className="px-10 py-6">Protocol Action</th><th className="px-10 py-6">Module Endpoint</th><th className="px-10 py-6 text-right">Time Relay</th></tr>
+                    <tr><th className="px-10 py-6">User</th><th className="px-10 py-6">Action</th><th className="px-10 py-6">Target</th><th className="px-10 py-6 text-right">Time</th></tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
                     {mockActivities.map((act) => (

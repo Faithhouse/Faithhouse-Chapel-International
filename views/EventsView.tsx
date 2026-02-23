@@ -41,6 +41,18 @@ const EventsView: React.FC<EventsViewProps> = ({ userProfile }) => {
 
   useEffect(() => {
     fetchInitialData();
+    
+    // Real-time subscription for events
+    const subscription = supabase
+      .channel('events_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => {
+        fetchInitialData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
   }, []);
 
   const fetchInitialData = async () => {
@@ -116,7 +128,7 @@ const EventsView: React.FC<EventsViewProps> = ({ userProfile }) => {
         if (taskError) console.warn("Event created, but tasks failed to generate:", taskError);
       }
       
-      setNotification("Event scheduled and service protocols initialized.");
+      setNotification("Event scheduled and attendance log created.");
       
       setIsModalOpen(false);
       setFormData({ 
@@ -199,7 +211,7 @@ CREATE POLICY "Allow all for staff" ON public.events FOR ALL USING (true) WITH C
           </div>
           <h2 className="text-3xl font-black text-slate-900 uppercase mb-4 tracking-tighter">Programmes Registry Inaccessible</h2>
           <p className="text-slate-500 mb-10 font-medium max-w-lg mx-auto leading-relaxed">
-            The programme protocol vault is missing. Run the restoration script to establish relational connectivity.
+            The programme database is missing. Run the restoration script to establish connectivity.
           </p>
           <pre className="bg-slate-900 text-fh-gold-pale p-8 rounded-[2rem] text-[10px] font-mono text-left h-48 overflow-y-auto mb-10 shadow-inner leading-relaxed border border-fh-gold/10 scrollbar-hide">
             {repairSQL}
@@ -346,7 +358,7 @@ CREATE POLICY "Allow all for staff" ON public.events FOR ALL USING (true) WITH C
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
           <form onSubmit={handleCreateEvent} className="relative bg-white w-full max-w-md rounded-[3rem] p-10 space-y-4 shadow-2xl border-b-[12px] border-fh-gold">
-            <h2 className="text-2xl font-black text-fh-green uppercase mb-6">New Programme Protocol</h2>
+            <h2 className="text-2xl font-black text-fh-green uppercase mb-6">New Programme Entry</h2>
             
             <div className="space-y-2">
               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2">Programme Title</label>

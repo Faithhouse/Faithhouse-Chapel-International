@@ -43,6 +43,27 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ userProfile }) => {
 
   useEffect(() => {
     fetchInitialData();
+
+    // Real-time subscription for attendance events
+    const eventSubscription = supabase
+      .channel('attendance_events_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_events' }, () => {
+        fetchInitialData();
+      })
+      .subscribe();
+
+    // Real-time subscription for attendance records
+    const recordSubscription = supabase
+      .channel('attendance_records_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_records' }, () => {
+        fetchInitialData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(eventSubscription);
+      supabase.removeChannel(recordSubscription);
+    };
   }, [branchFilter, typeFilter]);
 
   const fetchInitialData = async () => {
@@ -357,12 +378,12 @@ END $$;`;
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
-          <h2 className="text-3xl font-black text-fh-green tracking-tighter uppercase leading-none">Attendance Matrix</h2>
-          <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em]">Service Growth & Vitality Ledger</p>
+          <h2 className="text-3xl font-black text-fh-green tracking-tighter uppercase leading-none">Attendance Registry</h2>
+          <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em]">Service Growth & Records Ledger</p>
         </div>
         <button onClick={() => setIsModalOpen(true)} className="px-10 py-5 bg-fh-green text-fh-gold rounded-[1.75rem] font-black uppercase tracking-widest text-[10px] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30 flex items-center gap-3">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-          Initialize Service Log
+          Create Service Log
         </button>
       </div>
 
@@ -449,18 +470,18 @@ END $$;`;
             <div className="p-12 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
                <div className="flex items-center gap-6">
                  <div className="w-16 h-16 bg-fh-green text-fh-gold rounded-[2rem] flex items-center justify-center shadow-xl"><svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7" /></svg></div>
-                 <div><h3 className="text-3xl font-black text-fh-green uppercase leading-none tracking-tighter">Log Service</h3><p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">Initialize Attendance Tracking</p></div>
+                 <div><h3 className="text-3xl font-black text-fh-green uppercase leading-none tracking-tighter">Log Service</h3><p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">Setup Attendance Tracking</p></div>
                </div>
                <button onClick={() => setIsModalOpen(false)} className="p-5 hover:bg-slate-100 rounded-full transition-all text-slate-400 active:scale-90"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg></button>
             </div>
             <form onSubmit={handleCreateService} className="p-12 space-y-8">
               <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Service Designation</label><input required value={newService.event_name} onChange={e => setNewService({...newService, event_name: e.target.value})} placeholder="e.g. Mid-week Power Service" className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800" /></div>
               <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Relay Type</label><select value={newService.event_type} onChange={e => setNewService({...newService, event_type: e.target.value as any})} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800"><option>Prophetic Word Service</option><option>Help from above service</option><option>Special services</option><option>Conferences</option></select></div>
-                <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Site Assignment</label><select required value={newService.branch_id} onChange={e => setNewService({...newService, branch_id: e.target.value})} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800"><option value="">Select Branch...</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
+                <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Service Type</label><select value={newService.event_type} onChange={e => setNewService({...newService, event_type: e.target.value as any})} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800"><option>Prophetic Word Service</option><option>Help from above service</option><option>Special services</option><option>Conferences</option></select></div>
+                <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Branch Assignment</label><select required value={newService.branch_id} onChange={e => setNewService({...newService, branch_id: e.target.value})} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800"><option value="">Select Branch...</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
               </div>
-              <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Deployment Date</label><input type="date" required value={newService.event_date} onChange={e => setNewService({...newService, event_date: e.target.value})} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800" /></div>
-              <button type="submit" disabled={isSubmitting} className="w-full py-6 bg-fh-green text-fh-gold rounded-[2.5rem] font-black uppercase text-xs tracking-[0.4em] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30 flex items-center justify-center gap-3">{isSubmitting ? <div className="w-5 h-5 border-2 border-white/50 border-t-white animate-spin rounded-full" /> : "Authorize Deployment"}</button>
+              <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Service Date</label><input type="date" required value={newService.event_date} onChange={e => setNewService({...newService, event_date: e.target.value})} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800" /></div>
+              <button type="submit" disabled={isSubmitting} className="w-full py-6 bg-fh-green text-fh-gold rounded-[2.5rem] font-black uppercase text-xs tracking-[0.4em] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30 flex items-center justify-center gap-3">{isSubmitting ? <div className="w-5 h-5 border-2 border-white/50 border-t-white animate-spin rounded-full" /> : "Confirm Service Log"}</button>
             </form>
           </div>
         </div>

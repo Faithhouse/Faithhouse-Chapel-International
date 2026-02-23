@@ -19,7 +19,7 @@ interface DirectoryTemplate {
 const ministryDirectory: DirectoryTemplate[] = [
   { label: 'System Administrator', email: 'sysadmin@faithhouse.church', role: 'System Administrator', level: 'Level 4', genesisKey: 'FHCI_Root_Access!2026', desc: 'Global Infrastructure & Root Access' },
   { label: 'Head Pastor', email: 'headpastor@faithhouse.church', role: 'Head Pastor', level: 'Level 3', genesisKey: 'FHCI_Pastor_Master!2026', desc: 'Full System Oversight' },
-  { label: 'Finance / Treasury', email: 'finance@faithhouse.church', role: 'Finance / Treasury', level: 'Level 3', genesisKey: 'FHCI_Vault_Admin!2026', desc: 'Fiscal & Vault Records' },
+  { label: 'Finance / Treasury', email: 'finance@faithhouse.church', role: 'Finance / Treasury', level: 'Level 3', genesisKey: 'FHCI_Admin!2026', desc: 'Fiscal & Financial Records' },
   { label: 'Evangelism Ministry', email: 'evangelism@faithhouse.church', role: 'Evangelism Ministry', level: 'Level 2', genesisKey: 'FHCI_Go_Harvest!2026', desc: 'Outreach & Souls Tracking' },
   { label: 'Follow-up & Visitation', email: 'care@faithhouse.church', role: 'Follow-up & Visitation', level: 'Level 2', genesisKey: 'FHCI_Care_Reach!2026', desc: 'Congregant Retention' },
   { label: 'Music Ministry', email: 'music@faithhouse.church', role: 'Music Ministry', level: 'Level 2', genesisKey: 'FHCI_Sound_Worship!2026', desc: 'Logistics & Rehearsals' },
@@ -100,7 +100,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({ userProfile }) => {
       if (authError) {
         if (authError.status === 422 || authError.message.includes('already registered')) {
           setIsAuthConflict(true);
-          throw new Error("IDENTITY CONFLICT (422): This email already exists in the Auth Vault. Use 'Force Sync' to establish the database record.");
+          throw new Error("IDENTITY CONFLICT (422): This email already exists in the system. Use 'Force Sync' to establish the database record.");
         }
         throw authError;
       }
@@ -110,7 +110,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({ userProfile }) => {
       }
 
       closeAndReset();
-      alert(`Provisioning Success: ${formData.email} is now active.`);
+      alert(`Account Created: ${formData.email} is now active.`);
     } catch (err: any) {
       setErrorMessage(err.message);
     } finally {
@@ -141,7 +141,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({ userProfile }) => {
       }
 
       closeAndReset();
-      alert(`Vault Recovered: Profile established for ${formData.email}.`);
+      alert(`Profile established for ${formData.email}.`);
     } catch (err: any) {
       setErrorMessage(`Manual Sync Failed: ${err.message}`);
     } finally {
@@ -187,18 +187,18 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({ userProfile }) => {
     fetchUsers();
   };
 
-  const decommissionNode = async (id: string, email: string) => {
-    if (!confirm(`Confirm Decommission: Remove [${email}] from directory?`)) return;
+  const removeUser = async (id: string, email: string) => {
+    if (!confirm(`Confirm Removal: Remove [${email}] from directory?`)) return;
     try {
       const { error } = await supabase.from('profiles').delete().eq('id', id);
       if (error) throw error;
       fetchUsers();
     } catch (err: any) {
-      alert(`Purge Failed: ${err.message}`);
+      alert(`Removal Failed: ${err.message}`);
     }
   };
 
-  const resetNodePassword = async (email: string) => {
+  const resetUserPassword = async (email: string) => {
     if (!confirm(`Protocol Reset: Send password recovery instructions to [${email}]?`)) return;
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -238,7 +238,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({ userProfile }) => {
   };
 
   if (tableMissing) {
-    const repairSQL = `-- MASTER PROFILES VAULT REPAIR SCRIPT
+    const repairSQL = `-- MASTER PROFILES DATABASE REPAIR SCRIPT
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
@@ -258,9 +258,9 @@ CREATE POLICY "Allow all for staff" ON public.profiles FOR ALL USING (true) WITH
           <div className="w-24 h-24 bg-rose-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-10 shadow-inner">
              <svg className="w-12 h-12 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           </div>
-          <h2 className="text-3xl font-black text-slate-900 uppercase mb-4 tracking-tighter">Profiles Vault Inaccessible</h2>
+          <h2 className="text-3xl font-black text-slate-900 uppercase mb-4 tracking-tighter">Profiles Database Inaccessible</h2>
           <p className="text-slate-500 mb-10 font-medium max-w-lg mx-auto leading-relaxed">
-            Run the profiles restoration script to establish relational connectivity.
+            Run the profiles restoration script to establish database connectivity.
           </p>
           <pre className="bg-slate-900 text-fh-gold-pale p-8 rounded-[2rem] text-[10px] font-mono text-left h-48 overflow-y-auto mb-10 shadow-inner leading-relaxed border border-fh-gold/10 scrollbar-hide">
             {repairSQL}
@@ -283,26 +283,26 @@ CREATE POLICY "Allow all for staff" ON public.profiles FOR ALL USING (true) WITH
              <span className="text-[10px] font-black text-fh-gold uppercase tracking-[0.2em]">Security Protocol Active</span>
           </div>
           <h2 className="text-4xl font-black text-fh-green tracking-tighter uppercase leading-none">Security Hierarchy</h2>
-          <p className="text-slate-400 font-bold text-xs uppercase tracking-[0.4em]">Administrative Node Directory</p>
+          <p className="text-slate-400 font-bold text-xs uppercase tracking-[0.4em]">Administrative User Directory</p>
         </div>
-        <button onClick={() => { setErrorMessage(null); setIsAuthConflict(false); setIsModalOpen(true); }} className="px-10 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30">Provision Manual Access</button>
+        <button onClick={() => { setErrorMessage(null); setIsAuthConflict(false); setIsModalOpen(true); }} className="px-10 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30">Register Manual Access</button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-8">
           <div className="royal-card rounded-[3.5rem] overflow-hidden bg-white border border-slate-100 shadow-sm">
             <div className="p-10 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
-               <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest leading-none">Authorized System Nodes</h3>
-               <span className="px-5 py-1.5 bg-white border border-slate-200 rounded-full text-[9px] font-black text-fh-green uppercase shadow-sm">{users.length} Nodes Synchronized</span>
+               <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest leading-none">Authorized System Users</h3>
+               <span className="px-5 py-1.5 bg-white border border-slate-200 rounded-full text-[9px] font-black text-fh-green uppercase shadow-sm">{users.length} Users Synchronized</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="bg-slate-50/50 text-[9px] font-black uppercase text-slate-400 tracking-[0.2em] border-b border-slate-100">
-                  <tr><th className="px-10 py-6">Node Identity</th><th className="px-10 py-6">Clearance</th><th className="px-10 py-6 text-right">Actions</th></tr>
+                  <tr><th className="px-10 py-6">User Identity</th><th className="px-10 py-6">Clearance</th><th className="px-10 py-6 text-right">Actions</th></tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {isLoading ? (
-                    <tr><td colSpan={3} className="px-10 py-24 text-center animate-pulse text-slate-300 font-black uppercase tracking-widest">Accessing identity vault...</td></tr>
+                    <tr><td colSpan={3} className="px-10 py-24 text-center animate-pulse text-slate-300 font-black uppercase tracking-widest">Accessing user database...</td></tr>
                   ) : users.length > 0 ? users.map(u => {
                     const badge = getLevelBadge(u.role);
                     return (
@@ -329,14 +329,14 @@ CREATE POLICY "Allow all for staff" ON public.profiles FOR ALL USING (true) WITH
                         <td className="px-10 py-6 text-right">
                            <div className="flex justify-end gap-2">
                              {['System Administrator', 'General Office'].includes(userProfile?.role || '') && (
-                               <button onClick={() => resetNodePassword(u.email)} className="p-3 text-slate-300 hover:text-fh-gold hover:bg-fh-gold/5 rounded-xl transition-all active:scale-90" title="Reset Access Key">
+                               <button onClick={() => resetUserPassword(u.email)} className="p-3 text-slate-300 hover:text-fh-gold hover:bg-fh-gold/5 rounded-xl transition-all active:scale-90" title="Reset Access Key">
                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
                                </button>
                              )}
-                             <button onClick={() => handleEditUser(u)} className="p-3 text-slate-300 hover:text-fh-green hover:bg-fh-green/5 rounded-xl transition-all active:scale-90" title="Edit Node Metadata">
+                             <button onClick={() => handleEditUser(u)} className="p-3 text-slate-300 hover:text-fh-green hover:bg-fh-green/5 rounded-xl transition-all active:scale-90" title="Edit User Details">
                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                              </button>
-                             <button onClick={() => decommissionNode(u.id, u.email)} className="p-3 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all active:scale-90" title="Decommission Node">
+                             <button onClick={() => removeUser(u.id, u.email)} className="p-3 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all active:scale-90" title="Remove User">
                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                              </button>
                            </div>
@@ -344,7 +344,7 @@ CREATE POLICY "Allow all for staff" ON public.profiles FOR ALL USING (true) WITH
                       </tr>
                     );
                   }) : (
-                    <tr><td colSpan={3} className="px-10 py-32 text-center text-slate-400 font-black uppercase tracking-widest italic opacity-50">No administrative nodes recorded.</td></tr>
+                    <tr><td colSpan={3} className="px-10 py-32 text-center text-slate-400 font-black uppercase tracking-widest italic opacity-50">No administrative users recorded.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -407,7 +407,7 @@ CREATE POLICY "Allow all for staff" ON public.profiles FOR ALL USING (true) WITH
           <div className="relative bg-white w-full max-w-2xl rounded-[4rem] shadow-2xl overflow-hidden border-b-[12px] border-fh-gold animate-in zoom-in-95">
             <div className="p-12 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
                <div>
-                  <h3 className="text-3xl font-black text-fh-green uppercase leading-none tracking-tight">{isExistingInDirectory ? 'Node Resynchronization' : 'Provisioning Node'}</h3>
+                  <h3 className="text-3xl font-black text-fh-green uppercase leading-none tracking-tight">{isExistingInDirectory ? 'Update User Profile' : 'Register New User'}</h3>
                   <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">Authorized Access Issuance System</p>
                </div>
                <button onClick={() => closeAndReset()} className="p-5 hover:bg-slate-200 rounded-full transition-all text-slate-400 active:scale-90"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg></button>
@@ -419,7 +419,7 @@ CREATE POLICY "Allow all for staff" ON public.profiles FOR ALL USING (true) WITH
                   <div className="flex gap-5">
                     <div className="w-12 h-12 bg-rose-600 text-white rounded-2xl flex items-center justify-center shrink-0 shadow-lg"><svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg></div>
                     <div className="space-y-3 flex-1">
-                      <p className="text-xs font-black text-rose-800 uppercase tracking-tight leading-none">Vault Link Conflict</p>
+                      <p className="text-xs font-black text-rose-800 uppercase tracking-tight leading-none">Account Conflict</p>
                       <p className="text-[10px] font-bold text-rose-600 leading-relaxed uppercase tracking-tighter">{errorMessage}</p>
                       {isAuthConflict && (
                         <div className="pt-4 flex flex-col gap-3">
