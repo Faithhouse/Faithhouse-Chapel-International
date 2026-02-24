@@ -264,10 +264,14 @@ CREATE POLICY "Allow all for staff" ON public.task_instances FOR ALL USING (true
           <h2 className="text-4xl md:text-5xl font-black text-fh-green tracking-tighter uppercase leading-none">
             {isLeadership ? 'Church Governance & Oversight' : 'Staff Insight'}
           </h2>
-          <p className="text-xs md:text-sm text-slate-400 font-medium italic tracking-wide mt-4 leading-relaxed">
-            "Know the state of your flocks, and put your heart into caring for your herds," 
-            <span className="inline-block ml-2 font-black uppercase tracking-[0.3em] not-italic text-[10px] text-fh-gold">Proverbs 27:23</span>
-          </p>
+          <div className="mt-8 text-center">
+            <p className="text-sm md:text-base text-slate-400 font-medium italic tracking-wide leading-relaxed">
+              "Know the state of your flocks, and put your heart into caring for your herds,"
+            </p>
+            <p className="mt-2 font-black uppercase tracking-[0.5em] text-[10px] text-fh-gold">
+              Proverbs 27:23
+            </p>
+          </div>
         </div>
         <button 
           onClick={fetchDashboardData}
