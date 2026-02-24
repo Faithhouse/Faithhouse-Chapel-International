@@ -30,13 +30,16 @@ const DavidChatbot: React.FC = () => {
     setIsLoading(true);
 
     try {
+      // Use the injected API key. In this environment, process.env.GEMINI_API_KEY 
+      // is defined via Vite's 'define' config.
       const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey || apiKey === 'undefined') {
-        throw new Error("Gemini API Key is not configured in the environment.");
+      
+      if (!apiKey || apiKey === 'undefined' || apiKey === '') {
+        throw new Error("Gemini API Key is missing. Please configure GEMINI_API_KEY in the AI Studio environment settings.");
       }
 
       const ai = new GoogleGenAI({ apiKey });
-      const model = "gemini-flash-latest";
+      const model = "gemini-3-flash-preview";
       
       const systemInstruction = `
         You are David, an AI assistant for the Faithhouse Chapel International Church Management System (CMS).
