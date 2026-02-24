@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { UserProfile, Member } from '../types';
+import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  BarChart, Bar, Legend, Cell
+} from 'recharts';
+import { 
+  Music, Mic2, Play, FileText, Download, Plus, Trash2, 
+  Users, Calendar, Activity, ListMusic, Headphones, Video
+} from 'lucide-react';
 
 interface MinistryModuleViewProps {
   ministryName: string;
@@ -16,6 +24,26 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
   const [selectedMemberId, setSelectedMemberId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [memberSearchTerm, setMemberSearchTerm] = useState('');
+
+  // Music Ministry Specific State
+  const [performanceData] = useState([
+    { name: 'Week 1', mastery: 65, attendance: 80 },
+    { name: 'Week 2', mastery: 70, attendance: 85 },
+    { name: 'Week 3', mastery: 85, attendance: 75 },
+    { name: 'Week 4', mastery: 90, attendance: 95 },
+  ]);
+
+  const [songList, setSongList] = useState([
+    { id: '1', title: 'Way Maker', artist: 'Sinach', status: 'Mastered', bpm: 68 },
+    { id: '2', title: 'Gratitude', artist: 'Brandon Lake', status: 'In Progress', bpm: 74 },
+    { id: '3', title: 'Agnus Dei', artist: 'Michael W. Smith', status: 'Mastered', bpm: 62 },
+  ]);
+
+  const [resources] = useState([
+    { id: '1', title: 'Sunday Service Setlist', type: 'PDF', size: '1.2 MB', category: 'Sheet Music' },
+    { id: '2', title: 'Way Maker (Vocal Stems)', type: 'MP3', size: '15 MB', category: 'Audio' },
+    { id: '3', title: 'Microphone Handling 101', type: 'Video', size: '45 MB', category: 'Training' },
+  ]);
 
   useEffect(() => {
     fetchPersonnel();
@@ -140,6 +168,162 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
 
   const cfg = getMinistryConfig();
 
+  const renderMusicMinistryOverview = () => (
+    <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-700">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Performance Tracker</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Vocal Mastery & Team Attendance</p>
+            </div>
+            <Activity className="w-6 h-6 text-indigo-500" />
+          </div>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={performanceData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 900, fill: '#94a3b8'}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 900, fill: '#94a3b8'}} />
+                <Tooltip 
+                  contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                  itemStyle={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' }}
+                />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', paddingTop: '20px' }} />
+                <Line type="monotone" dataKey="mastery" stroke="#6366f1" strokeWidth={4} dot={{ r: 6, fill: '#6366f1', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 8 }} name="Song Mastery %" />
+                <Line type="monotone" dataKey="attendance" stroke="#10b981" strokeWidth={4} dot={{ r: 6, fill: '#10b981', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 8 }} name="Attendance %" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="bg-indigo-600 p-8 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden">
+            <Music className="absolute -right-4 -bottom-4 w-32 h-32 opacity-10 rotate-12" />
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60 mb-2">Next Rehearsal</p>
+            <h4 className="text-2xl font-black mb-1">Thursday, 6:00 PM</h4>
+            <p className="text-xs font-medium opacity-80">Main Sanctuary • Full Band</p>
+          </div>
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+                <ListMusic className="w-5 h-5" />
+              </div>
+              <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight">Active Setlist</h4>
+            </div>
+            <div className="space-y-4">
+              {songList.map(song => (
+                <div key={song.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                  <div>
+                    <p className="text-xs font-black text-slate-800 uppercase leading-none mb-1">{song.title}</p>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase">{song.artist}</p>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase ${song.status === 'Mastered' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                    {song.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderMusicMinistryOperations = () => (
+    <div className="space-y-8 animate-in fade-in duration-700">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
+          <div className="flex items-center gap-4 mb-8">
+             <Calendar className="w-6 h-6 text-indigo-500" />
+             <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Rehearsal Schedule</h3>
+          </div>
+          <div className="space-y-6">
+            {[
+              { day: 'Thursday', time: '6:00 PM', type: 'Full Rehearsal', location: 'Sanctuary' },
+              { day: 'Saturday', time: '4:00 PM', type: 'Vocal Training', location: 'Music Room' },
+              { day: 'Sunday', time: '7:30 AM', type: 'Sound Check', location: 'Sanctuary' },
+            ].map((item, i) => (
+              <div key={i} className="flex items-center justify-between p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white rounded-xl flex flex-col items-center justify-center shadow-sm border border-slate-100">
+                    <span className="text-[8px] font-black text-slate-400 uppercase">{item.day.slice(0, 3)}</span>
+                    <span className="text-xs font-black text-slate-900">{item.time.split(' ')[0]}</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{item.type}</p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase">{item.location}</p>
+                  </div>
+                </div>
+                <button className="p-2 text-slate-400 hover:text-indigo-600 transition-all"><Play className="w-4 h-4" /></button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
+          <div className="flex items-center gap-4 mb-8">
+             <ListMusic className="w-6 h-6 text-emerald-500" />
+             <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Song Repository</h3>
+          </div>
+          <div className="space-y-4">
+            {songList.map(song => (
+              <div key={song.id} className="flex items-center justify-between p-4 border-b border-slate-50 last:border-0">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-slate-900 text-fh-gold rounded-xl flex items-center justify-center font-black text-xs">
+                    {song.bpm}
+                  </div>
+                  <div>
+                    <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{song.title}</p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase">{song.artist}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button className="p-2 bg-slate-50 text-slate-400 rounded-lg hover:bg-slate-900 hover:text-white transition-all"><FileText className="w-4 h-4" /></button>
+                  <button className="p-2 bg-slate-50 text-slate-400 rounded-lg hover:bg-slate-900 hover:text-white transition-all"><Mic2 className="w-4 h-4" /></button>
+                </div>
+              </div>
+            ))}
+            <button className="w-full py-4 mt-4 border-2 border-dashed border-slate-100 rounded-2xl text-[10px] font-black text-slate-400 uppercase tracking-widest hover:border-indigo-200 hover:text-indigo-500 transition-all">+ Add New Song</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderMusicMinistryResources = () => (
+    <div className="space-y-8 animate-in fade-in duration-700">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {resources.map(res => (
+          <div key={res.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-md transition-all group">
+            <div className="flex items-center justify-between mb-6">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                res.category === 'Sheet Music' ? 'bg-blue-50 text-blue-500' :
+                res.category === 'Audio' ? 'bg-purple-50 text-purple-500' : 'bg-orange-50 text-orange-500'
+              }`}>
+                {res.category === 'Sheet Music' ? <FileText className="w-6 h-6" /> :
+                 res.category === 'Audio' ? <Headphones className="w-6 h-6" /> : <Video className="w-6 h-6" />}
+              </div>
+              <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{res.type}</span>
+            </div>
+            <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight mb-2 group-hover:text-indigo-600 transition-colors">{res.title}</h4>
+            <div className="flex items-center justify-between mt-6">
+              <span className="text-[10px] font-bold text-slate-400 uppercase">{res.size}</span>
+              <button className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all">
+                <Download className="w-3 h-3" />
+                Get File
+              </button>
+            </div>
+          </div>
+        ))}
+        <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center group cursor-pointer hover:bg-white hover:border-indigo-200 transition-all">
+           <Plus className="w-8 h-8 text-slate-300 group-hover:text-indigo-500 mb-4" />
+           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-indigo-500">Upload Resource</p>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-8 animate-in fade-in duration-1000 pb-20">
       
@@ -170,6 +354,47 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
             ))}
         </div>
       </div>
+
+      {activeTab === 'Overview' && ministryName === 'Music Ministry' && renderMusicMinistryOverview()}
+      {activeTab === 'Operations' && ministryName === 'Music Ministry' && renderMusicMinistryOperations()}
+      {activeTab === 'Resources' && ministryName === 'Music Ministry' && renderMusicMinistryResources()}
+
+      {activeTab === 'Overview' && ministryName !== 'Music Ministry' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 animate-in fade-in duration-500">
+           <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm text-center">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">{cfg.kpi1}</p>
+              <h3 className="text-4xl font-black text-fh-green tracking-tighter">{cfg.kpi1Val}</h3>
+           </div>
+           <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm text-center">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">{cfg.kpi2}</p>
+              <h3 className="text-4xl font-black text-fh-green tracking-tighter">{cfg.kpi2Val}</h3>
+           </div>
+           <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm text-center">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">{cfg.kpi3}</p>
+              <h3 className="text-4xl font-black text-fh-green tracking-tighter">{cfg.kpi3Val}</h3>
+           </div>
+        </div>
+      )}
+
+      {activeTab === 'Operations' && ministryName !== 'Music Ministry' && (
+        <div className="bg-white p-20 rounded-[4rem] border border-slate-100 shadow-sm text-center animate-in fade-in duration-500">
+           <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mx-auto mb-8 text-slate-300">
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+           </div>
+           <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-2">{cfg.opsLabel}</h3>
+           <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Standard Operating Procedures Pending Documentation</p>
+        </div>
+      )}
+
+      {activeTab === 'Resources' && ministryName !== 'Music Ministry' && (
+        <div className="bg-white p-20 rounded-[4rem] border border-slate-100 shadow-sm text-center animate-in fade-in duration-500">
+           <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mx-auto mb-8 text-slate-300">
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+           </div>
+           <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-2">Knowledge Base</h3>
+           <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Departmental Assets & Training Materials Pending Upload</p>
+        </div>
+      )}
 
       {activeTab === 'Personnel' && (
         <div className="royal-card rounded-[3.5rem] bg-white overflow-hidden shadow-sm border border-slate-100 animate-in fade-in duration-500">
