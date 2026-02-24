@@ -96,7 +96,7 @@ const MemberProfileView: React.FC<MemberProfileViewProps> = ({ memberId, onBack,
         </div>
         <div className="flex gap-4">
            <button onClick={() => window.print()} className="px-8 py-4 bg-white border border-slate-200 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-sm hover:bg-slate-50 transition-all">Print Dossier</button>
-           <button onClick={() => alert('Edit functionality to be implemented')} className="px-8 py-4 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl active:scale-95 transition-all">Edit Record</button>
+           <button onClick={onEdit} className="px-8 py-4 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl active:scale-95 transition-all">Edit Record</button>
         </div>
       </div>
 

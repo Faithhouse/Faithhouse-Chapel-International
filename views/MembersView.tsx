@@ -6,9 +6,10 @@ import { Member, Branch, UserProfile } from '../types';
 interface MembersViewProps {
   userProfile: UserProfile | null;
   onSelectMember?: (id: string) => void;
+  initialEditId?: string | null;
 }
 
-const MembersView: React.FC<MembersViewProps> = ({ userProfile, onSelectMember }) => {
+const MembersView: React.FC<MembersViewProps> = ({ userProfile, onSelectMember, initialEditId }) => {
   const [members, setMembers] = useState<Member[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -66,6 +67,33 @@ const MembersView: React.FC<MembersViewProps> = ({ userProfile, onSelectMember }
   useEffect(() => {
     fetchInitialData();
   }, [statusFilter, searchTerm]);
+
+  useEffect(() => {
+    if (initialEditId && members.length > 0) {
+      const memberToEdit = members.find(m => m.id === initialEditId);
+      if (memberToEdit) {
+        setEditingId(memberToEdit.id);
+        setFormData({
+          first_name: memberToEdit.first_name,
+          last_name: memberToEdit.last_name || '',
+          gender: memberToEdit.gender || 'Male',
+          phone: memberToEdit.phone || '',
+          email: memberToEdit.email || '',
+          gps_address: memberToEdit.gps_address || '',
+          dob: memberToEdit.dob || '',
+          date_joined: memberToEdit.date_joined || '',
+          branch_id: memberToEdit.branch_id || '',
+          ministry: memberToEdit.ministry || 'N/A',
+          emergency_contact_name: memberToEdit.emergency_contact_name || '',
+          emergency_contact_phone: memberToEdit.emergency_contact_phone || '',
+          notify_birthday: memberToEdit.notify_birthday ?? true,
+          notify_events: memberToEdit.notify_events ?? true,
+          status: memberToEdit.status
+        });
+        setIsModalOpen(true);
+      }
+    }
+  }, [initialEditId, members]);
 
   const showNotify = (msg: string, type: 'success' | 'error' = 'success') => {
     setNotification({ msg, type });

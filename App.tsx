@@ -29,6 +29,7 @@ import { supabase } from './supabaseClient';
 const App: React.FC = () => {
   const [activeItem, setActiveItem] = useState<NavItem | string>('Dashboard');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [initialEditId, setInitialEditId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -189,11 +190,31 @@ const App: React.FC = () => {
         
         case 'Members':
           if (!canAccess(role, 'LEVEL_2')) return <SecurityDenied module={activeItem} />;
-          return <MembersView userProfile={profile} onSelectMember={(id) => { setSelectedMemberId(id); setActiveItem('Member Profile'); }} />;
+          return (
+            <MembersView 
+              userProfile={profile} 
+              initialEditId={initialEditId}
+              onSelectMember={(id) => { 
+                setSelectedMemberId(id); 
+                setInitialEditId(null);
+                setActiveItem('Member Profile'); 
+              }} 
+            />
+          );
         
         case 'Member Profile':
           if (!canAccess(role, 'LEVEL_2')) return <SecurityDenied module={activeItem} />;
-          return <MemberProfileView memberId={selectedMemberId || ''} userProfile={profile} onBack={() => setActiveItem('Members')} />;
+          return (
+            <MemberProfileView 
+              memberId={selectedMemberId || ''} 
+              userProfile={profile} 
+              onBack={() => setActiveItem('Members')} 
+              onEdit={() => {
+                setInitialEditId(selectedMemberId);
+                setActiveItem('Members');
+              }}
+            />
+          );
         
         case 'Attendance':
           if (!canAccess(role, 'LEVEL_2')) return <SecurityDenied module={activeItem} />;
