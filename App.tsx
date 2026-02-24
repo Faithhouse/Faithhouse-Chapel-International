@@ -22,6 +22,7 @@ import MemberProfileView from './views/MemberProfileView';
 import PlaceholderView from './views/PlaceholderView';
 import Auth from './components/Auth';
 import RecurringTasksView from './views/RecurringTasksView';
+import DavidChatbot from './components/DavidChatbot';
 import { NavItem, UserProfile } from './types';
 import { canAccess } from './src/utils/permissions';
 import { supabase } from './supabaseClient';
@@ -313,6 +314,7 @@ const App: React.FC = () => {
         </main>
         <Footer />
       </div>
+      <DavidChatbot />
     </div>
   );
 };
