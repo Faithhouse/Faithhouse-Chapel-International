@@ -30,8 +30,13 @@ const DavidChatbot: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
-      const model = "gemini-3-flash-preview";
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey || apiKey === 'undefined') {
+        throw new Error("Gemini API Key is not configured in the environment.");
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+      const model = "gemini-flash-latest";
       
       const systemInstruction = `
         You are David, an AI assistant for the Faithhouse Chapel International Church Management System (CMS).
@@ -58,10 +63,13 @@ const DavidChatbot: React.FC = () => {
         - If asked about Music Ministry, mention the Performance Tracker and Song Repository.
       `;
 
-      const chatHistory = messages.map(m => ({
-        role: m.role,
-        parts: [{ text: m.text }]
-      }));
+      // Filter out the initial greeting from the history as contents must start with a user message
+      const chatHistory = messages
+        .filter((m, index) => !(index === 0 && m.role === 'model'))
+        .map(m => ({
+          role: m.role,
+          parts: [{ text: m.text }]
+        }));
 
       const response = await ai.models.generateContent({
         model: model,
@@ -77,9 +85,13 @@ const DavidChatbot: React.FC = () => {
 
       const aiText = response.text || "I apologize, I'm having trouble connecting to my knowledge base right now. Please try again in a moment.";
       setMessages(prev => [...prev, { role: 'model', text: aiText }]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("David Chat Error:", error);
-      setMessages(prev => [...prev, { role: 'model', text: "I encountered an error while processing your request. Please ensure the system is fully connected." }]);
+      const errorMessage = error.message?.includes("API Key") 
+        ? "I'm sorry, but my connection to the AI service is not configured. Please check the GEMINI_API_KEY environment variable."
+        : "I encountered an error while processing your request. Please ensure the system is fully connected.";
+      
+      setMessages(prev => [...prev, { role: 'model', text: errorMessage }]);
     } finally {
       setIsLoading(false);
     }
