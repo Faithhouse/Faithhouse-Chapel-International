@@ -117,7 +117,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
         .eq('due_date', todayStr)
         .order('status', { ascending: false });
       
-      if (tErr) console.warn("Today's tasks fetch failed:", tErr);
+      if (tErr) {
+        if (tErr.code !== '42P01' && tErr.code !== 'PGRST205') {
+          console.warn("Today's tasks fetch failed:", tErr);
+        }
+      }
       setTodayTasks(tasks || []);
 
       // 5. Conditional Fetch: Growth Chart
