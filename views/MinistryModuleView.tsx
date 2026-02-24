@@ -180,9 +180,13 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
       case 'Ushering Ministry':
         return { ...base, icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z', accent: 'text-amber-600', bg: 'bg-amber-50', opsLabel: 'Hospitality Protocols', kpi1: 'Ushers on Duty', kpi1Val: '12' };
       case 'Evangelism':
+      case 'Evangelism Ministry':
         return { ...base, icon: 'M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z', accent: 'text-emerald-600', bg: 'bg-emerald-50', opsLabel: 'Souls Tracking', kpi1: 'Fields Active', kpi1Val: '4' };
       case 'Children Ministry':
+      case 'Children\'s Ministry':
         return { ...base, icon: 'M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', accent: 'text-orange-500', bg: 'bg-orange-50', opsLabel: 'Curriculum Oversight', kpi1: 'Educators', kpi1Val: '10' };
+      case 'Protocol Ministry':
+        return { ...base, icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z', accent: 'text-slate-900', bg: 'bg-slate-100', opsLabel: 'Security & Order', kpi1: 'Officers', kpi1Val: '8' };
       default:
         return base;
     }
@@ -630,6 +634,15 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
           { label: 'Hospital Visit', time: 'Wed 4PM', status: 'Confirmed' },
         ]
       },
+      'Evangelism Ministry': {
+        title: 'Outreach Logistics',
+        icon: MapPin,
+        items: [
+          { label: 'Market Square Mission', time: 'Sat 10AM', status: 'Confirmed' },
+          { label: 'Door-to-Door (Zone 4)', time: 'Sun 2PM', status: 'Pending' },
+          { label: 'Hospital Visit', time: 'Wed 4PM', status: 'Confirmed' },
+        ]
+      },
       'Media Ministry': {
         title: 'Production Queue',
         icon: Layers,
@@ -657,7 +670,25 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
           { label: 'Special Event Protocol', time: 'Fri 6PM', status: 'Pending' },
         ]
       },
+      'Protocol Ministry': {
+        title: 'Duty Roster',
+        icon: Shield,
+        items: [
+          { label: 'Main Service (Team A)', time: 'Sun 8AM', status: 'Deployed' },
+          { label: 'Mid-week Service', time: 'Wed 5PM', status: 'Assigned' },
+          { label: 'Special Event Protocol', time: 'Fri 6PM', status: 'Pending' },
+        ]
+      },
       'Children Ministry': {
+        title: 'Classroom Management',
+        icon: BookOpen,
+        items: [
+          { label: 'Toddlers Class', time: 'Sun 9AM', status: 'Active' },
+          { label: 'Primary Section', time: 'Sun 9AM', status: 'Active' },
+          { label: 'Teachers Briefing', time: 'Sat 5PM', status: 'Ready' },
+        ]
+      },
+      'Children\'s Ministry': {
         title: 'Classroom Management',
         icon: BookOpen,
         items: [
@@ -716,6 +747,11 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
         { title: 'Outreach Training', type: 'Video', size: '120 MB', category: 'Training' },
         { title: 'Convert Registry Form', type: 'DOCX', size: '150 KB', category: 'Forms' },
       ],
+      'Evangelism Ministry': [
+        { title: 'Soul Winning Tracts', type: 'PDF', size: '2.5 MB', category: 'Materials' },
+        { title: 'Outreach Training', type: 'Video', size: '120 MB', category: 'Training' },
+        { title: 'Convert Registry Form', type: 'DOCX', size: '150 KB', category: 'Forms' },
+      ],
       'Media Ministry': [
         { title: 'Brand Identity Guide', type: 'PDF', size: '5.2 MB', category: 'Assets' },
         { title: 'vMix Configuration', type: 'JSON', size: '45 KB', category: 'Software' },
@@ -731,7 +767,17 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
         { title: 'Seating Chart (Main)', type: 'PDF', size: '1.5 MB', category: 'Charts' },
         { title: 'Hospitality Training', type: 'Video', size: '95 MB', category: 'Training' },
       ],
+      'Protocol Ministry': [
+        { title: 'Protocol Handbook', type: 'PDF', size: '4.2 MB', category: 'Guidelines' },
+        { title: 'Seating Chart (Main)', type: 'PDF', size: '1.5 MB', category: 'Charts' },
+        { title: 'Hospitality Training', type: 'Video', size: '95 MB', category: 'Training' },
+      ],
       'Children Ministry': [
+        { title: 'Sunday School Curriculum', type: 'PDF', size: '12 MB', category: 'Lessons' },
+        { title: 'Activity Worksheets', type: 'PDF', size: '8 MB', category: 'Materials' },
+        { title: 'Safety & Safeguarding', type: 'PDF', size: '2.1 MB', category: 'Policy' },
+      ],
+      'Children\'s Ministry': [
         { title: 'Sunday School Curriculum', type: 'PDF', size: '12 MB', category: 'Lessons' },
         { title: 'Activity Worksheets', type: 'PDF', size: '8 MB', category: 'Materials' },
         { title: 'Safety & Safeguarding', type: 'PDF', size: '2.1 MB', category: 'Policy' },
@@ -803,16 +849,16 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
       {activeTab === 'Operations' && ministryName === 'Music Ministry' && renderMusicMinistryOperations()}
       {activeTab === 'Resources' && ministryName === 'Music Ministry' && renderMusicMinistryResources()}
 
-      {activeTab === 'Operations' && ['Evangelism', 'Media Ministry', 'Prayer Ministry', 'Ushering Ministry', 'Children Ministry'].includes(ministryName) && renderGenericOperations()}
-      {activeTab === 'Resources' && ['Evangelism', 'Media Ministry', 'Prayer Ministry', 'Ushering Ministry', 'Children Ministry'].includes(ministryName) && renderGenericResources()}
+      {activeTab === 'Operations' && ['Evangelism', 'Evangelism Ministry', 'Media Ministry', 'Prayer Ministry', 'Ushering Ministry', 'Protocol Ministry', 'Children Ministry', 'Children\'s Ministry'].includes(ministryName) && renderGenericOperations()}
+      {activeTab === 'Resources' && ['Evangelism', 'Evangelism Ministry', 'Media Ministry', 'Prayer Ministry', 'Ushering Ministry', 'Protocol Ministry', 'Children Ministry', 'Children\'s Ministry'].includes(ministryName) && renderGenericResources()}
 
-      {activeTab === 'Overview' && ministryName === 'Evangelism' && renderEvangelismOverview()}
+      {activeTab === 'Overview' && (ministryName === 'Evangelism' || ministryName === 'Evangelism Ministry') && renderEvangelismOverview()}
       {activeTab === 'Overview' && ministryName === 'Media Ministry' && renderMediaOverview()}
       {activeTab === 'Overview' && ministryName === 'Prayer Ministry' && renderPrayerOverview()}
-      {activeTab === 'Overview' && ministryName === 'Ushering Ministry' && renderUsheringOverview()}
-      {activeTab === 'Overview' && ministryName === 'Children Ministry' && renderChildrenOverview()}
+      {activeTab === 'Overview' && (ministryName === 'Ushering Ministry' || ministryName === 'Protocol Ministry') && renderUsheringOverview()}
+      {activeTab === 'Overview' && (ministryName === 'Children Ministry' || ministryName === 'Children\'s Ministry') && renderChildrenOverview()}
 
-      {activeTab === 'Overview' && !['Music Ministry', 'Evangelism', 'Media Ministry', 'Prayer Ministry', 'Ushering Ministry', 'Children Ministry'].includes(ministryName) && (
+      {activeTab === 'Overview' && !['Music Ministry', 'Evangelism', 'Evangelism Ministry', 'Media Ministry', 'Prayer Ministry', 'Ushering Ministry', 'Protocol Ministry', 'Children Ministry', 'Children\'s Ministry'].includes(ministryName) && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 animate-in fade-in duration-500">
            <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm text-center">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">{cfg.kpi1}</p>

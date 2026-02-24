@@ -244,6 +244,7 @@ const App: React.FC = () => {
           return <MinistriesView userProfile={profile} setActiveItem={setActiveItem as any} />;
         
         case 'Visitation & Follow-up':
+        case 'Follow-up & Visitation ministry':
           if (!['System Administrator', 'Head Pastor', 'Follow-up & Visitation', 'Evangelism Ministry', 'General Office'].includes(role || '')) {
             return <SecurityDenied module={activeItem} />;
           }
@@ -273,9 +274,12 @@ const App: React.FC = () => {
         case 'Media Ministry':
         case 'Music Ministry':
         case 'Ushering Ministry':
+        case 'Protocol Ministry':
         case 'Prayer Ministry':
         case 'Evangelism':
+        case 'Evangelism Ministry':
         case 'Children Ministry':
+        case 'Children\'s Ministry':
           return <MinistryModuleView ministryName={activeItem} userProfile={profile} />;
 
         default:
