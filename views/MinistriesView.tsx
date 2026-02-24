@@ -246,18 +246,18 @@ CREATE POLICY "Allow all for staff" ON public.ministries FOR ALL USING (true) WI
               </div>
             </div>
 
-            <div className="px-4 py-2.5 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-all duration-300">
+            <div className="px-4 py-2.5 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-300">
                <div className="flex gap-1.5">
-                 <button onClick={() => handleEdit(min)} className="p-1 bg-white border border-slate-200 rounded-md text-slate-400 hover:text-fh-green transition-all shadow-sm active:scale-90">
-                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                 <button onClick={() => handleEdit(min)} className="p-2 lg:p-1 bg-white border border-slate-200 rounded-md text-slate-400 hover:text-fh-green transition-all shadow-sm active:scale-90">
+                   <svg className="w-4 h-4 lg:w-3 lg:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                  </button>
-                 <button onClick={() => deleteMinistry(min.id)} className="p-1 bg-white border border-slate-200 rounded-md text-slate-400 hover:text-rose-500 transition-all shadow-sm active:scale-90">
-                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                 <button onClick={() => deleteMinistry(min.id)} className="p-2 lg:p-1 bg-white border border-slate-200 rounded-md text-slate-400 hover:text-rose-500 transition-all shadow-sm active:scale-90">
+                   <svg className="w-4 h-4 lg:w-3 lg:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                  </button>
                </div>
                <button 
                   onClick={() => setActiveItem(min.name)}
-                  className="text-[7px] font-black text-fh-green uppercase tracking-widest hover:underline underline-offset-2"
+                  className="text-[9px] lg:text-[7px] font-black text-fh-green uppercase tracking-widest hover:underline underline-offset-2 bg-white lg:bg-transparent px-3 py-1.5 lg:p-0 rounded-lg border border-slate-200 lg:border-none shadow-sm lg:shadow-none"
                >
                 Access Details
                </button>

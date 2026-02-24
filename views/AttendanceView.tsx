@@ -346,9 +346,21 @@ END $$;`;
                         </div>
                       </td>
                       <td className="px-10 py-6">
-                        <div className="flex justify-center gap-2 bg-slate-50 p-2 rounded-2xl w-fit mx-auto border border-slate-100 shadow-inner">
+                        <div className="flex justify-center gap-1 lg:gap-2 bg-slate-50 p-1.5 lg:p-2 rounded-2xl w-fit mx-auto border border-slate-100 shadow-inner">
                           {(['Present', 'Absent', 'Excused'] as const).map(st => (
-                            <button key={st} onClick={() => handleStatusChange(m.id, st)} className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${s === st ? (st === 'Present' ? 'bg-cms-emerald text-white shadow-lg' : st === 'Absent' ? 'bg-cms-rose text-white shadow-lg' : 'bg-cms-purple text-white shadow-lg') : 'text-slate-400 hover:bg-white'}`}>{st}</button>
+                            <button 
+                              key={st} 
+                              onClick={() => handleStatusChange(m.id, st)} 
+                              className={`px-3 lg:px-6 py-2 lg:py-2.5 rounded-xl text-[8px] lg:text-[9px] font-black uppercase tracking-widest transition-all ${
+                                s === st ? (
+                                  st === 'Present' ? 'bg-cms-emerald text-white shadow-lg' : 
+                                  st === 'Absent' ? 'bg-cms-rose text-white shadow-lg' : 
+                                  'bg-cms-purple text-white shadow-lg'
+                                ) : 'text-slate-400 hover:bg-white'
+                              }`}
+                            >
+                              {st.charAt(0)}<span className="hidden lg:inline">{st.slice(1)}</span>
+                            </button>
                           ))}
                         </div>
                       </td>
