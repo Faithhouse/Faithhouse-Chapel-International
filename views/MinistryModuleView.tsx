@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { UserProfile, Member } from '../types';
+import { motion } from 'framer-motion';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   BarChart, Bar, Legend, Cell
 } from 'recharts';
 import { 
   Music, Mic2, Play, FileText, Download, Plus, Trash2, 
-  Users, Calendar, Activity, ListMusic, Headphones, Video
+  Users, Calendar, Activity, ListMusic, Headphones, Video,
+  Globe, Radio, Heart, Shield, Baby, Zap, MapPin, MessageCircle,
+  Camera, Settings, Layers, BookOpen, Clock
 } from 'lucide-react';
 
 interface MinistryModuleViewProps {
@@ -43,6 +46,25 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
     { id: '1', title: 'Sunday Service Setlist', type: 'PDF', size: '1.2 MB', category: 'Sheet Music' },
     { id: '2', title: 'Way Maker (Vocal Stems)', type: 'MP3', size: '15 MB', category: 'Audio' },
     { id: '3', title: 'Microphone Handling 101', type: 'Video', size: '45 MB', category: 'Training' },
+  ]);
+
+  // Evangelism Specific State
+  const [evangelismData] = useState([
+    { name: 'Jan', souls: 45, outreaches: 2 },
+    { name: 'Feb', souls: 52, outreaches: 3 },
+    { name: 'Mar', souls: 38, outreaches: 1 },
+    { name: 'Apr', souls: 65, outreaches: 4 },
+  ]);
+
+  // Media Specific State
+  const [mediaEngagement] = useState([
+    { name: 'Sun', viewers: 1200, engagement: 85 },
+    { name: 'Mon', viewers: 450, engagement: 40 },
+    { name: 'Tue', viewers: 380, engagement: 35 },
+    { name: 'Wed', viewers: 950, engagement: 75 },
+    { name: 'Thu', viewers: 400, engagement: 30 },
+    { name: 'Fri', viewers: 350, engagement: 25 },
+    { name: 'Sat', viewers: 300, engagement: 20 },
   ]);
 
   useEffect(() => {
@@ -324,6 +346,428 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
     </div>
   );
 
+  const renderEvangelismOverview = () => (
+    <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-700">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Soul Winning Tracker</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Monthly Conversions & Outreach Impact</p>
+            </div>
+            <Globe className="w-6 h-6 text-emerald-500" />
+          </div>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={evangelismData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 900, fill: '#94a3b8'}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 900, fill: '#94a3b8'}} />
+                <Tooltip 
+                  cursor={{fill: '#f8fafc'}}
+                  contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                />
+                <Bar dataKey="souls" fill="#10b981" radius={[10, 10, 0, 0]} name="Souls Won" />
+                <Bar dataKey="outreaches" fill="#fbbf24" radius={[10, 10, 0, 0]} name="Outreaches" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="bg-emerald-600 p-8 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden">
+            <Zap className="absolute -right-4 -bottom-4 w-32 h-32 opacity-10 rotate-12" />
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60 mb-2">Next Outreach</p>
+            <h4 className="text-2xl font-black mb-1">Saturday, 10:00 AM</h4>
+            <p className="text-xs font-medium opacity-80">Community Market Square</p>
+          </div>
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+            <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-6">Active Fields</h4>
+            <div className="space-y-4">
+              {['Downtown Outreach', 'Hospital Visitation', 'Prison Ministry', 'Campus Mission'].map((field, i) => (
+                <div key={i} className="flex items-center gap-4 p-3 bg-slate-50 rounded-xl">
+                  <MapPin className="w-4 h-4 text-emerald-500" />
+                  <p className="text-xs font-black text-slate-800 uppercase">{field}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderMediaOverview = () => (
+    <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-700">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Stream Health</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Live Viewership & Engagement Metrics</p>
+            </div>
+            <Radio className="w-6 h-6 text-cyan-500" />
+          </div>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={mediaEngagement}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 900, fill: '#94a3b8'}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 900, fill: '#94a3b8'}} />
+                <Tooltip />
+                <Line type="monotone" dataKey="viewers" stroke="#06b6d4" strokeWidth={4} dot={false} name="Viewers" />
+                <Line type="monotone" dataKey="engagement" stroke="#f59e0b" strokeWidth={4} dot={false} name="Engagement %" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="bg-slate-900 p-8 rounded-[2.5rem] text-fh-gold shadow-xl border border-fh-gold/20">
+            <Camera className="w-8 h-8 mb-4" />
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60 mb-2">Production Status</p>
+            <h4 className="text-2xl font-black mb-1">Live in 4h 12m</h4>
+            <div className="mt-4 flex gap-2">
+              <span className="px-3 py-1 bg-fh-gold/10 rounded-full text-[8px] font-black uppercase">4K Stream Ready</span>
+              <span className="px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full text-[8px] font-black uppercase">Audio Sync OK</span>
+            </div>
+          </div>
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+            <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-6">Equipment Check</h4>
+            <div className="space-y-3">
+              {[
+                { name: 'Main Cam (Sony A7IV)', status: 'Online' },
+                { name: 'Wireless Mics', status: 'Online' },
+                { name: 'Stream Deck', status: 'Online' },
+                { name: 'Lighting Rig', status: 'Maintenance' },
+              ].map((eq, i) => (
+                <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                  <p className="text-[10px] font-black text-slate-800 uppercase">{eq.name}</p>
+                  <div className={`w-2 h-2 rounded-full ${eq.status === 'Online' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderPrayerOverview = () => (
+    <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-700">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Intercession Coverage</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">24/7 Prayer Chain Status</p>
+            </div>
+            <Heart className="w-6 h-6 text-rose-500" />
+          </div>
+          <div className="grid grid-cols-6 gap-2">
+            {Array.from({ length: 24 }).map((_, i) => (
+              <div key={i} className="aspect-square bg-rose-50 rounded-xl flex flex-col items-center justify-center border border-rose-100 group hover:bg-rose-500 transition-all cursor-help">
+                <span className="text-[8px] font-black text-rose-300 group-hover:text-rose-100">{i}:00</span>
+                <div className={`w-2 h-2 rounded-full mt-1 ${i % 3 === 0 ? 'bg-rose-200' : 'bg-rose-500 group-hover:bg-white'}`} />
+              </div>
+            ))}
+          </div>
+          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-6 text-center italic">Prayer coverage is currently at 88% for the last 24 hours.</p>
+        </div>
+
+        <div className="space-y-6">
+          <div className="bg-rose-600 p-8 rounded-[2.5rem] text-white shadow-xl">
+             <Clock className="w-8 h-8 mb-4 opacity-60" />
+             <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60 mb-2">Current Shift</p>
+             <h4 className="text-2xl font-black mb-1">Morning Watch</h4>
+             <p className="text-xs font-medium opacity-80">6:00 AM - 9:00 AM</p>
+          </div>
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+            <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-6">Urgent Requests</h4>
+            <div className="space-y-4">
+              {[
+                { title: 'Healing for Sis. Mary', time: '2h ago' },
+                { title: 'Financial Breakthrough', time: '5h ago' },
+                { title: 'Travel Mercies', time: '10h ago' },
+              ].map((req, i) => (
+                <div key={i} className="p-4 bg-slate-50 rounded-2xl border-l-4 border-rose-500">
+                  <p className="text-xs font-black text-slate-800 uppercase mb-1">{req.title}</p>
+                  <p className="text-[9px] text-slate-400 font-bold uppercase">{req.time}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderUsheringOverview = () => (
+    <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-700">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Service Flow</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Hospitality & Seating Efficiency</p>
+            </div>
+            <Shield className="w-6 h-6 text-amber-500" />
+          </div>
+          <div className="space-y-8">
+             {[
+               { label: 'Seating Capacity', val: 85, color: 'bg-amber-500' },
+               { label: 'Guest Reception', val: 92, color: 'bg-emerald-500' },
+               { label: 'Protocol Adherence', val: 78, color: 'bg-indigo-500' },
+             ].map((stat, i) => (
+               <div key={i} className="space-y-2">
+                 <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                   <span className="text-slate-400">{stat.label}</span>
+                   <span className="text-slate-900">{stat.val}%</span>
+                 </div>
+                 <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+                   <motion.div 
+                     initial={{ width: 0 }}
+                     animate={{ width: `${stat.val}%` }}
+                     transition={{ duration: 1, delay: i * 0.2 }}
+                     className={`h-full ${stat.color} rounded-full`}
+                   />
+                 </div>
+               </div>
+             ))}
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="bg-amber-500 p-8 rounded-[2.5rem] text-white shadow-xl">
+             <Users className="w-8 h-8 mb-4 opacity-60" />
+             <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60 mb-2">Team on Duty</p>
+             <h4 className="text-2xl font-black mb-1">Group A - Alpha</h4>
+             <p className="text-xs font-medium opacity-80">12 Personnel Deployed</p>
+          </div>
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+            <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-6">Duty Stations</h4>
+            <div className="space-y-3">
+              {['Main Entrance', 'Sanctuary Aisle 1', 'Sanctuary Aisle 2', 'VIP/Ministers Section', 'Car Park Protocol'].map((station, i) => (
+                <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                  <div className="w-2 h-2 bg-amber-400 rounded-full" />
+                  <p className="text-[10px] font-black text-slate-800 uppercase">{station}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderChildrenOverview = () => (
+    <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-700">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Growth & Engagement</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Sunday School Attendance Trends</p>
+            </div>
+            <Baby className="w-6 h-6 text-orange-500" />
+          </div>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={[
+                { name: 'Toddlers', count: 25 },
+                { name: 'Pre-School', count: 42 },
+                { name: 'Primary', count: 58 },
+                { name: 'Pre-Teens', count: 35 },
+              ]}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 900, fill: '#94a3b8'}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 900, fill: '#94a3b8'}} />
+                <Tooltip cursor={{fill: '#fff7ed'}} />
+                <Bar dataKey="count" fill="#f97316" radius={[12, 12, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="bg-orange-500 p-8 rounded-[2.5rem] text-white shadow-xl">
+             <BookOpen className="w-8 h-8 mb-4 opacity-60" />
+             <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60 mb-2">Today's Lesson</p>
+             <h4 className="text-2xl font-black mb-1">The Fruit of the Spirit</h4>
+             <p className="text-xs font-medium opacity-80">Module 4 • Week 2</p>
+          </div>
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+            <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-6">Safety Checklist</h4>
+            <div className="space-y-3">
+              {[
+                { task: 'Check-in System Active', status: true },
+                { task: 'First Aid Kit Verified', status: true },
+                { task: 'Teacher-Child Ratio OK', status: true },
+                { task: 'Snack Allergy Review', status: false },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                  <p className="text-[10px] font-black text-slate-800 uppercase">{item.task}</p>
+                  <div className={`w-5 h-5 rounded-lg flex items-center justify-center ${item.status ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                    {item.status ? <Shield className="w-3 h-3" /> : <Activity className="w-3 h-3" />}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderGenericOperations = () => {
+    const opsData: Record<string, { title: string, icon: any, items: any[] }> = {
+      'Evangelism': {
+        title: 'Outreach Logistics',
+        icon: MapPin,
+        items: [
+          { label: 'Market Square Mission', time: 'Sat 10AM', status: 'Confirmed' },
+          { label: 'Door-to-Door (Zone 4)', time: 'Sun 2PM', status: 'Pending' },
+          { label: 'Hospital Visit', time: 'Wed 4PM', status: 'Confirmed' },
+        ]
+      },
+      'Media Ministry': {
+        title: 'Production Queue',
+        icon: Layers,
+        items: [
+          { label: 'Sunday Stream Setup', time: 'Sun 7AM', status: 'Ready' },
+          { label: 'Mid-week Sermon Edit', time: 'Tue 10AM', status: 'In Progress' },
+          { label: 'Social Media Graphics', time: 'Mon 9AM', status: 'Ready' },
+        ]
+      },
+      'Prayer Ministry': {
+        title: 'Intercession Roster',
+        icon: Clock,
+        items: [
+          { label: 'Midnight Watch', time: '12AM - 3AM', status: 'Active' },
+          { label: 'Morning Glory', time: '5AM - 7AM', status: 'Ready' },
+          { label: 'Noon Day Prayer', time: '12PM - 1PM', status: 'Ready' },
+        ]
+      },
+      'Ushering Ministry': {
+        title: 'Duty Roster',
+        icon: Users,
+        items: [
+          { label: 'Main Service (Team A)', time: 'Sun 8AM', status: 'Deployed' },
+          { label: 'Mid-week Service', time: 'Wed 5PM', status: 'Assigned' },
+          { label: 'Special Event Protocol', time: 'Fri 6PM', status: 'Pending' },
+        ]
+      },
+      'Children Ministry': {
+        title: 'Classroom Management',
+        icon: BookOpen,
+        items: [
+          { label: 'Toddlers Class', time: 'Sun 9AM', status: 'Active' },
+          { label: 'Primary Section', time: 'Sun 9AM', status: 'Active' },
+          { label: 'Teachers Briefing', time: 'Sat 5PM', status: 'Ready' },
+        ]
+      }
+    };
+
+    const config = opsData[ministryName] || { title: 'Operational Tasks', icon: Settings, items: [] };
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in duration-700">
+        <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
+          <div className="flex items-center gap-4 mb-8">
+             <config.icon className="w-6 h-6 text-fh-green" />
+             <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">{config.title}</h3>
+          </div>
+          <div className="space-y-4">
+            {config.items.map((item, i) => (
+              <div key={i} className="flex items-center justify-between p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                <div>
+                  <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{item.label}</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">{item.time}</p>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase ${
+                  item.status === 'Active' || item.status === 'Ready' || item.status === 'Deployed' || item.status === 'Confirmed'
+                    ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'
+                }`}>
+                  {item.status}
+                </span>
+              </div>
+            ))}
+            <button className="w-full py-4 mt-4 border-2 border-dashed border-slate-100 rounded-2xl text-[10px] font-black text-slate-400 uppercase tracking-widest hover:border-fh-green hover:text-fh-green transition-all">+ Schedule Task</button>
+          </div>
+        </div>
+
+        <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center">
+           <div className="w-20 h-20 bg-slate-50 rounded-[2.5rem] flex items-center justify-center mb-6">
+              <Settings className="w-10 h-10 text-slate-300 animate-spin-slow" />
+           </div>
+           <h4 className="text-lg font-black text-slate-800 uppercase tracking-tight mb-2">Advanced Logistics</h4>
+           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest max-w-xs">
+             Automated departmental workflow and resource allocation engine.
+           </p>
+        </div>
+      </div>
+    );
+  };
+
+  const renderGenericResources = () => {
+    const resData: Record<string, any[]> = {
+      'Evangelism': [
+        { title: 'Soul Winning Tracts', type: 'PDF', size: '2.5 MB', category: 'Materials' },
+        { title: 'Outreach Training', type: 'Video', size: '120 MB', category: 'Training' },
+        { title: 'Convert Registry Form', type: 'DOCX', size: '150 KB', category: 'Forms' },
+      ],
+      'Media Ministry': [
+        { title: 'Brand Identity Guide', type: 'PDF', size: '5.2 MB', category: 'Assets' },
+        { title: 'vMix Configuration', type: 'JSON', size: '45 KB', category: 'Software' },
+        { title: 'Stream Overlay Pack', type: 'ZIP', size: '85 MB', category: 'Graphics' },
+      ],
+      'Prayer Ministry': [
+        { title: 'Prayer Bulletin (Weekly)', type: 'PDF', size: '1.1 MB', category: 'Guides' },
+        { title: 'Fasting Guidelines', type: 'PDF', size: '800 KB', category: 'Training' },
+        { title: 'Intercession Manual', type: 'PDF', size: '3.4 MB', category: 'Materials' },
+      ],
+      'Ushering Ministry': [
+        { title: 'Protocol Handbook', type: 'PDF', size: '4.2 MB', category: 'Guidelines' },
+        { title: 'Seating Chart (Main)', type: 'PDF', size: '1.5 MB', category: 'Charts' },
+        { title: 'Hospitality Training', type: 'Video', size: '95 MB', category: 'Training' },
+      ],
+      'Children Ministry': [
+        { title: 'Sunday School Curriculum', type: 'PDF', size: '12 MB', category: 'Lessons' },
+        { title: 'Activity Worksheets', type: 'PDF', size: '8 MB', category: 'Materials' },
+        { title: 'Safety & Safeguarding', type: 'PDF', size: '2.1 MB', category: 'Policy' },
+      ]
+    };
+
+    const currentResources = resData[ministryName] || [];
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in duration-700">
+        {currentResources.map((res, i) => (
+          <div key={i} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-md transition-all group">
+            <div className="flex items-center justify-between mb-6">
+              <div className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center group-hover:bg-fh-green group-hover:text-fh-gold transition-all">
+                <FileText className="w-6 h-6" />
+              </div>
+              <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{res.type}</span>
+            </div>
+            <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight mb-2">{res.title}</h4>
+            <div className="flex items-center justify-between mt-6">
+              <span className="text-[10px] font-bold text-slate-400 uppercase">{res.size}</span>
+              <button className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all">
+                <Download className="w-3 h-3" />
+                Download
+              </button>
+            </div>
+          </div>
+        ))}
+        <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center group cursor-pointer hover:bg-white hover:border-fh-green transition-all">
+           <Plus className="w-8 h-8 text-slate-300 group-hover:text-fh-green mb-4" />
+           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-fh-green">Upload Asset</p>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-1000 pb-20">
       
@@ -359,7 +803,16 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
       {activeTab === 'Operations' && ministryName === 'Music Ministry' && renderMusicMinistryOperations()}
       {activeTab === 'Resources' && ministryName === 'Music Ministry' && renderMusicMinistryResources()}
 
-      {activeTab === 'Overview' && ministryName !== 'Music Ministry' && (
+      {activeTab === 'Operations' && ['Evangelism', 'Media Ministry', 'Prayer Ministry', 'Ushering Ministry', 'Children Ministry'].includes(ministryName) && renderGenericOperations()}
+      {activeTab === 'Resources' && ['Evangelism', 'Media Ministry', 'Prayer Ministry', 'Ushering Ministry', 'Children Ministry'].includes(ministryName) && renderGenericResources()}
+
+      {activeTab === 'Overview' && ministryName === 'Evangelism' && renderEvangelismOverview()}
+      {activeTab === 'Overview' && ministryName === 'Media Ministry' && renderMediaOverview()}
+      {activeTab === 'Overview' && ministryName === 'Prayer Ministry' && renderPrayerOverview()}
+      {activeTab === 'Overview' && ministryName === 'Ushering Ministry' && renderUsheringOverview()}
+      {activeTab === 'Overview' && ministryName === 'Children Ministry' && renderChildrenOverview()}
+
+      {activeTab === 'Overview' && !['Music Ministry', 'Evangelism', 'Media Ministry', 'Prayer Ministry', 'Ushering Ministry', 'Children Ministry'].includes(ministryName) && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 animate-in fade-in duration-500">
            <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm text-center">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">{cfg.kpi1}</p>
