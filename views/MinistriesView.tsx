@@ -30,6 +30,8 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ userProfile, setActiveI
     fetchMinistries();
   }, [searchTerm]);
 
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+
   const fetchMinistries = async () => {
     setIsLoading(true);
     try {
@@ -186,13 +188,19 @@ CREATE POLICY "Allow all for staff" ON public.ministries FOR ALL USING (true) WI
           <h2 className="text-3xl font-black text-fh-green tracking-tighter uppercase leading-none">Ministries</h2>
           <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.4em]">Operational Oversight Hub</p>
         </div>
-        <button 
-          onClick={() => { resetForm(); setEditingId(null); setIsModalOpen(true); }}
-          className="flex items-center justify-center gap-3 px-8 py-4 bg-fh-green text-fh-gold rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl active:scale-95 transition-all border-b-4 border-black/30"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-          Provision Ministry
-        </button>
+        <div className="flex gap-4">
+          <button onClick={() => setIsReportModalOpen(true)} className="px-8 py-4 bg-white border border-slate-200 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-3 hover:bg-slate-50 transition-all shadow-sm active:scale-95">
+            <svg className="w-5 h-5 text-fh-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            Generate Report
+          </button>
+          <button 
+            onClick={() => { resetForm(); setEditingId(null); setIsModalOpen(true); }}
+            className="flex items-center justify-center gap-3 px-8 py-4 bg-fh-green text-fh-gold rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl active:scale-95 transition-all border-b-4 border-black/30"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+            Provision Ministry
+          </button>
+        </div>
       </div>
 
       <div className="bg-white p-4 rounded-[1.5rem] border border-slate-100 shadow-sm flex flex-col md:flex-row items-center gap-4">
@@ -279,6 +287,86 @@ CREATE POLICY "Allow all for staff" ON public.ministries FOR ALL USING (true) WI
                 {isSubmitting ? 'Syncing...' : (editingId ? 'Update Registry' : 'Add Department')}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODALS: MINISTRIES REPORT */}
+      {isReportModalOpen && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md animate-in fade-in" onClick={() => setIsReportModalOpen(false)} />
+          <div className="relative bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 flex flex-col max-h-[90vh]">
+            <div className="p-10 border-b border-slate-50 flex items-center justify-between no-print">
+              <h3 className="text-2xl font-black text-fh-green uppercase tracking-tighter">Organizational Structure Report</h3>
+              <div className="flex gap-4">
+                <button onClick={() => window.print()} className="px-6 py-3 bg-slate-900 text-fh-gold rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg">Print Report</button>
+                <button onClick={() => setIsReportModalOpen(false)} className="p-3 hover:bg-slate-100 rounded-full transition-all text-slate-400"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg></button>
+              </div>
+            </div>
+            
+            <div className="p-12 overflow-y-auto print:p-0">
+              <div className="text-center mb-12">
+                <h1 className="text-4xl font-black text-fh-green uppercase tracking-tighter mb-2">Faithhouse Chapel International</h1>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.5em]">General Oversight • Ministry Distribution Summary</p>
+                <p className="text-xs font-bold text-slate-500 mt-4">Report Generated: {new Date().toLocaleString()}</p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-8 mb-12">
+                <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100 text-center">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Total Ministries</p>
+                  <h2 className="text-3xl font-black text-fh-green">{ministries.length}</h2>
+                </div>
+                <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100 text-center">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Active Depts</p>
+                  <h2 className="text-3xl font-black text-emerald-600">{ministries.filter(m => m.status === 'Active').length}</h2>
+                </div>
+                <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100 text-center">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Inactive Depts</p>
+                  <h2 className="text-3xl font-black text-rose-500">{ministries.filter(m => m.status === 'Inactive').length}</h2>
+                </div>
+              </div>
+
+              <div className="space-y-8">
+                <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest border-b-2 border-slate-900 pb-2">Ministry Distribution Ledger</h4>
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="text-[10px] font-black uppercase text-slate-400 border-b border-slate-100">
+                      <th className="py-4">Ministry Name</th>
+                      <th className="py-4">Leader</th>
+                      <th className="py-4">Schedule</th>
+                      <th className="py-4 text-right">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {ministries.map(min => (
+                      <tr key={min.id} className="text-[10px] font-bold text-slate-700">
+                        <td className="py-4 uppercase">{min.name}</td>
+                        <td className="py-4">{min.leader_name || '---'}</td>
+                        <td className="py-4">{min.meeting_schedule || '---'}</td>
+                        <td className="py-4 text-right">
+                          <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider ${
+                            min.status === 'Active' ? 'text-emerald-600' : 'text-slate-400'
+                          }`}>
+                            {min.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="mt-20 pt-10 border-t-2 border-dashed border-slate-200 grid grid-cols-2 gap-20 text-center">
+                <div className="space-y-12">
+                  <div className="h-px bg-slate-300 w-48 mx-auto"></div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">General Overseer Signature</p>
+                </div>
+                <div className="space-y-12">
+                  <div className="h-px bg-slate-300 w-48 mx-auto"></div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Ministry Coordinator Signature</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

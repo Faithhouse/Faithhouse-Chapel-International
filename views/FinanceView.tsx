@@ -36,6 +36,8 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
     fetchInitialData();
   }, []);
 
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+
   const fetchInitialData = async () => {
     setIsLoading(true);
     setTableMissing(false);
@@ -173,6 +175,10 @@ CREATE POLICY "Allow all actions for staff" ON public.financial_records FOR ALL 
           <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em]">Authorized Entries Only</p>
         </div>
         <div className="flex gap-4">
+          <button onClick={() => setIsReportModalOpen(true)} className="px-8 py-5 bg-white border border-slate-200 rounded-[1.75rem] font-black uppercase text-[10px] tracking-widest flex items-center gap-3 hover:bg-slate-50 transition-all shadow-sm active:scale-95">
+            <svg className="w-5 h-5 text-fh-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            Generate Report
+          </button>
           <button onClick={() => window.print()} className="px-8 py-5 bg-white border border-slate-200 rounded-[1.75rem] font-black uppercase text-[10px] tracking-widest flex items-center gap-3 hover:bg-slate-50 transition-all shadow-sm active:scale-95">
             <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
             Print Audit
@@ -419,6 +425,101 @@ CREATE POLICY "Allow all actions for staff" ON public.financial_records FOR ALL 
         </div>
       )}
 
+      {/* 6. MODALS: FINANCIAL REPORT */}
+      {isReportModalOpen && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md animate-in fade-in" onClick={() => setIsReportModalOpen(false)} />
+          <div className="relative bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 flex flex-col max-h-[90vh]">
+            <div className="p-10 border-b border-slate-50 flex items-center justify-between no-print">
+              <h3 className="text-2xl font-black text-fh-green uppercase tracking-tighter">Financial Audit Report</h3>
+              <div className="flex gap-4">
+                <button onClick={() => window.print()} className="px-6 py-3 bg-slate-900 text-fh-gold rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg">Print Report</button>
+                <button onClick={() => setIsReportModalOpen(false)} className="p-3 hover:bg-slate-100 rounded-full transition-all text-slate-400"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg></button>
+              </div>
+            </div>
+            
+            <div className="p-12 overflow-y-auto print:p-0">
+              <div className="text-center mb-12">
+                <h1 className="text-4xl font-black text-fh-green uppercase tracking-tighter mb-2">Faithhouse Chapel International</h1>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.5em]">Treasury & Audit Department • Financial Summary</p>
+                <p className="text-xs font-bold text-slate-500 mt-4">Report Generated: {new Date().toLocaleString()}</p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-8 mb-12">
+                <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100 text-center">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Gross Revenue</p>
+                  <h2 className="text-3xl font-black text-fh-green">{formatGHS(totalRevenue)}</h2>
+                </div>
+                <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100 text-center">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Total Expenditure</p>
+                  <h2 className="text-3xl font-black text-rose-500">{formatGHS(sum('expenses'))}</h2>
+                </div>
+                <div className="p-8 bg-slate-900 rounded-3xl text-center">
+                  <p className="text-[10px] font-black text-fh-gold/60 uppercase tracking-widest mb-2">Net Liquidity</p>
+                  <h2 className="text-3xl font-black text-fh-gold">{formatGHS(netBalance)}</h2>
+                </div>
+              </div>
+
+              <div className="space-y-8">
+                <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest border-b-2 border-slate-900 pb-2">Revenue Breakdown</h4>
+                <div className="grid grid-cols-2 gap-x-12 gap-y-4">
+                  <div className="flex justify-between border-b border-slate-100 pb-2">
+                    <span className="text-xs font-bold text-slate-500 uppercase">Tithes</span>
+                    <span className="text-xs font-black text-slate-900">{formatGHS(sum('tithes'))}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-100 pb-2">
+                    <span className="text-xs font-bold text-slate-500 uppercase">Offerings</span>
+                    <span className="text-xs font-black text-slate-900">{formatGHS(sum('offerings'))}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-100 pb-2">
+                    <span className="text-xs font-bold text-slate-500 uppercase">Seeds & Pledges</span>
+                    <span className="text-xs font-black text-slate-900">{formatGHS(sum('seed'))}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-100 pb-2">
+                    <span className="text-xs font-bold text-slate-500 uppercase">Other Income</span>
+                    <span className="text-xs font-black text-slate-900">{formatGHS(sum('other_income'))}</span>
+                  </div>
+                </div>
+
+                <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest border-b-2 border-slate-900 pb-2 mt-12">Recent Transactions</h4>
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="text-[10px] font-black uppercase text-slate-400 border-b border-slate-100">
+                      <th className="py-4">Date</th>
+                      <th className="py-4">Service</th>
+                      <th className="py-4">Income</th>
+                      <th className="py-4">Expense</th>
+                      <th className="py-4 text-right">Witnesses</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {records.slice(0, 10).map(rec => (
+                      <tr key={rec.id} className="text-[10px] font-bold text-slate-700">
+                        <td className="py-4">{new Date(rec.service_date).toLocaleDateString()}</td>
+                        <td className="py-4 uppercase">{rec.service_type}</td>
+                        <td className="py-4 text-fh-green">{formatGHS(rec.total_income)}</td>
+                        <td className="py-4 text-rose-500">{formatGHS(rec.expenses || 0)}</td>
+                        <td className="py-4 text-right text-[8px] uppercase">{rec.witness1_name} / {rec.witness2_name}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="mt-20 pt-10 border-t-2 border-dashed border-slate-200 grid grid-cols-2 gap-20 text-center">
+                <div className="space-y-12">
+                  <div className="h-px bg-slate-300 w-48 mx-auto"></div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Head of Treasury Signature</p>
+                </div>
+                <div className="space-y-12">
+                  <div className="h-px bg-slate-300 w-48 mx-auto"></div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Auditor General Signature</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
