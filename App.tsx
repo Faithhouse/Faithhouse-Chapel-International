@@ -144,27 +144,61 @@ const App: React.FC = () => {
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   if (loading) {
+    const logoUrl = "https://lh3.googleusercontent.com/d/1la57sO6NOuNEZaqa9zDxuxRnWPBavkjH";
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-6 text-center">
-        <div className="relative mb-12">
+        <div className="relative mb-8">
           <motion.div 
             animate={{ rotate: 360 }}
-            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-            className="w-24 h-24 border border-white/5 rounded-full"
+            transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+            className="w-32 h-32 border border-white/5 rounded-full"
           />
           <motion.div 
             animate={{ rotate: -360 }}
-            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-            className="absolute inset-2 border border-blue-500/20 rounded-full"
+            transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+            className="absolute inset-4 border border-blue-500/10 rounded-full"
           />
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1 }}
+              className="bg-white p-2 rounded-2xl shadow-2xl"
+            >
+              <img 
+                src={logoUrl} 
+                alt="FaithHouse Logo" 
+                className="w-16 h-16 object-contain"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=F&background=007bff&color=fff&bold=true';
+                }}
+              />
+            </motion.div>
           </div>
         </div>
         
-        <div className="space-y-3">
-          <p className="text-white font-light uppercase tracking-[0.8em] text-[10px]">Synchronizing Database</p>
-          <p className="text-white/20 text-[8px] font-bold uppercase tracking-widest">Establishing Secure Connection</p>
+        <div className="space-y-6 max-w-sm">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.8 }}
+          >
+            <h2 className="text-white font-black uppercase tracking-[0.3em] text-lg mb-2">Faithhouse Chapel</h2>
+            <p className="text-blue-400 font-medium italic text-xs tracking-wide">
+              "transforming lives through the power of God"
+            </p>
+          </motion.div>
+
+          <div className="pt-8 space-y-2">
+            <p className="text-white/40 font-light uppercase tracking-[0.8em] text-[10px]">Synchronizing Database</p>
+            <div className="w-48 h-0.5 bg-white/5 mx-auto rounded-full overflow-hidden">
+              <motion.div 
+                animate={{ x: [-200, 200] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                className="w-1/2 h-full bg-blue-500/40"
+              />
+            </div>
+          </div>
         </div>
         
         <button 
