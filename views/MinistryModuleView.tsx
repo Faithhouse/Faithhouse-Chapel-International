@@ -4,13 +4,13 @@ import { UserProfile, Member } from '../types';
 import { motion } from 'framer-motion';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  BarChart, Bar, Legend, Cell
+  BarChart, Bar, Legend, Cell, AreaChart, Area
 } from 'recharts';
 import { 
   Music, Mic2, Play, FileText, Download, Plus, Trash2, 
   Users, Calendar, Activity, ListMusic, Headphones, Video,
   Globe, Radio, Heart, Shield, Baby, Zap, MapPin, MessageCircle,
-  Camera, Settings, Layers, BookOpen, Clock
+  Camera, Settings, Layers, BookOpen, Clock, Sparkles
 } from 'lucide-react';
 
 interface MinistryModuleViewProps {
@@ -19,14 +19,26 @@ interface MinistryModuleViewProps {
 }
 
 const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, userProfile }) => {
-  const [activeTab, setActiveTab] = useState<'Overview' | 'Personnel' | 'Operations' | 'Resources'>('Overview');
+  const [activeTab, setActiveTab] = useState<'Overview' | 'Leadership' | 'Personnel' | 'Operations' | 'Resources' | 'Attendance'>('Overview');
   const [ministryMembers, setMinistryMembers] = useState<Member[]>([]);
   const [allMembers, setAllMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [memberSearchTerm, setMemberSearchTerm] = useState('');
+
+  const [regForm, setRegForm] = useState({
+    first_name: '',
+    last_name: '',
+    phone: '',
+    email: '',
+    dob: '',
+    gender: 'Male',
+    occupation: '',
+    educational_level: ''
+  });
 
   // Music Ministry Specific State
   const [performanceData] = useState([
@@ -129,6 +141,63 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
     }
   };
 
+  const handleRegisterMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!regForm.first_name || !regForm.last_name) return;
+
+    setIsSubmitting(true);
+    try {
+      // 1. Create the member in global registry
+      const { data: newMember, error: memberError } = await supabase
+        .from('members')
+        .insert([{
+          first_name: regForm.first_name,
+          last_name: regForm.last_name,
+          phone: regForm.phone,
+          email: regForm.email,
+          dob: regForm.dob,
+          gender: regForm.gender,
+          ministry: ministryName,
+          status: 'Active'
+        }])
+        .select()
+        .single();
+
+      if (memberError) throw memberError;
+
+      // 2. Add to ministry_members
+      if (newMember) {
+        const { error: joinError } = await supabase
+          .from('ministry_members')
+          .insert([{
+            ministry_name: ministryName,
+            member_id: newMember.id,
+            role: 'Member'
+          }]);
+        
+        if (joinError) throw joinError;
+      }
+
+      setIsRegisterModalOpen(false);
+      setRegForm({
+        first_name: '',
+        last_name: '',
+        phone: '',
+        email: '',
+        dob: '',
+        gender: 'Male',
+        occupation: '',
+        educational_level: ''
+      });
+      fetchPersonnel();
+    } catch (err) {
+      console.error('Registration error:', err);
+      alert('Failed to register member. Please check your connection.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const removeMember = async (id: string, name: string) => {
     if (!confirm(`Revoke ministry assignment for ${name}?`)) return;
     
@@ -187,6 +256,8 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
         return { ...base, icon: 'M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', accent: 'text-orange-500', bg: 'bg-orange-50', opsLabel: 'Curriculum Oversight', kpi1: 'Educators', kpi1Val: '10' };
       case 'Protocol Ministry':
         return { ...base, icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z', accent: 'text-slate-900', bg: 'bg-slate-100', opsLabel: 'Security & Order', kpi1: 'Officers', kpi1Val: '8' };
+      case 'Young Adult Ministry':
+        return { ...base, icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z', accent: 'text-violet-600', bg: 'bg-violet-50', opsLabel: 'Church Operations', kpi1: 'Congregation', kpi1Val: '120' };
       default:
         return base;
     }
@@ -623,6 +694,206 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
     </div>
   );
 
+  const renderYoungAdultOverview = () => (
+    <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-700">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <div className="lg:col-span-3 bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Community Pulse</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Engagement & Growth Metrics</p>
+            </div>
+            <Users className="w-6 h-6 text-violet-500" />
+          </div>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={[
+                { name: 'Jan', count: 28 },
+                { name: 'Feb', count: 35 },
+                { name: 'Mar', count: 42 },
+                { name: 'Apr', count: 38 },
+                { name: 'May', count: 45 },
+                { name: 'Jun', count: 52 },
+              ]}>
+                <defs>
+                  <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 900, fill: '#94a3b8'}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 900, fill: '#94a3b8'}} />
+                <Tooltip />
+                <Area type="monotone" dataKey="count" stroke="#8b5cf6" fillOpacity={1} fill="url(#colorCount)" strokeWidth={4} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="bg-violet-600 p-8 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden">
+             <Sparkles className="absolute -right-4 -bottom-4 w-32 h-32 opacity-10 rotate-12" />
+             <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60 mb-2">Next Hangout</p>
+             <h4 className="text-2xl font-black mb-1">Friday Night Live</h4>
+             <p className="text-xs font-medium opacity-80">7:30 PM • Youth Hall</p>
+          </div>
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+            <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-6">Active Initiatives</h4>
+            <div className="space-y-4">
+              {[
+                { name: 'Career Mentorship', status: 'Ongoing' },
+                { name: 'Bible Study Series', status: 'Active' },
+                { name: 'Community Service', status: 'Planning' },
+              ].map((item, i) => (
+                <div key={i} className="p-4 bg-slate-50 rounded-2xl flex items-center justify-between">
+                  <p className="text-[10px] font-black text-slate-800 uppercase">{item.name}</p>
+                  <span className="text-[8px] font-black text-violet-600 uppercase tracking-widest">{item.status}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
+          <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-6">Pastoral Oversight</h4>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-violet-100 text-violet-600 flex items-center justify-center font-black">DM</div>
+            <div>
+              <p className="text-xs font-black text-slate-800 uppercase">Rev. Daniel K. Mensah</p>
+              <p className="text-[9px] text-slate-400 font-bold uppercase">Lead Pastor</p>
+            </div>
+          </div>
+          <button onClick={() => setActiveTab('Leadership')} className="w-full mt-6 py-3 bg-slate-50 text-slate-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all">View Full Team</button>
+        </div>
+        <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col justify-center items-center text-center">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Weekly Attendance</p>
+          <h3 className="text-4xl font-black text-fh-green tracking-tighter">85%</h3>
+          <p className="text-[9px] text-emerald-500 font-bold uppercase mt-2">+12% from last month</p>
+        </div>
+        <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col justify-center items-center text-center">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Ministry Vitality</p>
+          <h3 className="text-4xl font-black text-fh-green tracking-tighter">A+</h3>
+          <p className="text-[9px] text-slate-400 font-bold uppercase mt-2">Based on engagement</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderYoungAdultLeadership = () => (
+    <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-700">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {[
+          { name: 'Rev. Daniel K. Mensah', role: 'Lead Pastor', bio: 'Visionary leader with a passion for youth empowerment.', image: 'https://picsum.photos/seed/pastor1/400/400' },
+          { name: 'Ps. Grace Appiah', role: 'Associate Pastor', bio: 'Dedicated to spiritual growth and mentorship.', image: 'https://picsum.photos/seed/pastor2/400/400' },
+          { name: 'Min. Samuel Boateng', role: 'Youth Minister', bio: 'Coordinating community outreach and engagement.', image: 'https://picsum.photos/seed/pastor3/400/400' },
+        ].map((leader, i) => (
+          <div key={i} className="bg-white rounded-[3rem] overflow-hidden border border-slate-100 shadow-sm group">
+            <div className="h-48 overflow-hidden relative">
+              <img src={leader.image} alt={leader.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" referrerPolicy="no-referrer" />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent" />
+              <div className="absolute bottom-6 left-8">
+                <p className="text-[10px] font-black text-fh-gold uppercase tracking-widest mb-1">{leader.role}</p>
+                <h4 className="text-lg font-black text-white uppercase tracking-tight">{leader.name}</h4>
+              </div>
+            </div>
+            <div className="p-8">
+              <p className="text-xs text-slate-500 leading-relaxed italic">"{leader.bio}"</p>
+              <div className="mt-6 flex gap-3">
+                <button className="flex-1 py-3 bg-slate-50 text-slate-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all">Contact</button>
+                <button className="flex-1 py-3 bg-slate-50 text-slate-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all">Profile</button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
+        <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-8">Tier Leadership Structure</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[
+            { tier: 'Tier 1', title: 'Pastoral Oversight', desc: 'Spiritual direction and visionary leadership.' },
+            { tier: 'Tier 2', title: 'Executive Council', desc: 'Strategic planning and administrative control.' },
+            { tier: 'Tier 3', title: 'Departmental Heads', desc: 'Operational execution and team management.' },
+            { tier: 'Tier 4', title: 'Cell Leaders', desc: 'Grassroots engagement and member care.' },
+          ].map((t, i) => (
+            <div key={i} className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+              <span className="text-[10px] font-black text-violet-600 uppercase tracking-widest">{t.tier}</span>
+              <h4 className="text-sm font-black text-slate-800 uppercase mt-1 mb-2 tracking-tight">{t.title}</h4>
+              <p className="text-[10px] text-slate-500 font-medium leading-relaxed">{t.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderYoungAdultAttendance = () => (
+    <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-700">
+      <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+          <div>
+            <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Attendance Tracker</h3>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Service & Event Participation</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <button className="px-6 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Record New Session</button>
+            <button className="px-6 py-3 bg-slate-50 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all">Export Report</button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+          {[
+            { label: 'Avg. Attendance', value: '94', sub: 'Last 4 Weeks' },
+            { label: 'New Converts', value: '12', sub: 'This Month' },
+            { label: 'Retention Rate', value: '88%', sub: 'Year to Date' },
+            { label: 'Peak Attendance', value: '156', sub: 'Easter Service' },
+          ].map((stat, i) => (
+            <div key={i} className="p-6 bg-slate-50 rounded-2xl border border-slate-100 text-center">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{stat.label}</p>
+              <h4 className="text-3xl font-black text-fh-green tracking-tighter">{stat.value}</h4>
+              <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">{stat.sub}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] border-b border-slate-100">
+              <tr>
+                <th className="px-8 py-6">Service Date</th>
+                <th className="px-8 py-6">Service Type</th>
+                <th className="px-8 py-6">Attendance</th>
+                <th className="px-8 py-6">New Souls</th>
+                <th className="px-8 py-6 text-right">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {[
+                { date: 'Feb 23, 2026', type: 'Sunday Service', count: 112, souls: 3, status: 'Completed' },
+                { date: 'Feb 20, 2026', type: 'Friday Night Live', count: 85, souls: 1, status: 'Completed' },
+                { date: 'Feb 16, 2026', type: 'Sunday Service', count: 108, souls: 5, status: 'Completed' },
+                { date: 'Feb 13, 2026', type: 'Prayer Vigil', count: 45, souls: 0, status: 'Completed' },
+              ].map((row, i) => (
+                <tr key={i} className="hover:bg-slate-50 transition-all">
+                  <td className="px-8 py-6 text-sm font-black text-slate-800 uppercase tracking-tight">{row.date}</td>
+                  <td className="px-8 py-6 text-[10px] font-bold text-slate-500 uppercase">{row.type}</td>
+                  <td className="px-8 py-6 text-sm font-black text-fh-green">{row.count}</td>
+                  <td className="px-8 py-6 text-sm font-black text-violet-600">{row.souls}</td>
+                  <td className="px-8 py-6 text-right">
+                    <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[8px] font-black uppercase">{row.status}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderGenericOperations = () => {
     const opsData: Record<string, { title: string, icon: any, items: any[] }> = {
       'Evangelism': {
@@ -814,6 +1085,10 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
     );
   };
 
+  const tabs = ministryName === 'Young Adult Ministry' 
+    ? (['Overview', 'Leadership', 'Attendance', 'Personnel', 'Operations', 'Resources'] as const)
+    : (['Overview', 'Personnel', 'Operations', 'Resources'] as const);
+
   return (
     <div className="space-y-8 animate-in fade-in duration-1000 pb-20">
       
@@ -833,13 +1108,13 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
         </div>
 
         <div className="flex bg-slate-50 p-1.5 rounded-[1.75rem] border border-slate-200">
-            {(['Overview', 'Personnel', 'Operations', 'Resources'] as const).map((tab) => (
+            {tabs.map((tab) => (
              <button 
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => setActiveTab(tab as any)}
                 className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeTab === tab ? 'bg-fh-green text-fh-gold shadow-lg' : 'text-slate-400 hover:text-fh-green'}`}
              >
-               {tab}
+               {tab === 'Personnel' && ministryName === 'Young Adult Ministry' ? 'Member Registry' : tab}
              </button>
             ))}
         </div>
@@ -857,8 +1132,11 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
       {activeTab === 'Overview' && ministryName === 'Prayer Ministry' && renderPrayerOverview()}
       {activeTab === 'Overview' && (ministryName === 'Ushering Ministry' || ministryName === 'Protocol Ministry') && renderUsheringOverview()}
       {activeTab === 'Overview' && (ministryName === 'Children Ministry' || ministryName === 'Children\'s Ministry') && renderChildrenOverview()}
+      {activeTab === 'Overview' && ministryName === 'Young Adult Ministry' && renderYoungAdultOverview()}
+      {activeTab === 'Leadership' && ministryName === 'Young Adult Ministry' && renderYoungAdultLeadership()}
+      {activeTab === 'Attendance' && ministryName === 'Young Adult Ministry' && renderYoungAdultAttendance()}
 
-      {activeTab === 'Overview' && !['Music Ministry', 'Evangelism', 'Evangelism Ministry', 'Media Ministry', 'Prayer Ministry', 'Ushering Ministry', 'Protocol Ministry', 'Children Ministry', 'Children\'s Ministry'].includes(ministryName) && (
+      {activeTab === 'Overview' && !['Music Ministry', 'Evangelism', 'Evangelism Ministry', 'Media Ministry', 'Prayer Ministry', 'Ushering Ministry', 'Protocol Ministry', 'Children Ministry', 'Children\'s Ministry', 'Young Adult Ministry'].includes(ministryName) && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 animate-in fade-in duration-500">
            <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm text-center">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">{cfg.kpi1}</p>
@@ -899,16 +1177,31 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
         <div className="royal-card rounded-[3.5rem] bg-white overflow-hidden shadow-sm border border-slate-100 animate-in fade-in duration-500">
            <div className="p-10 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-6 bg-slate-50/30">
               <div>
-                 <h3 className="text-2xl font-black text-fh-green uppercase tracking-tighter">Ministry Workforce</h3>
-                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Departmental Registry</p>
+                 <h3 className="text-2xl font-black text-fh-green uppercase tracking-tighter">
+                    {ministryName === 'Young Adult Ministry' ? 'Member Registry' : 'Ministry Workforce'}
+                  </h3>
+                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
+                    {ministryName === 'Young Adult Ministry' ? 'Congregational Database' : 'Departmental Registry'}
+                  </p>
               </div>
-              <button 
-                onClick={() => setIsAddModalOpen(true)} 
-                className="px-10 py-4 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[11px] tracking-widest shadow-xl active:scale-95 transition-all border-b-4 border-black/30 flex items-center gap-3"
-              >
-                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-                 Provision Staff
-              </button>
+              <div className="flex items-center gap-4">
+                {ministryName === 'Young Adult Ministry' && (
+                  <button 
+                    onClick={() => setIsRegisterModalOpen(true)} 
+                    className="px-10 py-4 bg-violet-600 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest shadow-xl active:scale-95 transition-all border-b-4 border-violet-800 flex items-center gap-3"
+                  >
+                     <Plus className="w-5 h-5" />
+                     Register New
+                  </button>
+                )}
+                <button 
+                  onClick={() => setIsAddModalOpen(true)} 
+                  className="px-10 py-4 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[11px] tracking-widest shadow-xl active:scale-95 transition-all border-b-4 border-black/30 flex items-center gap-3"
+                >
+                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                   {ministryName === 'Young Adult Ministry' ? 'Deploy Existing' : 'Provision Staff'}
+                </button>
+              </div>
            </div>
            
            <div className="overflow-x-auto">
@@ -946,6 +1239,93 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
                  </tbody>
               </table>
            </div>
+        </div>
+      )}
+
+      {/* MODAL SECTION - REGISTER NEW MEMBER (Young Adult Specific) */}
+      {isRegisterModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm" onClick={() => !isSubmitting && setIsRegisterModalOpen(false)} />
+          <div className="relative bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden border-b-[12px] border-violet-600">
+            <div className="p-8 bg-slate-50 flex items-center justify-between border-b border-slate-100">
+               <div>
+                 <h3 className="text-2xl font-black text-violet-600 uppercase tracking-tighter">Young Adult Registration</h3>
+                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Direct Entry to {ministryName}</p>
+               </div>
+               <button onClick={() => setIsRegisterModalOpen(false)} className="text-slate-400 hover:text-black"><Plus className="w-6 h-6 rotate-45" /></button>
+            </div>
+
+            <form onSubmit={handleRegisterMember} className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+               <div className="space-y-2">
+                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">First Name</label>
+                 <input 
+                    required
+                    type="text" 
+                    value={regForm.first_name}
+                    onChange={(e) => setRegForm({...regForm, first_name: e.target.value})}
+                    className="w-full px-6 py-4 bg-slate-100 rounded-2xl font-bold text-slate-800 outline-none focus:ring-4 focus:ring-violet-600/20 transition-all"
+                 />
+               </div>
+               <div className="space-y-2">
+                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Last Name</label>
+                 <input 
+                    required
+                    type="text" 
+                    value={regForm.last_name}
+                    onChange={(e) => setRegForm({...regForm, last_name: e.target.value})}
+                    className="w-full px-6 py-4 bg-slate-100 rounded-2xl font-bold text-slate-800 outline-none focus:ring-4 focus:ring-violet-600/20 transition-all"
+                 />
+               </div>
+               <div className="space-y-2">
+                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Phone Number</label>
+                 <input 
+                    type="tel" 
+                    value={regForm.phone}
+                    onChange={(e) => setRegForm({...regForm, phone: e.target.value})}
+                    className="w-full px-6 py-4 bg-slate-100 rounded-2xl font-bold text-slate-800 outline-none focus:ring-4 focus:ring-violet-600/20 transition-all"
+                 />
+               </div>
+               <div className="space-y-2">
+                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Email Address</label>
+                 <input 
+                    type="email" 
+                    value={regForm.email}
+                    onChange={(e) => setRegForm({...regForm, email: e.target.value})}
+                    className="w-full px-6 py-4 bg-slate-100 rounded-2xl font-bold text-slate-800 outline-none focus:ring-4 focus:ring-violet-600/20 transition-all"
+                 />
+               </div>
+               <div className="space-y-2">
+                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Date of Birth</label>
+                 <input 
+                    type="date" 
+                    value={regForm.dob}
+                    onChange={(e) => setRegForm({...regForm, dob: e.target.value})}
+                    className="w-full px-6 py-4 bg-slate-100 rounded-2xl font-bold text-slate-800 outline-none focus:ring-4 focus:ring-violet-600/20 transition-all"
+                 />
+               </div>
+               <div className="space-y-2">
+                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Gender</label>
+                 <select 
+                    value={regForm.gender}
+                    onChange={(e) => setRegForm({...regForm, gender: e.target.value})}
+                    className="w-full px-6 py-4 bg-slate-100 rounded-2xl font-bold text-slate-800 outline-none focus:ring-4 focus:ring-violet-600/20 transition-all appearance-none"
+                 >
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                 </select>
+               </div>
+
+               <div className="md:col-span-2">
+                 <button 
+                   type="submit" 
+                   disabled={isSubmitting} 
+                   className="w-full py-5 bg-violet-600 text-white rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl hover:translate-y-[-2px] active:translate-y-0 transition-all disabled:opacity-50"
+                 >
+                   {isSubmitting ? 'Registering...' : 'Complete Registration'}
+                 </button>
+               </div>
+            </form>
+          </div>
         </div>
       )}
 

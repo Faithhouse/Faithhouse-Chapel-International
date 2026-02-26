@@ -314,6 +314,7 @@ const App: React.FC = () => {
         case 'Evangelism Ministry':
         case 'Children Ministry':
         case 'Children\'s Ministry':
+        case 'Young Adult Ministry':
           return <MinistryModuleView ministryName={activeItem} userProfile={profile} />;
 
         default:
