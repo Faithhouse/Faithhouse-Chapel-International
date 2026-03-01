@@ -17,6 +17,7 @@ import VisitationView from './views/VisitationView';
 import SettingsView from './views/SettingsView';
 import AdminUsersView from './views/AdminUsersView';
 import MinistryModuleView from './views/MinistryModuleView';
+import CellMeetingView from './views/CellMeetingView';
 import WhatsAppSchedulerView from './views/WhatsAppSchedulerView';
 import MemberProfileView from './views/MemberProfileView';
 import PlaceholderView from './views/PlaceholderView';
@@ -291,6 +292,9 @@ const App: React.FC = () => {
         case 'Recurring Tasks':
           if (!canAccess(role, 'LEVEL_2')) return <SecurityDenied module={activeItem} />;
           return <RecurringTasksView userProfile={profile} />;
+
+        case 'Cell Meeting':
+          return <CellMeetingView userProfile={profile} />;
 
         case 'Admin Users':
         case 'Settings':
