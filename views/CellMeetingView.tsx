@@ -26,6 +26,18 @@ interface CellGroup {
   growth: string;
 }
 
+interface CellReport {
+  id: string;
+  cell_id: string;
+  cell_name: string;
+  meeting_date: string;
+  attendance_count: number;
+  new_souls: number;
+  testimony: string;
+  offering_amount: number;
+  created_at: string;
+}
+
 interface CellAttendanceRecord {
   member_id: string;
   status: 'Present' | 'Absent' | 'Excused' | 'Unmarked';
@@ -37,6 +49,8 @@ const CellMeetingView: React.FC<CellMeetingViewProps> = ({ userProfile }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [cells, setCells] = useState<CellGroup[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  const [reports, setReports] = useState<CellReport[]>([]);
+  const [activeTab, setActiveTab] = useState<'directory' | 'reports'>('directory');
   
   // Modal States
   const [isNewCellModalOpen, setIsNewCellModalOpen] = useState(false);
@@ -91,8 +105,8 @@ const CellMeetingView: React.FC<CellMeetingViewProps> = ({ userProfile }) => {
       // Mock data for now as we don't want to crash if table doesn't exist
       // In a real app, we'd query Supabase: const { data } = await supabase.from('cell_groups').select('*')
       const mockCells: CellGroup[] = [
-        { id: '1', name: 'Zion Cell', leader: 'Bro. Kofi Mensah', location: 'East Legon', meeting_time: 'Wed 6:30 PM', member_ids: [], status: 'Active', growth: '+2' },
-        { id: '2', name: 'Grace Cell', leader: 'Sis. Ama Serwaa', location: 'Airport Residential', meeting_time: 'Tue 7:00 PM', member_ids: [], status: 'Active', growth: '+5' },
+        { id: '1', name: 'Faith Cell Group', leader: 'David Ramson', location: 'Church Premises', meeting_time: 'Thursday 6:30 PM', member_ids: [], status: 'Active', growth: '+2' },
+        { id: '2', name: 'Goodlife Football Academy', leader: 'Justice Amissah', location: 'Goodlife Football Academy Camp', meeting_time: 'Mon. 6:00 PM', member_ids: [], status: 'Active', growth: '+5' },
       ];
       setCells(mockCells);
     } finally {
@@ -136,6 +150,14 @@ const CellMeetingView: React.FC<CellMeetingViewProps> = ({ userProfile }) => {
     e.preventDefault();
     setIsLoading(true);
     setTimeout(() => {
+      const cell = cells.find(c => c.id === reportForm.cell_id);
+      const newReport: CellReport = {
+        id: Math.random().toString(36).substr(2, 9),
+        ...reportForm,
+        cell_name: cell?.name || 'Unknown Cell',
+        created_at: new Date().toISOString()
+      };
+      setReports([newReport, ...reports]);
       setIsReportModalOpen(false);
       setReportForm({ cell_id: '', meeting_date: new Date().toISOString().split('T')[0], attendance_count: 0, new_souls: 0, testimony: '', offering_amount: 0 });
       setIsLoading(false);
@@ -179,7 +201,7 @@ const CellMeetingView: React.FC<CellMeetingViewProps> = ({ userProfile }) => {
     setTimeout(() => {
       setIsAttendanceSheetOpen(false);
       setIsLoading(false);
-      alert('Attendance sheet synchronized successfully!');
+      alert('Attendance sheet Updated successfully!');
     }, 1000);
   };
 
@@ -267,17 +289,31 @@ const CellMeetingView: React.FC<CellMeetingViewProps> = ({ userProfile }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* 3. Main Directory */}
+        {/* 3. Main Content Area */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Cell Directory</h3>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+              <div className="flex items-center gap-4 p-1 bg-slate-50 rounded-2xl w-fit">
+                <button 
+                  onClick={() => setActiveTab('directory')}
+                  className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'directory' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  Cell Directory
+                </button>
+                <button 
+                  onClick={() => setActiveTab('reports')}
+                  className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'reports' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  Submitted Reports
+                </button>
+              </div>
+              
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input 
                     type="text" 
-                    placeholder="Search cells..." 
+                    placeholder={activeTab === 'directory' ? "Search cells..." : "Search reports..."} 
                     className="pl-10 pr-6 py-3 bg-slate-50 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500/20 w-64"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -290,60 +326,109 @@ const CellMeetingView: React.FC<CellMeetingViewProps> = ({ userProfile }) => {
             </div>
 
             <div className="space-y-4">
-              {cells.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase())).map((cell) => (
-                <div key={cell.id} className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 hover:border-emerald-500/30 transition-all group flex items-center justify-between">
-                  <div className="flex items-center gap-6">
-                    <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm font-black text-emerald-600">
-                      {cell.name.substring(0, 1)}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-3 mb-1">
-                        <h4 className="text-lg font-black text-slate-800 uppercase tracking-tight">{cell.name}</h4>
-                        <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${
-                          cell.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 
-                          cell.status === 'Warning' ? 'bg-rose-100 text-rose-700' : 
-                          cell.status === 'New' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'
-                        }`}>
-                          {cell.status}
-                        </span>
+              {activeTab === 'directory' ? (
+                cells.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase())).map((cell) => (
+                  <div key={cell.id} className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 hover:border-emerald-500/30 transition-all group flex items-center justify-between">
+                    <div className="flex items-center gap-6">
+                      <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm font-black text-emerald-600">
+                        {cell.name.substring(0, 1)}
                       </div>
-                      <div className="flex items-center gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                        <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {cell.member_ids.length} Members</span>
-                        <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {cell.location}</span>
+                      <div>
+                        <div className="flex items-center gap-3 mb-1">
+                          <h4 className="text-lg font-black text-slate-800 uppercase tracking-tight">{cell.name}</h4>
+                          <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${
+                            cell.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 
+                            cell.status === 'Warning' ? 'bg-rose-100 text-rose-700' : 
+                            cell.status === 'New' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'
+                          }`}>
+                            {cell.status}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                          <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {cell.member_ids.length} Members</span>
+                          <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {cell.location}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right hidden md:block">
+                        <p className="text-[10px] font-black text-slate-800 uppercase">{cell.leader}</p>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{cell.meeting_time}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => openAttendanceSheet(cell)}
+                          className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                          title="Register Attendance"
+                        >
+                          <CheckCircle2 className="w-5 h-5" />
+                        </button>
+                        <button 
+                          onClick={() => openManageMembers(cell)}
+                          className="p-4 bg-white text-slate-400 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                          title="Manage Members"
+                        >
+                          <UserPlus className="w-5 h-5" />
+                        </button>
+                        <button 
+                          onClick={() => openEditModal(cell)}
+                          className="p-4 bg-white text-slate-400 rounded-2xl hover:bg-slate-900 hover:text-white transition-all shadow-sm"
+                          title="Modify Cell"
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right hidden md:block">
-                      <p className="text-[10px] font-black text-slate-800 uppercase">{cell.leader}</p>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{cell.meeting_time}</p>
+                ))
+              ) : (
+                reports.filter(r => r.cell_name.toLowerCase().includes(searchTerm.toLowerCase())).length > 0 ? (
+                  reports.filter(r => r.cell_name.toLowerCase().includes(searchTerm.toLowerCase())).map((report) => (
+                    <div key={report.id} className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 hover:border-slate-200 transition-all group">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm text-slate-900">
+                            <FileText className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <h4 className="text-md font-black text-slate-800 uppercase tracking-tight">{report.cell_name}</h4>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Meeting Date: {report.meeting_date}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">GHS {report.offering_amount.toFixed(2)}</p>
+                          <p className="text-[8px] font-bold text-slate-400 uppercase">Offering</p>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div className="p-4 bg-white rounded-2xl border border-slate-100">
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Attendance</p>
+                          <p className="text-lg font-black text-slate-900">{report.attendance_count}</p>
+                        </div>
+                        <div className="p-4 bg-white rounded-2xl border border-slate-100">
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">New Souls</p>
+                          <p className="text-lg font-black text-emerald-600">{report.new_souls}</p>
+                        </div>
+                      </div>
+                      
+                      {report.testimony && (
+                        <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/50">
+                          <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-1">Testimony / Remarks</p>
+                          <p className="text-xs font-medium text-slate-700 italic">"{report.testimony}"</p>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button 
-                        onClick={() => openAttendanceSheet(cell)}
-                        className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
-                        title="Register Attendance"
-                      >
-                        <CheckCircle2 className="w-5 h-5" />
-                      </button>
-                      <button 
-                        onClick={() => openManageMembers(cell)}
-                        className="p-4 bg-white text-slate-400 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
-                        title="Manage Members"
-                      >
-                        <UserPlus className="w-5 h-5" />
-                      </button>
-                      <button 
-                        onClick={() => openEditModal(cell)}
-                        className="p-4 bg-white text-slate-400 rounded-2xl hover:bg-slate-900 hover:text-white transition-all shadow-sm"
-                        title="Modify Cell"
-                      >
-                        <ChevronRight className="w-5 h-5" />
-                      </button>
+                  ))
+                ) : (
+                  <div className="py-20 text-center">
+                    <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <FileText className="w-10 h-10 text-slate-200" />
                     </div>
+                    <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-xs">No reports submitted yet</p>
                   </div>
-                </div>
-              ))}
+                )
+              )}
             </div>
           </div>
         </div>
@@ -352,9 +437,7 @@ const CellMeetingView: React.FC<CellMeetingViewProps> = ({ userProfile }) => {
         <div className="space-y-6">
           <div className="bg-emerald-600 p-10 rounded-[3rem] text-white shadow-xl relative overflow-hidden">
              <Calendar className="absolute -right-4 -bottom-4 w-40 h-40 opacity-10 rotate-12" />
-             <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60 mb-2">Next Joint Meeting</p>
-             <h4 className="text-3xl font-black mb-2 leading-tight">Cell Leaders Summit 2026</h4>
-             <p className="text-sm font-medium opacity-80 mb-8">March 15 • 5:00 PM • Youth Hall</p>
+             <h4 className="text-3xl font-black mb-2 leading-tight">Cell Meeting attendance</h4>
              <button 
                onClick={() => setIsAttendanceModalOpen(true)}
                className="w-full py-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-emerald-600 transition-all"
@@ -696,7 +779,7 @@ const CellMeetingView: React.FC<CellMeetingViewProps> = ({ userProfile }) => {
                   className="px-10 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-[11px] tracking-[0.3em] shadow-xl active:scale-95 transition-all flex items-center gap-3"
                 >
                   {isLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white animate-spin rounded-full" /> : <Save className="w-4 h-4" />}
-                  Authorize Sync
+                  Save
                 </button>
               </div>
             </div>
