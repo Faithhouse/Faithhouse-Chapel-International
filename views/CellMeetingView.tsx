@@ -243,16 +243,12 @@ const CellMeetingView: React.FC<CellMeetingViewProps> = ({ userProfile }) => {
   return (
     <div className="space-y-8 animate-in fade-in duration-1000 pb-20">
       {/* 1. Header Section */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 py-4 bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
-        <div className="flex items-center gap-6">
+      <div className="flex flex-col items-center lg:flex-row lg:items-center justify-between gap-6 py-8 bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm text-center lg:text-left">
+        <div className="flex flex-col items-center lg:flex-row gap-6">
           <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-[2.5rem] flex items-center justify-center shadow-xl border-4 border-white ring-1 ring-slate-100 transform hover:rotate-3 transition-transform">
             <MapPin className="w-10 h-10" />
           </div>
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 rounded-full mb-1">
-               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-               <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em]">Live Network</span>
-            </div>
             <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Cell Groups</h2>
           </div>
         </div>
@@ -272,9 +268,9 @@ const CellMeetingView: React.FC<CellMeetingViewProps> = ({ userProfile }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
           { label: 'Total Cells', value: cells.length.toString(), icon: Layers, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Avg. Attendance', value: '84%', icon: Activity, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+          { label: 'Avg. Attendance', value: '0%', icon: Activity, color: 'text-emerald-600', bg: 'bg-emerald-50' },
           { label: 'Total Members', value: cells.reduce((acc, c) => acc + c.member_ids.length, 0).toString(), icon: Users, color: 'text-violet-600', bg: 'bg-violet-50' },
-          { label: 'Growth Rate', value: '+12%', icon: TrendingUp, color: 'text-fh-gold', bg: 'bg-fh-gold/10' },
+          { label: 'Growth Rate', value: '0%', icon: TrendingUp, color: 'text-fh-gold', bg: 'bg-fh-gold/10' },
         ].map((stat, i) => (
           <div key={i} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center gap-6">
             <div className={`w-14 h-14 ${stat.bg} ${stat.color} rounded-2xl flex items-center justify-center`}>
@@ -437,7 +433,7 @@ const CellMeetingView: React.FC<CellMeetingViewProps> = ({ userProfile }) => {
         <div className="space-y-6">
           <div className="bg-emerald-600 p-10 rounded-[3rem] text-white shadow-xl relative overflow-hidden">
              <Calendar className="absolute -right-4 -bottom-4 w-40 h-40 opacity-10 rotate-12" />
-             <h4 className="text-3xl font-black mb-2 leading-tight">Cell Meeting attendance</h4>
+             <h4 className="text-3xl font-black mb-2 leading-tight">Cell Meeting Attendance</h4>
              <button 
                onClick={() => setIsAttendanceModalOpen(true)}
                className="w-full py-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-emerald-600 transition-all"
