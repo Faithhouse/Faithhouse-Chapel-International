@@ -92,23 +92,113 @@ const CellMeetingView: React.FC<CellMeetingViewProps> = ({ userProfile }) => {
   useEffect(() => {
     fetchCells();
     fetchMembers();
+    fetchReports();
   }, []);
+
+  useEffect(() => {
+    const syncAttendance = async () => {
+      if (reportForm.cell_id && reportForm.meeting_date) {
+        try {
+          const { count, error } = await supabase
+            .from('cell_attendance')
+            .select('*', { count: 'exact', head: true })
+            .eq('cell_id', reportForm.cell_id)
+            .eq('meeting_date', reportForm.meeting_date)
+            .eq('status', 'Present');
+          
+          if (!error && count !== null) {
+            setReportForm(prev => ({ ...prev, attendance_count: count }));
+          } else if (error && error.code === 'PGRST205') {
+            // Fallback to localStorage
+            const localAttendance = localStorage.getItem('fh_cell_attendance');
+            if (localAttendance) {
+              const allAttendance = JSON.parse(localAttendance);
+              const count = allAttendance.filter((a: any) => 
+                a.cell_id === reportForm.cell_id && 
+                a.meeting_date === reportForm.meeting_date && 
+                a.status === 'Present'
+              ).length;
+              setReportForm(prev => ({ ...prev, attendance_count: count }));
+            }
+          }
+        } catch (err) {
+          console.error('Error syncing attendance:', err);
+          // Fallback to localStorage on any error
+          const localAttendance = localStorage.getItem('fh_cell_attendance');
+          if (localAttendance) {
+            const allAttendance = JSON.parse(localAttendance);
+            const count = allAttendance.filter((a: any) => 
+              a.cell_id === reportForm.cell_id && 
+              a.meeting_date === reportForm.meeting_date && 
+              a.status === 'Present'
+            ).length;
+            setReportForm(prev => ({ ...prev, attendance_count: count }));
+          }
+        }
+      }
+    };
+    syncAttendance();
+  }, [reportForm.cell_id, reportForm.meeting_date, isReportModalOpen]);
 
   const fetchMembers = async () => {
     const { data } = await supabase.from('members').select('*').eq('status', 'Active').order('first_name');
     if (data) setMembers(data);
   };
 
+  const fetchReports = async () => {
+    try {
+      const { data, error } = await supabase.from('cell_reports').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      if (data) setReports(data);
+    } catch (err) {
+      console.error('Error fetching reports:', err);
+    }
+  };
+
   const fetchCells = async () => {
     setIsLoading(true);
     try {
-      // Mock data for now as we don't want to crash if table doesn't exist
-      // In a real app, we'd query Supabase: const { data } = await supabase.from('cell_groups').select('*')
-      const mockCells: CellGroup[] = [
-        { id: '1', name: 'Faith Cell Group', leader: 'David Ramson', location: 'Church Premises', meeting_time: 'Thursday 6:30 PM', member_ids: [], status: 'Active', growth: '+2' },
-        { id: '2', name: 'Goodlife Football Academy', leader: 'Justice Amissah', location: 'Goodlife Football Academy Camp', meeting_time: 'Mon. 6:00 PM', member_ids: [], status: 'Active', growth: '+5' },
-      ];
-      setCells(mockCells);
+      const { data, error } = await supabase.from('cell_groups').select('*').order('name');
+      
+      if (error) {
+        if (error.code === 'PGRST205') {
+          console.warn('Supabase table "cell_groups" not found. Falling back to localStorage.');
+          const localData = localStorage.getItem('fh_cell_groups');
+          if (localData) {
+            setCells(JSON.parse(localData));
+            return;
+          }
+        } else {
+          throw error;
+        }
+      }
+      
+      if (data && data.length > 0) {
+        setCells(data);
+        localStorage.setItem('fh_cell_groups', JSON.stringify(data));
+      } else {
+        // Fallback to mock data ONLY if table is empty
+        const mockCells: CellGroup[] = [
+          { id: '1', name: 'Faith Cell Group', leader: 'David Ramson', location: 'Church Premises', meeting_time: 'Thursday 6:30 PM', member_ids: [], status: 'Active', growth: '+2' },
+          { id: '2', name: 'Newlife football Academy', leader: 'Justice Amissah', location: 'Newlife football Academy Camp', meeting_time: 'Mon. 6:00 PM', member_ids: [], status: 'Active', growth: '+5' },
+        ];
+        // Try to seed the database if it's empty
+        await supabase.from('cell_groups').insert(mockCells);
+        setCells(mockCells);
+        localStorage.setItem('fh_cell_groups', JSON.stringify(mockCells));
+      }
+    } catch (err) {
+      console.error('Error fetching cells:', err);
+      const localData = localStorage.getItem('fh_cell_groups');
+      if (localData) {
+        setCells(JSON.parse(localData));
+      } else {
+        const mockCells: CellGroup[] = [
+          { id: '1', name: 'Faith Cell Group', leader: 'David Ramson', location: 'Church Premises', meeting_time: 'Thursday 6:30 PM', member_ids: [], status: 'Active', growth: '+2' },
+          { id: '2', name: 'Newlife football Academy', leader: 'Justice Amissah', location: 'Newlife football Academy Camp', meeting_time: 'Mon. 6:00 PM', member_ids: [], status: 'Active', growth: '+5' },
+        ];
+        setCells(mockCells);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -117,52 +207,92 @@ const CellMeetingView: React.FC<CellMeetingViewProps> = ({ userProfile }) => {
   const handleCreateCell = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      const newCell: CellGroup = {
-        id: Math.random().toString(36).substr(2, 9),
-        ...cellForm,
-        member_ids: [],
-        growth: '0'
-      };
-      setCells([newCell, ...cells]);
+    
+    const newCellData = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: cellForm.name,
+      leader: cellForm.leader,
+      location: cellForm.location,
+      meeting_time: cellForm.meeting_time,
+      status: cellForm.status,
+      member_ids: [],
+      growth: '0'
+    };
+
+    try {
+      const { data, error } = await supabase.from('cell_groups').insert([newCellData]).select();
+      
+      if (error && error.code !== 'PGRST205') throw error;
+      
+      const createdCell = data ? data[0] : newCellData;
+      const updatedCells = [createdCell, ...cells];
+      setCells(updatedCells);
+      localStorage.setItem('fh_cell_groups', JSON.stringify(updatedCells));
       setIsNewCellModalOpen(false);
       setCellForm({ name: '', leader: '', location: '', meeting_time: '', status: 'Active' });
-      setIsLoading(false);
       alert('Cell Group established successfully!');
-    }, 800);
+    } catch (err) {
+      console.error('Error creating cell:', err);
+      alert('Failed to establish cell group. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleUpdateCell = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCell) return;
     setIsLoading(true);
-    setTimeout(() => {
-      setCells(cells.map(c => c.id === selectedCell.id ? { ...c, ...cellForm } : c));
+    
+    try {
+      const { error } = await supabase
+        .from('cell_groups')
+        .update({ ...cellForm })
+        .eq('id', selectedCell.id);
+      
+      if (error && error.code !== 'PGRST205') throw error;
+      
+      const updatedCells = cells.map(c => c.id === selectedCell.id ? { ...c, ...cellForm } : c);
+      setCells(updatedCells);
+      localStorage.setItem('fh_cell_groups', JSON.stringify(updatedCells));
       setIsEditCellModalOpen(false);
       setSelectedCell(null);
-      setIsLoading(false);
       alert('Cell Group updated successfully!');
-    }, 800);
+    } catch (err) {
+      console.error('Error updating cell:', err);
+      alert('Failed to update cell group.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSubmitReport = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setTimeout(() => {
-      const cell = cells.find(c => c.id === reportForm.cell_id);
-      const newReport: CellReport = {
-        id: Math.random().toString(36).substr(2, 9),
-        ...reportForm,
-        cell_name: cell?.name || 'Unknown Cell',
-        created_at: new Date().toISOString()
-      };
-      setReports([newReport, ...reports]);
-      setIsReportModalOpen(false);
-      setReportForm({ cell_id: '', meeting_date: new Date().toISOString().split('T')[0], attendance_count: 0, new_souls: 0, testimony: '', offering_amount: 0 });
+    
+    const cell = cells.find(c => c.id === reportForm.cell_id);
+    const reportData = {
+      ...reportForm,
+      cell_name: cell?.name || 'Unknown Cell',
+      created_at: new Date().toISOString()
+    };
+
+    try {
+      const { data, error } = await supabase.from('cell_reports').insert([reportData]).select();
+      if (error) throw error;
+      
+      if (data) {
+        setReports([data[0], ...reports]);
+        setIsReportModalOpen(false);
+        setReportForm({ cell_id: '', meeting_date: new Date().toISOString().split('T')[0], attendance_count: 0, new_souls: 0, testimony: '', offering_amount: 0 });
+        alert('Weekly report submitted successfully!');
+      }
+    } catch (err) {
+      console.error('Error submitting report:', err);
+      alert('Failed to submit report.');
+    } finally {
       setIsLoading(false);
-      alert('Weekly report submitted successfully!');
-    }, 800);
+    }
   };
 
   const openAttendanceSheet = (cell: CellGroup) => {
@@ -197,30 +327,71 @@ const CellMeetingView: React.FC<CellMeetingViewProps> = ({ userProfile }) => {
 
   const saveAttendanceSheet = async () => {
     setIsLoading(true);
-    // In a real app, we'd save to cell_attendance table
-    setTimeout(() => {
+    
+    const attendanceData = attendanceRecords.map(record => ({
+      cell_id: selectedCell?.id,
+      meeting_date: attendanceDate,
+      member_id: record.member_id,
+      status: record.status,
+      created_at: new Date().toISOString()
+    }));
+
+    try {
+      const { error } = await supabase.from('cell_attendance').insert(attendanceData);
+      
+      // Always save to localStorage as a backup or if table is missing
+      const localAttendance = localStorage.getItem('fh_cell_attendance');
+      let allAttendance = localAttendance ? JSON.parse(localAttendance) : [];
+      // Remove old records for this cell and date to avoid duplicates
+      allAttendance = allAttendance.filter((a: any) => 
+        !(a.cell_id === selectedCell?.id && a.meeting_date === attendanceDate)
+      );
+      allAttendance = [...allAttendance, ...attendanceData];
+      localStorage.setItem('fh_cell_attendance', JSON.stringify(allAttendance));
+
+      if (error && error.code !== 'PGRST205') throw error;
+      
       setIsAttendanceSheetOpen(false);
-      setIsLoading(false);
       alert('Attendance sheet Updated successfully!');
-    }, 1000);
+    } catch (err) {
+      console.error('Error saving attendance:', err);
+      alert('Failed to save attendance.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleToggleCellMember = (memberId: string) => {
+  const handleToggleCellMember = async (memberId: string) => {
     if (!selectedCell) return;
     
-    setCells(prev => prev.map(c => {
-      if (c.id === selectedCell.id) {
-        const isMember = c.member_ids.includes(memberId);
-        const newIds = isMember 
-          ? c.member_ids.filter(id => id !== memberId)
-          : [...c.member_ids, memberId];
-        
-        const updatedCell = { ...c, member_ids: newIds };
-        setSelectedCell(updatedCell); // Update selected cell state too
-        return updatedCell;
-      }
-      return c;
-    }));
+    const isMember = selectedCell.member_ids.includes(memberId);
+    const newIds = isMember 
+      ? selectedCell.member_ids.filter(id => id !== memberId)
+      : [...selectedCell.member_ids, memberId];
+    
+    try {
+      const { error } = await supabase
+        .from('cell_groups')
+        .update({ member_ids: newIds })
+        .eq('id', selectedCell.id);
+      
+      if (error && error.code !== 'PGRST205') throw error;
+
+      const updatedCells = cells.map(c => {
+        if (c.id === selectedCell.id) {
+          const updatedCell = { ...c, member_ids: newIds };
+          setSelectedCell(updatedCell); // Update selected cell state too
+          return updatedCell;
+        }
+        return c;
+      });
+      
+      setCells(updatedCells);
+      localStorage.setItem('fh_cell_groups', JSON.stringify(updatedCells));
+    } catch (err) {
+      console.error('Error toggling cell member:', err);
+      alert('Failed to update member assignment.');
+    }
   };
 
   const openManageMembers = (cell: CellGroup) => {
@@ -365,6 +536,16 @@ const CellMeetingView: React.FC<CellMeetingViewProps> = ({ userProfile }) => {
                           title="Manage Members"
                         >
                           <UserPlus className="w-5 h-5" />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setReportForm(prev => ({ ...prev, cell_id: cell.id }));
+                            setIsReportModalOpen(true);
+                          }}
+                          className="p-4 bg-slate-50 text-slate-400 rounded-2xl hover:bg-slate-900 hover:text-white transition-all shadow-sm"
+                          title="Submit Weekly Report"
+                        >
+                          <FileText className="w-5 h-5" />
                         </button>
                         <button 
                           onClick={() => openEditModal(cell)}
