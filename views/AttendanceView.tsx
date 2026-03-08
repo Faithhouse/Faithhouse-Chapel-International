@@ -21,6 +21,11 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ userProfile }) => {
   const [eventStats, setEventStats] = useState<Record<string, EventStats>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [activeEvent, setActiveEvent] = useState<AttendanceEvent | null>(null);
+  const [activeEventCounts, setActiveEventCounts] = useState({
+    men_count: 0,
+    women_count: 0,
+    children_count: 0
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -32,6 +37,15 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ userProfile }) => {
   // Filters
   const [branchFilter, setBranchFilter] = useState('All');
   const [typeFilter, setTypeFilter] = useState('All');
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+
+  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 1 + i);
 
   // Form State for New Service
   const [newService, setNewService] = useState({
@@ -64,7 +78,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ userProfile }) => {
       supabase.removeChannel(eventSubscription);
       supabase.removeChannel(recordSubscription);
     };
-  }, [branchFilter, typeFilter]);
+  }, [branchFilter, typeFilter, selectedMonth, selectedYear]);
 
   const fetchInitialData = async () => {
     setIsLoading(true);
@@ -76,6 +90,11 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ userProfile }) => {
       let eventQuery = supabase.from('attendance_events').select('*, branches(*)').order('event_date', { ascending: false });
       if (branchFilter !== 'All') eventQuery = eventQuery.eq('branch_id', branchFilter);
       if (typeFilter !== 'All') eventQuery = eventQuery.eq('event_type', typeFilter);
+      
+      // Add month/year filtering
+      const startDate = new Date(Date.UTC(selectedYear, selectedMonth, 1)).toISOString().split('T')[0];
+      const endDate = new Date(Date.UTC(selectedYear, selectedMonth + 1, 0)).toISOString().split('T')[0];
+      eventQuery = eventQuery.gte('event_date', startDate).lte('event_date', endDate);
 
       const { data: eventData, error: eventError } = await eventQuery;
       if (eventError) {
@@ -125,6 +144,17 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ userProfile }) => {
     try {
       const { error } = await supabase.from('attendance_events').insert([newService]);
       if (error) throw error;
+
+      // Two-way sync: Create event in the events table
+      await supabase.from('events').insert([{
+        title: newService.event_name,
+        category: newService.event_type,
+        date: newService.event_date,
+        branch_id: newService.branch_id || null,
+        time: '18:00', // Default time
+        status: 'Upcoming'
+      }]);
+
       setIsModalOpen(false);
       setNewService({
         event_name: '',
@@ -143,6 +173,11 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ userProfile }) => {
   const openSheet = async (event: AttendanceEvent) => {
     setIsLoading(true);
     setActiveEvent(event);
+    setActiveEventCounts({
+      men_count: event.men_count || 0,
+      women_count: event.women_count || 0,
+      children_count: event.children_count || 0
+    });
     try {
       const { data, error } = await supabase.from('attendance_records').select('*').eq('attendance_event_id', event.id);
       if (error) throw error;
@@ -188,19 +223,34 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ userProfile }) => {
       // Logic Fix: Omit 'id' for new records to prevent Null Constraint Violation
       const cleanRecords = records.map(({ id, ...rest }) => id ? { id, ...rest } : rest);
       
-      const { error } = await supabase.from('attendance_records').upsert(cleanRecords, { onConflict: 'attendance_event_id, member_id' });
+      const { error: recordsError } = await supabase.from('attendance_records').upsert(cleanRecords, { onConflict: 'attendance_event_id, member_id' });
       
-      if (error) {
-         if (error.message.includes('column "id"') || error.code === '23502') {
+      if (recordsError) {
+         if (recordsError.message.includes('column "id"') || recordsError.code === '23502') {
            setSchemaError("PRIMARY_KEY_DEFAULT_MISSING");
            throw new Error("Database Schema Conflict: The database requires manual repair to support automatic ID generation.");
          }
-         if (error.message.includes('unique or exclusion constraint')) {
+         if (recordsError.message.includes('unique or exclusion constraint')) {
            setSchemaError("UNIQUE_CONSTRAINT_MISSING");
            throw new Error("Database Schema Conflict: Missing unique constraint for attendance synchronization.");
          }
-         throw error;
+         throw recordsError;
       }
+
+      // Save the summary counts to attendance_events
+      const total = activeEventCounts.men_count + activeEventCounts.women_count + activeEventCounts.children_count;
+      const { error: eventError } = await supabase
+        .from('attendance_events')
+        .update({
+          men_count: activeEventCounts.men_count,
+          women_count: activeEventCounts.women_count,
+          children_count: activeEventCounts.children_count,
+          total_attendance: total
+        })
+        .eq('id', activeEvent.id);
+
+      if (eventError) throw eventError;
+
       setActiveEvent(null);
       fetchInitialData();
     } catch (err: any) {
@@ -233,19 +283,44 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ userProfile }) => {
      let repairSQL = '';
      
      if (schemaError === "INITIALIZATION_REQUIRED") {
-       repairSQL = `-- ATTENDANCE MASTER INITIALIZATION
-CREATE TABLE IF NOT EXISTS public.attendance_events (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  event_name TEXT NOT NULL,
-  event_type TEXT NOT NULL,
-  event_date DATE NOT NULL,
-  branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
+       repairSQL = `-- MASTER DATABASE REPAIR SCRIPT
+-- 1. Create Branches Table
+CREATE TABLE IF NOT EXISTS public.branches (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL,
+  location TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
--- Ensure branch_id exists if table was created previously
-ALTER TABLE public.attendance_events ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL;
+-- 2. Create Events Table with Unique Constraint
+CREATE TABLE IF NOT EXISTS public.events (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  date DATE NOT NULL,
+  time TIME NOT NULL,
+  branch_id UUID REFERENCES public.branches(id) ON DELETE CASCADE,
+  status TEXT DEFAULT 'Upcoming',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  UNIQUE(date, category, branch_id)
+);
 
+-- 3. Create Attendance Events Table with Unique Constraint
+CREATE TABLE IF NOT EXISTS public.attendance_events (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  event_name TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  event_date DATE NOT NULL,
+  branch_id UUID REFERENCES public.branches(id) ON DELETE CASCADE,
+  total_attendance INTEGER DEFAULT 0,
+  men_count INTEGER DEFAULT 0,
+  women_count INTEGER DEFAULT 0,
+  children_count INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  UNIQUE(event_date, event_type, branch_id)
+);
+
+-- 4. Create Attendance Records Table
 CREATE TABLE IF NOT EXISTS public.attendance_records (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   attendance_event_id UUID NOT NULL REFERENCES attendance_events(id) ON DELETE CASCADE,
@@ -256,9 +331,20 @@ CREATE TABLE IF NOT EXISTS public.attendance_records (
   UNIQUE(attendance_event_id, member_id)
 );
 
+-- 5. Enable RLS
+ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.attendance_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.attendance_records ENABLE ROW LEVEL SECURITY;
+
+-- 6. Create Permissive Policies
+DROP POLICY IF EXISTS "Allow all" ON public.branches;
+CREATE POLICY "Allow all" ON public.branches FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all" ON public.events;
+CREATE POLICY "Allow all" ON public.events FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all" ON public.attendance_events;
 CREATE POLICY "Allow all" ON public.attendance_events FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all" ON public.attendance_records;
 CREATE POLICY "Allow all" ON public.attendance_records FOR ALL USING (true) WITH CHECK (true);`;
      } else {
        repairSQL = `-- SCHEMA REPAIR: ADD UUID DEFAULTS & UNIQUE CONSTRAINTS
@@ -314,6 +400,62 @@ END $$;`;
              {isSaving ? <div className="w-4 h-4 border-2 border-white/50 border-t-white animate-spin rounded-full" /> : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
              Authorize Sync
           </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4">
+            <div className="w-12 h-12 bg-cms-blue/10 text-cms-blue rounded-2xl flex items-center justify-center">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+            </div>
+            <div>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Men</p>
+              <input 
+                type="number" 
+                value={activeEventCounts.men_count} 
+                onChange={e => setActiveEventCounts({...activeEventCounts, men_count: parseInt(e.target.value) || 0})}
+                className="text-xl font-black text-slate-800 bg-transparent border-none p-0 focus:ring-0 w-full"
+              />
+            </div>
+          </div>
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4">
+            <div className="w-12 h-12 bg-cms-rose/10 text-cms-rose rounded-2xl flex items-center justify-center">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+            </div>
+            <div>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Women</p>
+              <input 
+                type="number" 
+                value={activeEventCounts.women_count} 
+                onChange={e => setActiveEventCounts({...activeEventCounts, women_count: parseInt(e.target.value) || 0})}
+                className="text-xl font-black text-slate-800 bg-transparent border-none p-0 focus:ring-0 w-full"
+              />
+            </div>
+          </div>
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4">
+            <div className="w-12 h-12 bg-cms-purple/10 text-cms-purple rounded-2xl flex items-center justify-center">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+            </div>
+            <div>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Children</p>
+              <input 
+                type="number" 
+                value={activeEventCounts.children_count} 
+                onChange={e => setActiveEventCounts({...activeEventCounts, children_count: parseInt(e.target.value) || 0})}
+                className="text-xl font-black text-slate-800 bg-transparent border-none p-0 focus:ring-0 w-full"
+              />
+            </div>
+          </div>
+          <div className="bg-fh-green p-6 rounded-[2rem] shadow-xl flex items-center gap-4 border-b-4 border-black/20">
+            <div className="w-12 h-12 bg-white/20 text-fh-gold rounded-2xl flex items-center justify-center">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+            </div>
+            <div>
+              <p className="text-[9px] font-black text-fh-gold/60 uppercase tracking-widest">Total Attendance</p>
+              <p className="text-2xl font-black text-fh-gold leading-none">
+                {activeEventCounts.men_count + activeEventCounts.women_count + activeEventCounts.children_count}
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="cms-card cms-card-blue bg-white rounded-[3rem] overflow-hidden border-none shadow-sm">
@@ -399,6 +541,34 @@ END $$;`;
         </button>
       </div>
 
+      <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
+        <div className="flex flex-col md:flex-row items-center gap-4">
+          <select className="w-full md:w-64 px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-[10px] font-black uppercase" value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)}>
+            <option value="All">All Branches</option>
+            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+          <select className="w-full md:w-64 px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-[10px] font-black uppercase" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+            <option value="All">All Service Types</option>
+            <option>Prophetic Word Service</option>
+            <option>Help from above service</option>
+            <option>Special services</option>
+            <option>Conferences</option>
+          </select>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 pt-2">
+          <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl">
+            {months.map((month, index) => (
+              <button key={month} onClick={() => setSelectedMonth(index)} className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase transition-all ${selectedMonth === index ? 'bg-fh-green text-fh-gold' : 'text-slate-400'}`}>
+                {month.substring(0, 3)}
+              </button>
+            ))}
+          </div>
+          <select className="px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-black uppercase" value={selectedYear} onChange={(e) => setSelectedYear(parseInt(e.target.value))}>
+            {years.map(year => <option key={year} value={year}>{year}</option>)}
+          </select>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-12">
         {events.length > 0 ? events.map(ev => {
           const stats = eventStats[ev.id] || { present: 0, absent: 0 };
@@ -409,6 +579,10 @@ END $$;`;
                 <div className="flex flex-col items-end gap-2">
                    <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-cms-emerald"></span><span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">Present: {stats.present}</span></div>
                    <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-cms-rose"></span><span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">Absent: {stats.absent}</span></div>
+                   <div className="mt-2 pt-2 border-t border-slate-100 w-full flex flex-col items-end gap-1">
+                      <span className="text-[8px] font-bold text-slate-400 uppercase">M: {ev.men_count || 0} • W: {ev.women_count || 0} • C: {ev.children_count || 0}</span>
+                      <span className="text-[9px] font-black text-fh-green uppercase">Total: {ev.total_attendance || 0}</span>
+                   </div>
                 </div>
               </div>
               <h3 className="text-2xl font-black text-slate-900 leading-tight mb-8 group-hover:text-cms-blue transition-colors uppercase tracking-tight">{ev.event_name}</h3>

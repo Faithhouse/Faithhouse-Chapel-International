@@ -165,6 +165,10 @@ export interface AttendanceEvent {
   event_type: 'Prophetic Word Service' | 'Help from above service' | 'Special services' | 'Conferences';
   event_date: string;
   branch_id?: string;
+  men_count?: number;
+  women_count?: number;
+  children_count?: number;
+  total_attendance?: number;
   created_at?: string;
   branches?: Branch;
 }

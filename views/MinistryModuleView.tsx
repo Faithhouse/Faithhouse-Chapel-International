@@ -707,14 +707,7 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
           </div>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={[
-                { name: 'Jan', count: 28 },
-                { name: 'Feb', count: 35 },
-                { name: 'Mar', count: 42 },
-                { name: 'Apr', count: 38 },
-                { name: 'May', count: 45 },
-                { name: 'Jun', count: 52 },
-              ]}>
+              <AreaChart data={[]}>
                 <defs>
                   <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
@@ -728,6 +721,9 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
                 <Area type="monotone" dataKey="count" stroke="#8b5cf6" fillOpacity={1} fill="url(#colorCount)" strokeWidth={4} />
               </AreaChart>
             </ResponsiveContainer>
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No Engagement Data Recorded</p>
+            </div>
           </div>
         </div>
 
@@ -741,16 +737,7 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
             <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-6">Active Initiatives</h4>
             <div className="space-y-4">
-              {[
-                { name: 'Career Mentorship', status: 'Ongoing' },
-                { name: 'Bible Study Series', status: 'Active' },
-                { name: 'Community Service', status: 'Planning' },
-              ].map((item, i) => (
-                <div key={i} className="p-4 bg-slate-50 rounded-2xl flex items-center justify-between">
-                  <p className="text-[10px] font-black text-slate-800 uppercase">{item.name}</p>
-                  <span className="text-[8px] font-black text-violet-600 uppercase tracking-widest">{item.status}</span>
-                </div>
-              ))}
+              <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest text-center py-4 italic">No Initiatives Launched</p>
             </div>
           </div>
         </div>
@@ -759,24 +746,21 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
           <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-6">Pastoral Oversight</h4>
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-violet-100 text-violet-600 flex items-center justify-center font-black">DM</div>
-            <div>
-              <p className="text-xs font-black text-slate-800 uppercase">Rev. Daniel K. Mensah</p>
-              <p className="text-[9px] text-slate-400 font-bold uppercase">Lead Pastor</p>
-            </div>
+          <div className="flex flex-col items-center justify-center py-4 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-300 flex items-center justify-center font-black mb-3">?</div>
+            <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No Lead Assigned</p>
           </div>
           <button onClick={() => setActiveTab('Leadership')} className="w-full mt-6 py-3 bg-slate-50 text-slate-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all">View Full Team</button>
         </div>
         <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col justify-center items-center text-center">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Weekly Attendance</p>
-          <h3 className="text-4xl font-black text-fh-green tracking-tighter">85%</h3>
-          <p className="text-[9px] text-emerald-500 font-bold uppercase mt-2">+12% from last month</p>
+          <h3 className="text-4xl font-black text-slate-200 tracking-tighter">0%</h3>
+          <p className="text-[9px] text-slate-300 font-bold uppercase mt-2">No data yet</p>
         </div>
         <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col justify-center items-center text-center">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Ministry Vitality</p>
-          <h3 className="text-4xl font-black text-fh-green tracking-tighter">A+</h3>
-          <p className="text-[9px] text-slate-400 font-bold uppercase mt-2">Based on engagement</p>
+          <h3 className="text-4xl font-black text-slate-200 tracking-tighter">N/A</h3>
+          <p className="text-[9px] text-slate-300 font-bold uppercase mt-2">Awaiting assessment</p>
         </div>
       </div>
     </div>
@@ -785,29 +769,11 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
   const renderYoungAdultLeadership = () => (
     <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-700">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {[
-          { name: 'Rev. Daniel K. Mensah', role: 'Lead Pastor', bio: 'Visionary leader with a passion for youth empowerment.', image: 'https://picsum.photos/seed/pastor1/400/400' },
-          { name: 'Ps. Grace Appiah', role: 'Associate Pastor', bio: 'Dedicated to spiritual growth and mentorship.', image: 'https://picsum.photos/seed/pastor2/400/400' },
-          { name: 'Min. Samuel Boateng', role: 'Youth Minister', bio: 'Coordinating community outreach and engagement.', image: 'https://picsum.photos/seed/pastor3/400/400' },
-        ].map((leader, i) => (
-          <div key={i} className="bg-white rounded-[3rem] overflow-hidden border border-slate-100 shadow-sm group">
-            <div className="h-48 overflow-hidden relative">
-              <img src={leader.image} alt={leader.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" referrerPolicy="no-referrer" />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent" />
-              <div className="absolute bottom-6 left-8">
-                <p className="text-[10px] font-black text-fh-gold uppercase tracking-widest mb-1">{leader.role}</p>
-                <h4 className="text-lg font-black text-white uppercase tracking-tight">{leader.name}</h4>
-              </div>
-            </div>
-            <div className="p-8">
-              <p className="text-xs text-slate-500 leading-relaxed italic">"{leader.bio}"</p>
-              <div className="mt-6 flex gap-3">
-                <button className="flex-1 py-3 bg-slate-50 text-slate-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all">Contact</button>
-                <button className="flex-1 py-3 bg-slate-50 text-slate-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all">Profile</button>
-              </div>
-            </div>
-          </div>
-        ))}
+        <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
+          <Users className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+          <h4 className="text-lg font-black text-slate-400 uppercase tracking-tight">No Leadership Assigned</h4>
+          <p className="text-[10px] text-slate-300 font-black uppercase tracking-[0.3em] mt-2">Provision leaders via the personnel registry</p>
+        </div>
       </div>
 
       <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
@@ -846,14 +812,14 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {[
-            { label: 'Avg. Attendance', value: '94', sub: 'Last 4 Weeks' },
-            { label: 'New Converts', value: '12', sub: 'This Month' },
-            { label: 'Retention Rate', value: '88%', sub: 'Year to Date' },
-            { label: 'Peak Attendance', value: '156', sub: 'Easter Service' },
+            { label: 'Avg. Attendance', value: '0', sub: 'No Sessions' },
+            { label: 'New Converts', value: '0', sub: 'This Month' },
+            { label: 'Retention Rate', value: '0%', sub: 'No Data' },
+            { label: 'Peak Attendance', value: '0', sub: 'No Data' },
           ].map((stat, i) => (
             <div key={i} className="p-6 bg-slate-50 rounded-2xl border border-slate-100 text-center">
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{stat.label}</p>
-              <h4 className="text-3xl font-black text-fh-green tracking-tighter">{stat.value}</h4>
+              <h4 className="text-3xl font-black text-slate-200 tracking-tighter">{stat.value}</h4>
               <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">{stat.sub}</p>
             </div>
           ))}
@@ -871,22 +837,9 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {[
-                { date: 'Feb 23, 2026', type: 'Sunday Service', count: 112, souls: 3, status: 'Completed' },
-                { date: 'Feb 20, 2026', type: 'Friday Night Live', count: 85, souls: 1, status: 'Completed' },
-                { date: 'Feb 16, 2026', type: 'Sunday Service', count: 108, souls: 5, status: 'Completed' },
-                { date: 'Feb 13, 2026', type: 'Prayer Vigil', count: 45, souls: 0, status: 'Completed' },
-              ].map((row, i) => (
-                <tr key={i} className="hover:bg-slate-50 transition-all">
-                  <td className="px-8 py-6 text-sm font-black text-slate-800 uppercase tracking-tight">{row.date}</td>
-                  <td className="px-8 py-6 text-[10px] font-bold text-slate-500 uppercase">{row.type}</td>
-                  <td className="px-8 py-6 text-sm font-black text-fh-green">{row.count}</td>
-                  <td className="px-8 py-6 text-sm font-black text-violet-600">{row.souls}</td>
-                  <td className="px-8 py-6 text-right">
-                    <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-[8px] font-black uppercase">{row.status}</span>
-                  </td>
-                </tr>
-              ))}
+              <tr>
+                <td colSpan={5} className="px-8 py-20 text-center text-slate-300 font-black uppercase tracking-widest italic opacity-50">No attendance logs available.</td>
+              </tr>
             </tbody>
           </table>
         </div>
