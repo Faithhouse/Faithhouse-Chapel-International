@@ -81,18 +81,22 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
 
       // 1. Fetch Global Stats
       const { count: memberCount, error: mErr } = await supabase.from('members').select('*', { count: 'exact', head: true });
-      if (mErr) console.warn("Member count fetch failed:", mErr);
+      if (mErr) throw mErr;
 
-      const { count: visitorCount } = await supabase.from('members').select('*', { count: 'exact', head: true }).eq('status', 'Visitor');
-      const { count: pendingFollowUp } = await supabase.from('visitation_records').select('*', { count: 'exact', head: true }).eq('status', 'Pending');
+      const { count: visitorCount, error: vErr } = await supabase.from('members').select('*', { count: 'exact', head: true }).eq('status', 'Visitor');
+      if (vErr) throw vErr;
+
+      const { count: pendingFollowUp, error: fErr } = await supabase.from('visitation_records').select('*', { count: 'exact', head: true }).eq('status', 'Pending');
+      if (fErr) throw fErr;
       
       const firstDay = new Date(localNow.getFullYear(), localNow.getMonth(), 1).toLocaleDateString('en-CA');
       const lastDay = new Date(localNow.getFullYear(), localNow.getMonth() + 1, 0).toLocaleDateString('en-CA');
       
-      const { count: eventCount } = await supabase.from('events')
+      const { count: eventCount, error: evErr } = await supabase.from('events')
         .select('*', { count: 'exact', head: true })
         .gte('date', firstDay)
         .lte('date', lastDay);
+      if (evErr) throw evErr;
 
       setStats({
         members: memberCount || 0,
@@ -108,7 +112,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
           .select('*')
           .order('created_at', { ascending: false })
           .limit(4);
-        if (rErr) console.warn("Recent members fetch failed:", rErr);
+        if (rErr) throw rErr;
         setRecentMembers(recent || []);
       }
 
@@ -119,7 +123,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
         .gte('date', todayStr)
         .order('date', { ascending: true })
         .limit(5);
-      if (eErr) console.warn("Upcoming events fetch failed:", eErr);
+      if (eErr) throw eErr;
       setUpcomingEvents(events || []);
 
       // 4. Fetch Today's Tasks
@@ -131,7 +135,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
       
       if (tErr) {
         if (tErr.code !== '42P01' && tErr.code !== 'PGRST205') {
-          console.warn("Today's tasks fetch failed:", tErr);
+          throw tErr;
         }
       }
       setTodayTasks(tasks || []);
@@ -146,7 +150,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
           .select('created_at')
           .gte('created_at', sixMonthsAgo.toISOString());
         
-        if (gErr) console.warn("Growth data fetch failed:", gErr);
+        if (gErr) throw gErr;
 
         if (growthData) {
           const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -173,6 +177,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
       if (err.code === '42P01') {
         setTableMissing(true);
         setMissingTableName(err.message.match(/'public\.(.*)'/)?.[1] || "database table");
+      } else if (err.message === 'Failed to fetch' || err.message?.includes('TypeError: Failed to fetch')) {
+        setError("Network Error: Unable to connect to the database. Please check your internet connection.");
       } else {
         setError(err.message || "Failed to synchronize with the database.");
       }
@@ -213,6 +219,55 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
 
   if (tableMissing) {
     const repairSQL = `-- SYSTEM REPAIR SCRIPT
+-- Ensure members table exists first
+CREATE TABLE IF NOT EXISTS public.members (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  first_name TEXT NOT NULL,
+  last_name TEXT,
+  email TEXT,
+  phone TEXT,
+  gender TEXT DEFAULT 'Male',
+  dob DATE,
+  date_joined DATE,
+  status TEXT DEFAULT 'Active',
+  ministry TEXT DEFAULT 'N/A',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.financial_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  service_date DATE NOT NULL,
+  service_type TEXT NOT NULL,
+  tithes NUMERIC DEFAULT 0,
+  offerings NUMERIC DEFAULT 0,
+  seed NUMERIC DEFAULT 0,
+  expenses NUMERIC DEFAULT 0,
+  other_income NUMERIC DEFAULT 0,
+  total_income NUMERIC DEFAULT 0,
+  bank_balance NUMERIC DEFAULT 0,
+  momo_balance NUMERIC DEFAULT 0,
+  witness1_name TEXT NOT NULL,
+  witness2_name TEXT NOT NULL,
+  notes TEXT,
+  status TEXT DEFAULT 'Posted',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.tithe_entries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  member_id UUID NOT NULL,
+  amount NUMERIC NOT NULL,
+  payment_date DATE NOT NULL,
+  payment_method TEXT NOT NULL,
+  service_type TEXT,
+  recorded_by UUID,
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  CONSTRAINT fk_member FOREIGN KEY (member_id) REFERENCES public.members(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_tithe_member_id ON public.tithe_entries(member_id);
+
 CREATE TABLE IF NOT EXISTS public.recurring_task_templates (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   title TEXT NOT NULL,
@@ -236,14 +291,29 @@ CREATE TABLE IF NOT EXISTS public.task_instances (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
+ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.financial_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tithe_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.recurring_task_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.task_instances ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow all for staff" ON public.members;
+CREATE POLICY "Allow all for staff" ON public.members FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all for staff" ON public.financial_records;
+CREATE POLICY "Allow all for staff" ON public.financial_records FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all for staff" ON public.tithe_entries;
+CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow all for staff" ON public.recurring_task_templates;
 CREATE POLICY "Allow all for staff" ON public.recurring_task_templates FOR ALL USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow all for staff" ON public.task_instances;
-CREATE POLICY "Allow all for staff" ON public.task_instances FOR ALL USING (true) WITH CHECK (true);`;
+CREATE POLICY "Allow all for staff" ON public.task_instances FOR ALL USING (true) WITH CHECK (true);
+
+-- FORCE SCHEMA CACHE RELOAD
+NOTIFY pgrst, 'reload schema';`;
 
     return (
       <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center">
@@ -298,9 +368,17 @@ CREATE POLICY "Allow all for staff" ON public.task_instances FOR ALL USING (true
       </div>
 
       {error && (
-        <div className="p-6 bg-rose-50 border border-rose-100 rounded-[2rem] flex items-center gap-4 text-rose-800">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          <p className="text-xs font-bold uppercase tracking-wide">{error}</p>
+        <div className="p-6 bg-rose-50 border border-rose-100 rounded-[2rem] flex items-center justify-between gap-4 text-rose-800">
+          <div className="flex items-center gap-4">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <p className="text-xs font-bold uppercase tracking-wide">{error}</p>
+          </div>
+          <button 
+            onClick={() => fetchDashboardData()}
+            className="px-4 py-2 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-all shadow-sm"
+          >
+            Retry
+          </button>
         </div>
       )}
       

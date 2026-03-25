@@ -20,6 +20,7 @@ const categories = ['Pastor', 'Minister', 'Ministry Head/Deputy', 'Worker'] as c
 const LeadershipView: React.FC<{ userProfile: UserProfile | null }> = ({ userProfile }) => {
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const [editingLeader, setEditingLeader] = useState<Partial<Leader> | null>(null);
@@ -30,12 +31,18 @@ const LeadershipView: React.FC<{ userProfile: UserProfile | null }> = ({ userPro
 
   const fetchLeaders = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const { data, error } = await supabase.from('leadership').select('*').order('created_at', { ascending: false });
       if (error) throw error;
       setLeaders(data || []);
-    } catch (err) {
+    } catch (err: any) {
       console.warn("Leadership table might not exist yet. Using sample data.");
+      const errorMessage = err.message === 'Failed to fetch' || err.name === 'TypeError' 
+        ? "Network Error: Unable to connect to the database. Please check your internet connection."
+        : err.message || "An unexpected error occurred while fetching leadership data.";
+      setError(errorMessage);
+
       setLeaders([
         { id: '1', first_name: 'John', last_name: 'Doe', position: 'Head Pastor', category: 'Pastor', department: 'General', email: 'john@faithhouse.church', phone: '+233 24 000 0001' },
         { id: '2', first_name: 'Jane', last_name: 'Smith', position: 'Associate Pastor', category: 'Pastor', department: 'Worship', email: 'jane@faithhouse.church', phone: '+233 24 000 0002' },
@@ -98,6 +105,23 @@ const LeadershipView: React.FC<{ userProfile: UserProfile | null }> = ({ userPro
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
+      {error && (
+        <div className="p-6 bg-rose-50 border-2 border-rose-100 rounded-[2rem] flex items-center gap-4 animate-in slide-in-from-top-4">
+          <div className="w-12 h-12 bg-rose-500 text-white rounded-2xl flex items-center justify-center shadow-lg">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+          </div>
+          <div>
+            <h3 className="text-sm font-black text-rose-900 uppercase tracking-tight">System Warning</h3>
+            <p className="text-xs font-bold text-rose-600 uppercase tracking-widest mt-0.5">{error}</p>
+          </div>
+          <button 
+            onClick={() => fetchLeaders()}
+            className="ml-auto px-6 py-2 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-all shadow-md"
+          >
+            Retry Sync
+          </button>
+        </div>
+      )}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-2">
           <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Church Leadership</h2>

@@ -32,6 +32,7 @@ const EventsView: React.FC<EventsViewProps> = ({ userProfile }) => {
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [tableMissing, setTableMissing] = useState(false);
   const [repairNeeded, setRepairNeeded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -73,6 +74,7 @@ const EventsView: React.FC<EventsViewProps> = ({ userProfile }) => {
   const fetchInitialData = async () => {
     setIsLoading(true);
     setTableMissing(false);
+    setError(null);
     try {
       // 1. Auto-cleanup expired events to keep the system clean
       const today = new Date().toISOString().split('T')[0];
@@ -94,6 +96,7 @@ const EventsView: React.FC<EventsViewProps> = ({ userProfile }) => {
           setTableMissing(true);
           return;
         }
+        throw bError;
       }
       setBranches(bData || []);
 
@@ -107,8 +110,12 @@ const EventsView: React.FC<EventsViewProps> = ({ userProfile }) => {
         throw eventError;
       }
       setEvents(eventData || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Sync Error:", err);
+      const errorMessage = err.message === 'Failed to fetch' || err.name === 'TypeError' 
+        ? "Network Error: Unable to connect to the database. Please check your internet connection."
+        : err.message || "An unexpected error occurred while fetching events data.";
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -304,6 +311,24 @@ CREATE POLICY "Allow all" ON public.attendance_events FOR ALL USING (true) WITH 
 
   return (
     <div className="space-y-6 p-6 bg-slate-50 min-h-screen pb-20 relative">
+      {error && (
+        <div className="p-6 bg-rose-50 border-2 border-rose-100 rounded-[2rem] flex items-center gap-4 animate-in slide-in-from-top-4">
+          <div className="w-12 h-12 bg-rose-500 text-white rounded-2xl flex items-center justify-center shadow-lg">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+          </div>
+          <div>
+            <h3 className="text-sm font-black text-rose-900 uppercase tracking-tight">System Warning</h3>
+            <p className="text-xs font-bold text-rose-600 uppercase tracking-widest mt-0.5">{error}</p>
+          </div>
+          <button 
+            onClick={() => fetchInitialData()}
+            className="ml-auto px-6 py-2 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-all shadow-md"
+          >
+            Retry Sync
+          </button>
+        </div>
+      )}
+
       {notification && (
         <div className="fixed top-10 right-10 z-[300] bg-emerald-500 text-white px-8 py-4 rounded-2xl shadow-2xl animate-in slide-in-from-right-10 font-black uppercase text-[10px] tracking-widest flex items-center gap-3 border-b-4 border-black/20">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>

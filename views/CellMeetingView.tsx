@@ -51,6 +51,7 @@ const CellMeetingView: React.FC<CellMeetingViewProps> = ({ userProfile }) => {
   const [members, setMembers] = useState<Member[]>([]);
   const [reports, setReports] = useState<CellReport[]>([]);
   const [activeTab, setActiveTab] = useState<'directory' | 'reports'>('directory');
+  const [error, setError] = useState<string | null>(null);
   
   // Modal States
   const [isNewCellModalOpen, setIsNewCellModalOpen] = useState(false);
@@ -141,8 +142,13 @@ const CellMeetingView: React.FC<CellMeetingViewProps> = ({ userProfile }) => {
   }, [reportForm.cell_id, reportForm.meeting_date, isReportModalOpen]);
 
   const fetchMembers = async () => {
-    const { data } = await supabase.from('members').select('*').eq('status', 'Active').order('first_name');
-    if (data) setMembers(data);
+    try {
+      const { data, error } = await supabase.from('members').select('*').eq('status', 'Active').order('first_name');
+      if (error) throw error;
+      if (data) setMembers(data);
+    } catch (err: any) {
+      console.error('Error fetching members:', err);
+    }
   };
 
   const fetchReports = async () => {
@@ -150,13 +156,18 @@ const CellMeetingView: React.FC<CellMeetingViewProps> = ({ userProfile }) => {
       const { data, error } = await supabase.from('cell_reports').select('*').order('created_at', { ascending: false });
       if (error) throw error;
       if (data) setReports(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching reports:', err);
+      const errorMessage = err.message === 'Failed to fetch' || err.name === 'TypeError' 
+        ? "Network Error: Unable to connect to the database. Please check your internet connection."
+        : err.message || "An unexpected error occurred while fetching reports.";
+      setError(errorMessage);
     }
   };
 
   const fetchCells = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const { data, error } = await supabase.from('cell_groups').select('*').order('name');
       
@@ -187,8 +198,13 @@ const CellMeetingView: React.FC<CellMeetingViewProps> = ({ userProfile }) => {
         setCells(mockCells);
         localStorage.setItem('fh_cell_groups', JSON.stringify(mockCells));
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching cells:', err);
+      const errorMessage = err.message === 'Failed to fetch' || err.name === 'TypeError' 
+        ? "Network Error: Unable to connect to the database. Please check your internet connection."
+        : err.message || "An unexpected error occurred while fetching cells.";
+      setError(errorMessage);
+
       const localData = localStorage.getItem('fh_cell_groups');
       if (localData) {
         setCells(JSON.parse(localData));
@@ -413,6 +429,24 @@ const CellMeetingView: React.FC<CellMeetingViewProps> = ({ userProfile }) => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-1000 pb-20">
+      {error && (
+        <div className="p-6 bg-rose-50 border-2 border-rose-100 rounded-[2rem] flex items-center gap-4 animate-in slide-in-from-top-4">
+          <div className="w-12 h-12 bg-rose-500 text-white rounded-2xl flex items-center justify-center shadow-lg">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-sm font-black text-rose-900 uppercase tracking-tight">System Warning</h3>
+            <p className="text-xs font-bold text-rose-600 uppercase tracking-widest mt-0.5">{error}</p>
+          </div>
+          <button 
+            onClick={() => fetchCells()}
+            className="ml-auto px-6 py-2 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-all shadow-md"
+          >
+            Retry Sync
+          </button>
+        </div>
+      )}
+
       {/* 1. Header Section */}
       <div className="flex flex-col items-center lg:flex-row lg:items-center justify-between gap-6 py-8 bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm text-center lg:text-left">
         <div className="flex flex-col items-center lg:flex-row gap-6">

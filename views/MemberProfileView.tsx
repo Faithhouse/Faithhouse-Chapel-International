@@ -14,7 +14,7 @@ interface MemberProfileViewProps {
 const MemberProfileView: React.FC<MemberProfileViewProps> = ({ memberId, onBack, userProfile, onEdit }) => {
   const [member, setMember] = useState<Member | null>(null);
   const [attendance, setAttendance] = useState<any[]>([]);
-  const [finances, setFinances] = useState<FinancialRecord[]>([]);
+  const [finances, setFinances] = useState<any[]>([]);
   const [visitations, setVisitations] = useState<VisitationRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -52,11 +52,13 @@ const MemberProfileView: React.FC<MemberProfileViewProps> = ({ memberId, onBack,
         .limit(5);
       setVisitations(vData || []);
 
-      // 4. Fetch Financial Contributions (If authorized)
-      // Note: In a real app, we'd need a separate table linking members to financial records
-      // For now, we'll assume a 'member_contributions' table or similar if it existed.
-      // Since it's not in our types, we'll skip or mock it if needed.
-      // Actually, let's just show what we have.
+      // 4. Fetch Financial Contributions (Tithes)
+      const { data: tData } = await supabase
+        .from('tithe_entries')
+        .select('*')
+        .eq('member_id', memberId)
+        .order('payment_date', { ascending: false });
+      setFinances(tData || []);
 
     } catch (err) {
       console.error("Profile Fetch Error:", err);
@@ -181,11 +183,11 @@ const MemberProfileView: React.FC<MemberProfileViewProps> = ({ memberId, onBack,
               <p className="text-[8px] text-slate-400 font-bold uppercase mt-2">Total Visitations</p>
             </div>
             <div className="bg-white p-8 rounded-[2.5rem] border border-slate-50 shadow-sm">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Registry Age</p>
-              <h3 className="text-3xl font-black text-slate-900 tracking-tighter">
-                {member.date_joined ? Math.floor((new Date().getTime() - new Date(member.date_joined).getTime()) / (1000 * 60 * 60 * 24 * 30)) : 0}
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Financial Loyalty</p>
+              <h3 className="text-3xl font-black text-fh-green tracking-tighter">
+                GHS {finances.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0).toLocaleString()}
               </h3>
-              <p className="text-[8px] text-slate-400 font-bold uppercase mt-2">Months in Network</p>
+              <p className="text-[8px] text-slate-400 font-bold uppercase mt-2">Total Tithes Recorded</p>
             </div>
           </div>
 
@@ -214,6 +216,39 @@ const MemberProfileView: React.FC<MemberProfileViewProps> = ({ memberId, onBack,
                   </div>
                 )) : (
                   <p className="text-center py-10 text-[10px] font-black text-slate-300 uppercase tracking-widest italic">No attendance records found</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Care History */}
+          <div className="bg-white rounded-[3rem] overflow-hidden border border-slate-50 shadow-sm">
+            <div className="px-10 py-6 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between">
+              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Financial Contributions</h4>
+              <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest">Tithe History</span>
+            </div>
+            <div className="p-10">
+              <div className="space-y-4">
+                {finances.length > 0 ? finances.map((f, i) => (
+                  <div key={i} className="flex items-center justify-between p-4 bg-emerald-50/30 rounded-2xl border border-emerald-100">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-fh-green text-fh-gold rounded-xl flex items-center justify-center font-black text-[10px]">
+                        GHS
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-slate-800 uppercase tracking-tight">GHS {f.amount.toLocaleString()}</p>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase">{new Date(f.payment_date).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="px-3 py-1 bg-white border border-emerald-100 rounded-lg text-[8px] font-black text-emerald-600 uppercase tracking-widest">
+                        {f.payment_method}
+                      </span>
+                      <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">{f.service_type}</p>
+                    </div>
+                  </div>
+                )) : (
+                  <p className="text-center py-10 text-[10px] font-black text-slate-300 uppercase tracking-widest italic">No financial records found</p>
                 )}
               </div>
             </div>

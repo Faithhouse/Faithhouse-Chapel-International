@@ -1,8 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { toast } from 'sonner';
 import { supabase } from '../supabaseClient';
 import { UserProfile, FinancialRecord, Member, TitheRecord } from '../types';
-import { Users, Plus, Search, Calendar as CalendarIcon, DollarSign, CreditCard, Smartphone, Hash, FileText, CheckCircle2 } from 'lucide-react';
+import { Users, Plus, Search, Calendar as CalendarIcon, DollarSign, CreditCard, Smartphone, Hash, FileText, CheckCircle2, Trash2, Edit3, Filter } from 'lucide-react';
 
 interface FinanceViewProps {
   userProfile: UserProfile | null;
@@ -21,6 +22,14 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
   const [tableMissing, setTableMissing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [memberSearch, setMemberSearch] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState('All Months');
+  const [isEditingTithe, setIsEditingTithe] = useState(false);
+  const [editingTitheId, setEditingTitheId] = useState<string | null>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [titheToDelete, setTitheToDelete] = useState<string | null>(null);
+  const [missingTables, setMissingTables] = useState<string[]>([]);
+  const [lastError, setLastError] = useState('');
 
   const [formData, setFormData] = useState<Partial<FinancialRecord>>({
     service_date: new Date().toISOString().split('T')[0],
@@ -51,104 +60,129 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
     fetchInitialData();
   }, []);
 
+  useEffect(() => {
+    if (isModalOpen) {
+      const serviceTithes = titheRecords
+        .filter(t => t.payment_date === formData.service_date && t.service_type === formData.service_type)
+        .reduce((acc, t) => acc + (Number(t.amount) || 0), 0);
+      
+      if (serviceTithes > 0) {
+        setFormData(p => ({ ...p, tithes: serviceTithes }));
+      }
+    }
+  }, [formData.service_date, formData.service_type, titheRecords, isModalOpen]);
+
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
-  const [missingTables, setMissingTables] = useState<string[]>([]);
-  const [lastError, setLastError] = useState<string>('');
+  const [tableStatus, setTableStatus] = useState<Record<string, boolean>>({
+    members: false,
+    financial_records: false,
+    tithe_entries: false
+  });
 
   const fetchInitialData = async () => {
     setIsLoading(true);
     setLastError('');
-    let missing = false;
     let currentMissing: string[] = [];
     let errorLog: string[] = [];
+    let status = { members: false, financial_records: false, tithe_entries: false };
     
-    // Small delay to allow Supabase schema cache to update
     await new Promise(resolve => setTimeout(resolve, 1500));
 
     try {
       // 1. Check Financial Records
-      const { data: finData, error: finErr } = await supabase
-        .from('financial_records')
-        .select('*')
-        .limit(1);
-      
-      if (finErr) {
-        console.error('Check financial_records:', finErr);
-        if (finErr.code === '42P01' || finErr.code === 'PGRST205' || finErr.message.includes('not found') || finErr.message.includes('schema cache')) {
-          missing = true;
-          currentMissing.push('financial_records');
-          errorLog.push(`financial_records: [${finErr.code}] ${finErr.message}`);
-        } else {
-          throw finErr;
-        }
-      }
+      const { error: finErr } = await supabase.from('financial_records').select('id').limit(1);
+      if (!finErr) status.financial_records = true;
+      else if (finErr.code === '42P01' || finErr.code === 'PGRST205') currentMissing.push('financial_records');
+      else errorLog.push(`financial_records: ${finErr.message}`);
 
       // 2. Check Tithe Records
-      const { data: titheData, error: titheErr } = await supabase
-        .from('tithe_records')
-        .select('*')
-        .limit(1);
-      
-      if (titheErr) {
-        console.error('Check tithe_records:', titheErr);
-        if (titheErr.code === '42P01' || titheErr.code === 'PGRST205' || titheErr.message.includes('not found') || titheErr.message.includes('schema cache')) {
-          missing = true;
-          currentMissing.push('tithe_records');
-          errorLog.push(`tithe_records: [${titheErr.code}] ${titheErr.message}`);
-        } else {
-          errorLog.push(`tithe_records: ${titheErr.message}`);
-        }
-      }
+      const { error: titheErr } = await supabase.from('tithe_entries').select('id').limit(1);
+      if (!titheErr) status.tithe_entries = true;
+      else if (titheErr.code === '42P01' || titheErr.code === 'PGRST205') currentMissing.push('tithe_entries');
+      else errorLog.push(`tithe_entries: ${titheErr.message}`);
 
       // 3. Check Members
-      const { data: memData, error: memErr } = await supabase
-        .from('members')
-        .select('*')
-        .limit(1);
-      
-      if (memErr) {
-        console.error('Check members:', memErr);
-        if (memErr.code === '42P01' || memErr.code === 'PGRST205' || memErr.message.includes('not found') || memErr.message.includes('schema cache')) {
-          missing = true;
-          currentMissing.push('members');
-          errorLog.push(`members: [${memErr.code}] ${memErr.message}`);
-        } else {
-          errorLog.push(`members: ${memErr.message}`);
-        }
-      }
+      const { error: memErr } = await supabase.from('members').select('id').limit(1);
+      if (!memErr) status.members = true;
+      else if (memErr.code === '42P01' || memErr.code === 'PGRST205') currentMissing.push('members');
+      else errorLog.push(`members: ${memErr.message}`);
 
-      // If we found missing tables, stay on repair screen
-      if (missing) {
-        setTableMissing(true);
-        setMissingTables(currentMissing);
-        setLastError(errorLog.join(' | '));
+      setTableStatus(status);
+      const isMissing = !status.members || !status.financial_records || !status.tithe_entries;
+      setTableMissing(isMissing);
+      setMissingTables(currentMissing);
+
+      if (isMissing) {
+        setLastError(errorLog.length > 0 ? errorLog.join(' | ') : 'Some tables are still missing from the schema cache.');
         return;
       }
 
-      // If we got here, tables exist. Now fetch full data.
+      // Fetch full data if everything is okay
       const [finRes, titheRes, memRes] = await Promise.all([
         supabase.from('financial_records').select('*').order('service_date', { ascending: false }),
-        supabase.from('tithe_records').select('*, members(*)').order('payment_date', { ascending: false }),
-        supabase.from('members').select('*').eq('status', 'Active').order('first_name')
+        supabase.from('tithe_entries').select('*, members(*)').order('payment_date', { ascending: false }),
+        supabase.from('members').select('*').order('first_name')
       ]);
 
-      if (finRes.error) throw finRes.error;
-      if (titheRes.error) throw titheRes.error;
-      if (memRes.error) throw memRes.error;
+      if (finRes.error) {
+        console.error('Financial Records Fetch Error:', finRes.error);
+        errorLog.push(`financial_records: ${finRes.error.message}`);
+      }
+      
+      if (titheRes.error) {
+        console.error('Tithe Records Fetch Error:', titheRes.error);
+        
+        // Fallback fetch without join if the join fails (common schema cache issue)
+        if (titheRes.error.code === 'PGRST200' || titheRes.status === 400) {
+          const { data: fallbackData, error: fallbackErr } = await supabase
+            .from('tithe_entries')
+            .select('*')
+            .order('payment_date', { ascending: false });
+          
+          if (!fallbackErr) {
+            // Manual join: enrich tithe records with member data from the members state
+            const enrichedData = (fallbackData || []).map(tithe => {
+              const member = memRes.data?.find(m => m.id === tithe.member_id);
+              return {
+                ...tithe,
+                members: member || undefined
+              };
+            });
+            
+            setTitheRecords(enrichedData);
+            // If fallback worked, we don't treat it as a blocking error, but we log it
+            console.warn('Tithe fetch fallback successful (with manual member join)');
+          } else {
+            errorLog.push(`tithe_entries: ${titheRes.error.message}`);
+          }
+        } else {
+          errorLog.push(`tithe_entries: ${titheRes.error.message}`);
+        }
+      } else {
+        setTitheRecords(titheRes.data || []);
+      }
+
+      if (memRes.error) {
+        console.error('Members Fetch Error:', memRes.error);
+        errorLog.push(`members: ${memRes.error.message}`);
+      }
 
       setRecords(finRes.data || []);
-      setTitheRecords(titheRes.data || []);
       setMembers(memRes.data || []);
-      setTableMissing(false);
-      setLastError('');
+      
+      if (errorLog.length > 0) {
+        setLastError(errorLog.join(' | '));
+      } else {
+        setLastError('');
+      }
 
     } catch (err: any) {
       console.error('Database Access Error:', err);
-      setLastError(err.message || 'An unexpected database error occurred.');
-      // If it's a schema error, keep the repair screen
-      if (err.message?.includes('schema cache') || err.code === 'PGRST205') {
-        setTableMissing(true);
+      if (err.message === 'Failed to fetch' || err.message?.includes('TypeError: Failed to fetch')) {
+        setLastError("Network Error: Unable to connect to the database. Please check your internet connection.");
+      } else {
+        setLastError(err.message || 'An unexpected database error occurred.');
       }
     } finally {
       setIsLoading(false);
@@ -164,13 +198,13 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
   const initiatePosting = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.witness1_name?.trim() || !formData.witness2_name?.trim()) {
-      return alert("Security Protocol: Dual witness signatures are mandatory for posting.");
+      return toast.error("Security Protocol: Dual witness signatures are mandatory for posting.");
     }
     setIsPinModalOpen(true);
   };
 
   const handleAuthorizedSubmit = async () => {
-    if (accessKey !== '2024') return alert("Authorization Revoked: Invalid Master Access Key.");
+    if (accessKey !== '2024') return toast.error("Authorization Revoked: Invalid Master Access Key.");
     
     setIsSubmitting(true);
     try {
@@ -184,7 +218,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
       const { error } = await supabase.from('financial_records').insert([payload]);
       if (error) throw error;
       
-      alert("Posting Successful: Service revenue has been recorded.");
+      toast.success("Posting Successful: Service revenue has been recorded.");
       setIsModalOpen(false);
       setIsPinModalOpen(false);
       setAccessKey('');
@@ -195,7 +229,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
         setIsPinModalOpen(false);
         setIsModalOpen(false);
       } else {
-        alert(`Database Sync Failure: ${err.message}`);
+        toast.error(`Database Sync Failure: ${err.message}`);
       }
     } finally {
       setIsSubmitting(false);
@@ -204,19 +238,34 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
 
   const handleTitheSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!titheFormData.member_id || !titheFormData.amount) return alert("Please fill all required fields.");
+    if (!titheFormData.member_id || !titheFormData.amount) return toast.error("Please fill all required fields.");
     
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.from('tithe_records').insert([{
-        ...titheFormData,
-        recorded_by: userProfile?.id
-      }]);
+      if (isEditingTithe && editingTitheId) {
+        const { error } = await supabase
+          .from('tithe_entries')
+          .update({
+            ...titheFormData,
+            recorded_by: userProfile?.id
+          })
+          .eq('id', editingTitheId);
+        
+        if (error) throw error;
+        toast.success("Tithe updated successfully.");
+      } else {
+        const { error } = await supabase.from('tithe_entries').insert([{
+          ...titheFormData,
+          recorded_by: userProfile?.id
+        }]);
+        
+        if (error) throw error;
+        toast.success("Tithe recorded successfully.");
+      }
       
-      if (error) throw error;
-      
-      alert("Tithe recorded successfully.");
       setIsTitheModalOpen(false);
+      setIsEditingTithe(false);
+      setEditingTitheId(null);
       setTitheFormData({
         member_id: '',
         amount: 0,
@@ -231,8 +280,44 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
         setTableMissing(true);
         setIsTitheModalOpen(false);
       } else {
-        alert("Error: " + err.message);
+        toast.error("Error: " + err.message);
       }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditTithe = (tithe: TitheRecord) => {
+    setTitheFormData({
+      member_id: tithe.member_id,
+      amount: tithe.amount,
+      payment_date: tithe.payment_date,
+      payment_method: tithe.payment_method,
+      service_type: tithe.service_type,
+      notes: tithe.notes || ''
+    });
+    setEditingTitheId(tithe.id);
+    setIsEditingTithe(true);
+    setIsTitheModalOpen(true);
+  };
+
+  const handleDeleteTithe = async () => {
+    if (!titheToDelete) return;
+    
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('tithe_entries')
+        .delete()
+        .eq('id', titheToDelete);
+      
+      if (error) throw error;
+      setIsDeleteConfirmOpen(false);
+      setTitheToDelete(null);
+      toast.success("Tithe record deleted successfully.");
+      fetchInitialData();
+    } catch (err: any) {
+      toast.error("Error deleting record: " + err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -244,17 +329,38 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
     maximumFractionDigits: 0 
   }).format(val);
 
-  const sum = (key: keyof FinancialRecord) => records.reduce((a, r) => a + (Number(r[key]) || 0), 0);
+  const processedRecords = useMemo(() => {
+    return records.map(rec => {
+      const serviceTithes = titheRecords
+        .filter(t => t.payment_date === rec.service_date && t.service_type === rec.service_type)
+        .reduce((acc, t) => acc + (Number(t.amount) || 0), 0);
+      
+      // If we have individual tithes in the registry, use that sum as the source of truth
+      const tithes = serviceTithes > 0 ? serviceTithes : (Number(rec.tithes) || 0);
+      const total_income = tithes + (Number(rec.offerings) || 0) + (Number(rec.seed) || 0) + (Number(rec.other_income) || 0);
+      
+      return { ...rec, tithes, total_income };
+    });
+  }, [records, titheRecords]);
+
+  const sum = (key: keyof FinancialRecord) => processedRecords.reduce((a, r) => a + (Number(r[key]) || 0), 0);
   const totalRevenue = sum('tithes') + sum('offerings') + sum('seed') + sum('other_income');
   const netBalance = totalRevenue - sum('expenses');
 
   if (tableMissing) {
     const repairSQL = `-- MASTER FINANCIAL RECORDS REPAIR SCRIPT
+-- Ensure members table exists first with all required fields
 CREATE TABLE IF NOT EXISTS public.members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   first_name TEXT NOT NULL,
-  last_name TEXT NOT NULL,
+  last_name TEXT,
+  email TEXT,
+  phone TEXT,
+  gender TEXT DEFAULT 'Male',
+  dob DATE,
+  date_joined DATE,
   status TEXT DEFAULT 'Active',
+  ministry TEXT DEFAULT 'N/A',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
@@ -277,25 +383,30 @@ CREATE TABLE IF NOT EXISTS public.financial_records (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS public.tithe_records (
+-- CREATE TITHE ENTRIES IF NOT EXISTS
+CREATE TABLE IF NOT EXISTS public.tithe_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  member_id UUID NOT NULL REFERENCES public.members(id),
+  member_id UUID NOT NULL,
   amount NUMERIC NOT NULL,
   payment_date DATE NOT NULL,
   payment_method TEXT NOT NULL,
   service_type TEXT,
   recorded_by UUID,
   notes TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  CONSTRAINT fk_member FOREIGN KEY (member_id) REFERENCES public.members(id) ON DELETE CASCADE
 );
+
+-- Ensure index on foreign key for better relationship detection
+CREATE INDEX IF NOT EXISTS idx_tithe_member_id ON public.tithe_entries(member_id);
 
 ALTER TABLE public.financial_records ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow all actions for staff" ON public.financial_records;
 CREATE POLICY "Allow all actions for staff" ON public.financial_records FOR ALL USING (true) WITH CHECK (true);
 
-ALTER TABLE public.tithe_records ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Allow all actions for staff" ON public.tithe_records;
-CREATE POLICY "Allow all actions for staff" ON public.tithe_records FOR ALL USING (true) WITH CHECK (true);
+ALTER TABLE public.tithe_entries ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all actions for staff" ON public.tithe_entries;
+CREATE POLICY "Allow all actions for staff" ON public.tithe_entries FOR ALL USING (true) WITH CHECK (true);
 
 ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow all actions for staff" ON public.members;
@@ -311,17 +422,23 @@ NOTIFY pgrst, 'reload schema';`;
             <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
           </div>
           <h2 className="text-3xl font-black text-fh-green tracking-tighter uppercase mb-4">Financial Records Missing</h2>
+          
+          <div className="grid grid-cols-3 gap-4 mb-8 max-w-md mx-auto">
+            {Object.entries(tableStatus).map(([name, exists]) => (
+              <div key={name} className={`p-4 rounded-2xl border-2 transition-all ${exists ? 'border-fh-green/20 bg-fh-green/5' : 'border-rose-100 bg-rose-50'}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto mb-2 ${exists ? 'bg-fh-green text-fh-gold' : 'bg-rose-500 text-white'}`}>
+                  {exists ? (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                  )}
+                </div>
+                <p className={`text-[8px] font-black uppercase tracking-tighter ${exists ? 'text-fh-green' : 'text-rose-500'}`}>{name.replace('_', ' ')}</p>
+              </div>
+            ))}
+          </div>
+
           <div className="mb-8 space-y-2">
-            <p className="text-slate-500 font-medium max-w-lg mx-auto leading-relaxed uppercase text-[10px] tracking-widest">
-              The following database tables were not detected:
-            </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              {missingTables.map(t => (
-                <span key={t} className="px-3 py-1 bg-rose-50 text-rose-600 text-[9px] font-black uppercase rounded-lg border border-rose-100">
-                  {t}
-                </span>
-              ))}
-            </div>
             {lastError && (
               <div className="mt-4 p-4 bg-rose-50 rounded-xl border border-rose-100">
                 <p className="text-rose-400 text-[8px] font-mono max-w-md mx-auto break-all">
@@ -343,7 +460,7 @@ NOTIFY pgrst, 'reload schema';`;
             <button 
               onClick={() => {
                 navigator.clipboard.writeText(repairSQL);
-                alert("SQL Script copied to clipboard!");
+                toast.success("SQL Script copied to clipboard!");
               }}
               className="absolute top-4 right-4 bg-fh-gold text-fh-green px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest hover:scale-105 transition-transform shadow-lg"
             >
@@ -363,10 +480,41 @@ NOTIFY pgrst, 'reload schema';`;
     );
   }
 
+  const availableMonths = useMemo(() => {
+    const months = new Set<string>();
+    titheRecords.forEach(t => {
+      const date = new Date(t.payment_date);
+      months.add(date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }));
+    });
+    return ['All Months', ...Array.from(months).sort((a, b) => {
+      const dateA = new Date(a);
+      const dateB = new Date(b);
+      return dateB.getTime() - dateA.getTime();
+    })];
+  }, [titheRecords]);
+
   const filteredTithes = titheRecords.filter(t => {
-    const memberName = `${t.members?.first_name} ${t.members?.last_name}`.toLowerCase();
-    return memberName.includes(searchTerm.toLowerCase());
+    const memberName = t.members 
+      ? `${t.members.first_name} ${t.members.last_name}`.toLowerCase() 
+      : `member id: ${t.member_id}`.toLowerCase();
+    
+    const matchesSearch = memberName.includes(searchTerm.toLowerCase());
+    
+    if (selectedMonth === 'All Months') return matchesSearch;
+    
+    const titheMonth = new Date(t.payment_date).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    return matchesSearch && titheMonth === selectedMonth;
   });
+
+  const groupedTithes = filteredTithes.reduce((acc, tithe) => {
+    const date = new Date(tithe.payment_date);
+    const monthYear = date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    if (!acc[monthYear]) {
+      acc[monthYear] = [];
+    }
+    acc[monthYear].push(tithe);
+    return acc;
+  }, {} as Record<string, TitheRecord[]>);
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700 pb-20">
@@ -386,7 +534,23 @@ NOTIFY pgrst, 'reload schema';`;
             <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
             Print Audit
           </button>
-          <button onClick={() => activeTab === 'Ledger' ? setIsModalOpen(true) : setIsTitheModalOpen(true)} className="px-10 py-5 bg-fh-green text-fh-gold rounded-[1.75rem] font-black uppercase text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30">
+          <button onClick={() => {
+            if (activeTab === 'Ledger') {
+              setIsModalOpen(true);
+            } else {
+              setIsEditingTithe(false);
+              setEditingTitheId(null);
+              setTitheFormData({
+                member_id: '',
+                amount: 0,
+                payment_date: new Date().toISOString().split('T')[0],
+                payment_method: 'Cash',
+                service_type: 'Prophetic Word Service',
+                notes: ''
+              });
+              setIsTitheModalOpen(true);
+            }
+          }} className="px-10 py-5 bg-fh-green text-fh-gold rounded-[1.75rem] font-black uppercase text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30">
             {activeTab === 'Ledger' ? '+ Provision Entry' : '+ Record Tithe'}
           </button>
         </div>
@@ -496,8 +660,8 @@ NOTIFY pgrst, 'reload schema';`;
               <tbody className="divide-y divide-slate-50">
                 {isLoading ? (
                   <tr><td colSpan={4} className="px-10 py-24 text-center animate-pulse text-slate-300 font-black uppercase tracking-[0.5em]">Synchronizing Database...</td></tr>
-                ) : records.length > 0 ? (
-                  records.map(rec => (
+                ) : processedRecords.length > 0 ? (
+                  processedRecords.map(rec => (
                     <tr key={rec.id} className="hover:bg-slate-50 transition-all group text-xs">
                       <td className="px-10 py-6">
                         <p className="font-black text-slate-800 uppercase tracking-tight mb-1">{new Date(rec.service_date).toLocaleDateString()}</p>
@@ -536,48 +700,108 @@ NOTIFY pgrst, 'reload schema';`;
               <input 
                 type="text" 
                 placeholder="Search tithers by name..." 
-                className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 ring-fh-green/20 transition-all"
+                className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 ring-fh-green/20 transition-all text-sm font-bold"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+            <div className="relative w-full md:w-64">
+              <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <select 
+                className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 ring-fh-green/20 transition-all text-[10px] font-black uppercase tracking-widest"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+              >
+                {availableMonths.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTithes.length > 0 ? filteredTithes.map(tithe => (
-              <div key={tithe.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-md transition-all group">
-                <div className="flex items-start justify-between mb-6">
-                  <div className="w-12 h-12 bg-violet-50 rounded-2xl flex items-center justify-center group-hover:bg-violet-600 transition-all">
-                    <Users className="w-6 h-6 text-violet-600 group-hover:text-white" />
+          <div className="space-y-12">
+            {Object.keys(groupedTithes).length > 0 ? Object.entries(groupedTithes).map(([month, tithes]) => (
+              <div key={month} className="space-y-6">
+                <div className="flex items-center gap-6">
+                  <div className="h-px flex-1 bg-slate-100"></div>
+                  <div className="px-6 py-2 bg-slate-50 rounded-full border border-slate-100">
+                    <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] whitespace-nowrap">{month}</h3>
                   </div>
-                  <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase rounded-lg border border-emerald-100">
-                    {tithe.payment_method}
-                  </span>
+                  <div className="h-px flex-1 bg-slate-100"></div>
                 </div>
-                <h4 className="text-lg font-black text-slate-900 uppercase tracking-tighter mb-1">
-                  {tithe.members?.first_name} {tithe.members?.last_name}
-                </h4>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">
-                  {new Date(tithe.payment_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
-                </p>
-                <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
-                  <div>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Amount Paid</p>
-                    <p className="text-xl font-black text-fh-green">{formatGHS(tithe.amount)}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Service</p>
-                    <p className="text-[10px] font-black text-slate-700 uppercase">{tithe.service_type}</p>
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {tithes.map(tithe => (
+                    <div key={tithe.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-md transition-all group">
+                      <div className="flex items-start justify-between mb-6">
+                        <div className="w-12 h-12 bg-violet-50 rounded-2xl flex items-center justify-center group-hover:bg-violet-600 transition-all">
+                          <Users className="w-6 h-6 text-violet-600 group-hover:text-white" />
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase rounded-lg border border-emerald-100">
+                            {tithe.payment_method}
+                          </span>
+                          <div className="flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                            <button 
+                              onClick={() => handleEditTithe(tithe)}
+                              className="p-3 bg-slate-100 text-slate-600 rounded-xl hover:bg-fh-gold hover:text-white transition-all active:scale-90"
+                              title="Edit Record"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => {
+                                setTitheToDelete(tithe.id);
+                                setIsDeleteConfirmOpen(true);
+                              }}
+                              className="p-3 bg-slate-100 text-slate-600 rounded-xl hover:bg-rose-500 hover:text-white transition-all active:scale-90"
+                              title="Delete Record"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <h4 className="text-lg font-black text-slate-900 uppercase tracking-tighter mb-1">
+                        {tithe.members ? `${tithe.members.first_name} ${tithe.members.last_name}` : `Member ID: ${tithe.member_id.substring(0, 8)}...`}
+                      </h4>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">
+                        {new Date(tithe.payment_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      </p>
+                      <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
+                        <div>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Amount Paid</p>
+                          <p className="text-xl font-black text-fh-green">{formatGHS(tithe.amount)}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Service</p>
+                          <p className="text-[10px] font-black text-slate-700 uppercase">{tithe.service_type}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )) : (
-              <div className="col-span-full py-20 text-center bg-white rounded-[3.5rem] border border-slate-100">
+              <div className="py-20 text-center bg-white rounded-[3.5rem] border border-slate-100">
                 <div className="w-20 h-20 bg-slate-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6">
                   <Hash className="w-10 h-10 text-slate-200" />
                 </div>
-                <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-2">No Tithe Records Found</h3>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Start recording tithes to see them here.</p>
+                <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-2">
+                  {lastError && lastError.includes('tithe_entries') ? 'Database Sync Error' : 'No Tithe Records Found'}
+                </h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest max-w-xs mx-auto">
+                  {lastError && lastError.includes('tithe_entries') 
+                    ? `We encountered an error fetching tithe data: ${lastError.split('|').find(e => e.includes('tithe_entries'))?.split(':')[1]?.trim() || lastError}`
+                    : 'Start recording tithes to see them here.'}
+                </p>
+                {lastError && (
+                  <button 
+                    onClick={fetchInitialData}
+                    className="mt-6 px-8 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all"
+                  >
+                    Retry Connection
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -590,10 +814,10 @@ NOTIFY pgrst, 'reload schema';`;
           <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
             <div className="bg-fh-green p-10 text-fh-gold flex items-center justify-between">
               <div>
-                <h2 className="text-3xl font-black uppercase tracking-tighter">Record Tithe</h2>
-                <p className="text-[10px] font-bold uppercase tracking-widest opacity-80">Individual Member Contribution</p>
+                <h2 className="text-3xl font-black uppercase tracking-tighter">{isEditingTithe ? 'Edit Tithe' : 'Record Tithe'}</h2>
+                <p className="text-[10px] font-bold uppercase tracking-widest opacity-80">{isEditingTithe ? 'Modify Existing Entry' : 'Individual Member Contribution'}</p>
               </div>
-              <button onClick={() => setIsTitheModalOpen(false)} className="p-3 bg-black/20 rounded-2xl hover:bg-black/40 transition-all">
+              <button onClick={() => { setIsTitheModalOpen(false); setIsEditingTithe(false); setEditingTitheId(null); }} className="p-3 bg-black/20 rounded-2xl hover:bg-black/40 transition-all">
                 <Plus className="w-6 h-6 rotate-45" />
               </button>
             </div>
@@ -602,19 +826,34 @@ NOTIFY pgrst, 'reload schema';`;
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Select Member</label>
-                  <div className="relative">
-                    <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <select 
-                      required
-                      className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 ring-fh-green/20 transition-all text-xs font-black uppercase"
-                      value={titheFormData.member_id}
-                      onChange={(e) => setTitheFormData(p => ({ ...p, member_id: e.target.value }))}
-                    >
-                      <option value="">Choose Member...</option>
-                      {members.map(m => (
-                        <option key={m.id} value={m.id}>{m.first_name} {m.last_name}</option>
-                      ))}
-                    </select>
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                      <input 
+                        type="text"
+                        placeholder="Search member..."
+                        className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 ring-fh-green/20 transition-all text-[10px] font-bold uppercase"
+                        value={memberSearch}
+                        onChange={(e) => setMemberSearch(e.target.value)}
+                      />
+                    </div>
+                    <div className="relative">
+                      <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <select 
+                        required
+                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 ring-fh-green/20 transition-all text-xs font-black uppercase"
+                        value={titheFormData.member_id}
+                        onChange={(e) => setTitheFormData(p => ({ ...p, member_id: e.target.value }))}
+                      >
+                        <option value="">Choose Member...</option>
+                        {members
+                          .filter(m => m.status === 'Active' && `${m.first_name} ${m.last_name}`.toLowerCase().includes(memberSearch.toLowerCase()))
+                          .map(m => (
+                            <option key={m.id} value={m.id}>{m.first_name} {m.last_name}</option>
+                          ))
+                        }
+                      </select>
+                    </div>
                   </div>
                 </div>
 
@@ -692,7 +931,7 @@ NOTIFY pgrst, 'reload schema';`;
                   {isSubmitting ? 'Processing Transaction...' : (
                     <>
                       <CheckCircle2 className="w-5 h-5" />
-                      Finalize Tithe Entry
+                      {isEditingTithe ? 'Update Tithe Record' : 'Finalize Tithe Entry'}
                     </>
                   )}
                 </button>
@@ -738,8 +977,21 @@ NOTIFY pgrst, 'reload schema';`;
                  </div>
 
                  <div className="space-y-1">
-                   <label className="text-[9px] font-black text-fh-green uppercase tracking-widest px-4">Tithes (GHS)</label>
-                   <input type="number" name="tithes" value={formData.tithes} onChange={handleInputChange} className="w-full px-6 py-4 bg-fh-green/5 border border-fh-green/20 rounded-2xl font-black text-fh-green" />
+                   <label className="text-[9px] font-black text-fh-green uppercase tracking-widest px-4">
+                      Tithes (GHS) {titheRecords.filter(t => t.payment_date === formData.service_date && t.service_type === formData.service_type).length > 0 && "(From Registry)"}
+                    </label>
+                   <input 
+                      type="number" 
+                      name="tithes" 
+                      value={formData.tithes} 
+                      onChange={handleInputChange} 
+                      readOnly={titheRecords.filter(t => t.payment_date === formData.service_date && t.service_type === formData.service_type).length > 0}
+                      className={`w-full px-6 py-4 border rounded-2xl font-black text-fh-green ${
+                        titheRecords.filter(t => t.payment_date === formData.service_date && t.service_type === formData.service_type).length > 0 
+                        ? 'bg-fh-green/10 border-fh-green/30 cursor-not-allowed' 
+                        : 'bg-fh-green/5 border-fh-green/20'
+                      }`} 
+                    />
                  </div>
                  <div className="space-y-1">
                    <label className="text-[9px] font-black text-indigo-600 uppercase tracking-widest px-4">Offerings (GHS)</label>
@@ -768,6 +1020,20 @@ NOTIFY pgrst, 'reload schema';`;
                  </div>
 
                  <div className="lg:col-span-3 py-6 border-t border-slate-50 mt-4">
+                    <div className="bg-slate-900 rounded-3xl p-8 mb-8 flex items-center justify-between">
+                       <div>
+                          <p className="text-[10px] font-black text-fh-gold/60 uppercase tracking-widest mb-1">Live Total Revenue</p>
+                          <h4 className="text-3xl font-black text-fh-gold">
+                             {formatGHS((formData.tithes || 0) + (formData.offerings || 0) + (formData.seed || 0) + (formData.other_income || 0))}
+                          </h4>
+                       </div>
+                       <div className="text-right">
+                          <p className="text-[10px] font-black text-fh-gold/60 uppercase tracking-widest mb-1">Net Service Balance</p>
+                          <h4 className="text-xl font-black text-white">
+                             {formatGHS(((formData.tithes || 0) + (formData.offerings || 0) + (formData.seed || 0) + (formData.other_income || 0)) - (formData.expenses || 0))}
+                          </h4>
+                       </div>
+                    </div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] mb-6 text-center">Dual Verification Protocol</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                        <div className="space-y-2">
@@ -888,7 +1154,7 @@ NOTIFY pgrst, 'reload schema';`;
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {records.slice(0, 10).map(rec => (
+                    {processedRecords.slice(0, 10).map(rec => (
                       <tr key={rec.id} className="text-[10px] font-bold text-slate-700">
                         <td className="py-4">{new Date(rec.service_date).toLocaleDateString()}</td>
                         <td className="py-4 uppercase">{rec.service_type}</td>
@@ -910,6 +1176,39 @@ NOTIFY pgrst, 'reload schema';`;
                   <div className="h-px bg-slate-300 w-48 mx-auto"></div>
                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Auditor General Signature</p>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {isDeleteConfirmOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-10 text-center">
+              <div className="w-20 h-20 bg-rose-50 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
+                <Trash2 className="w-10 h-10 text-rose-500" />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter mb-2">Confirm Deletion</h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed mb-8">
+                Are you sure you want to permanently remove this tithe record? This action is irreversible and will affect the financial ledger.
+              </p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => {
+                    setIsDeleteConfirmOpen(false);
+                    setTitheToDelete(null);
+                  }}
+                  className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleDeleteTithe}
+                  disabled={isSubmitting}
+                  className="flex-1 py-4 bg-rose-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-600 transition-all shadow-lg shadow-rose-500/20 disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Deleting...' : 'Delete Record'}
+                </button>
               </div>
             </div>
           </div>

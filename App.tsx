@@ -24,6 +24,7 @@ import PlaceholderView from './views/PlaceholderView';
 import Auth from './components/Auth';
 import RecurringTasksView from './views/RecurringTasksView';
 import DavidChatbot from './components/DavidChatbot';
+import { Toaster } from 'sonner';
 import { NavItem, UserProfile } from './types';
 import { canAccess } from './src/utils/permissions';
 import { supabase } from './supabaseClient';
@@ -35,6 +36,7 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
   
   useEffect(() => {
@@ -73,6 +75,7 @@ const App: React.FC = () => {
   }, []);
 
   const fetchProfile = async (userId: string) => {
+    setError(null);
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -127,8 +130,12 @@ const App: React.FC = () => {
       }
       
       setProfile(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error fetching profile:", err);
+      const errorMessage = err.message === 'Failed to fetch' || err.name === 'TypeError' 
+        ? "Network Error: Unable to connect to the database. Please check your internet connection."
+        : err.message || "An unexpected error occurred while fetching user profile.";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -148,6 +155,17 @@ const App: React.FC = () => {
     const logoUrl = "https://lh3.googleusercontent.com/d/1la57sO6NOuNEZaqa9zDxuxRnWPBavkjH";
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-6 text-center">
+        {error && (
+          <div className="mb-8 p-6 bg-rose-500/10 border border-rose-500/20 rounded-3xl max-w-sm animate-in fade-in zoom-in-95">
+            <p className="text-rose-400 text-xs font-black uppercase tracking-widest mb-4">{error}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="px-6 py-2 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-all shadow-lg"
+            >
+              Retry Connection
+            </button>
+          </div>
+        )}
         <div className="relative mb-8">
           <motion.div 
             animate={{ rotate: 360 }}
@@ -358,6 +376,7 @@ const App: React.FC = () => {
         <Footer />
       </div>
       <DavidChatbot />
+      <Toaster position="top-right" richColors />
     </div>
   );
 };
