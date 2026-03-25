@@ -74,6 +74,20 @@ const EventsView: React.FC<EventsViewProps> = ({ userProfile }) => {
     setIsLoading(true);
     setTableMissing(false);
     try {
+      // 1. Auto-cleanup expired events to keep the system clean
+      const today = new Date().toISOString().split('T')[0];
+      const { error: cleanupError } = await supabase
+        .from('events')
+        .delete()
+        .lt('date', today);
+      
+      if (cleanupError) {
+        console.error("Cleanup Error:", cleanupError);
+      } else {
+        console.log("Expired events cleaned up successfully.");
+      }
+
+      // 2. Fetch branches
       const { data: bData, error: bError } = await supabase.from('branches').select('*').order('name');
       if (bError) {
         if (bError.code === '42P01' || bError.message.includes('not found')) {
@@ -83,6 +97,7 @@ const EventsView: React.FC<EventsViewProps> = ({ userProfile }) => {
       }
       setBranches(bData || []);
 
+      // 3. Fetch current/future events
       const { data: eventData, error: eventError } = await supabase.from('events').select('*').order('date', { ascending: false });
       if (eventError) {
         if (eventError.code === '42P01' || eventError.message.includes('not found')) {

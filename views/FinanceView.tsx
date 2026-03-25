@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { UserProfile, FinancialRecord } from '../types';
+import { UserProfile, FinancialRecord, Member, TitheRecord } from '../types';
+import { Users, Plus, Search, Calendar as CalendarIcon, DollarSign, CreditCard, Smartphone, Hash, FileText, CheckCircle2 } from 'lucide-react';
 
 interface FinanceViewProps {
   userProfile: UserProfile | null;
@@ -9,12 +10,17 @@ interface FinanceViewProps {
 
 const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
   const [records, setRecords] = useState<FinancialRecord[]>([]);
+  const [titheRecords, setTitheRecords] = useState<TitheRecord[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [activeTab, setActiveTab] = useState<'Ledger' | 'Tithers'>('Ledger');
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isTitheModalOpen, setIsTitheModalOpen] = useState(false);
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [accessKey, setAccessKey] = useState('');
   const [tableMissing, setTableMissing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [formData, setFormData] = useState<Partial<FinancialRecord>>({
     service_date: new Date().toISOString().split('T')[0],
@@ -32,32 +38,118 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
     status: 'Posted'
   });
 
+  const [titheFormData, setTitheFormData] = useState<Partial<TitheRecord>>({
+    member_id: '',
+    amount: 0,
+    payment_date: new Date().toISOString().split('T')[0],
+    payment_method: 'Cash',
+    service_type: 'Prophetic Word Service',
+    notes: ''
+  });
+
   useEffect(() => {
     fetchInitialData();
   }, []);
 
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
+  const [missingTables, setMissingTables] = useState<string[]>([]);
+  const [lastError, setLastError] = useState<string>('');
+
   const fetchInitialData = async () => {
     setIsLoading(true);
-    setTableMissing(false);
+    setLastError('');
+    let missing = false;
+    let currentMissing: string[] = [];
+    let errorLog: string[] = [];
+    
+    // Small delay to allow Supabase schema cache to update
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
     try {
-      const { data, error } = await supabase
+      // 1. Check Financial Records
+      const { data: finData, error: finErr } = await supabase
         .from('financial_records')
         .select('*')
-        .order('service_date', { ascending: false });
+        .limit(1);
       
-      if (error) {
-        if (error.code === '42P01' || error.message.includes('not found') || error.code === 'PGRST205' || error.message.includes('schema cache') || error.message.includes('Could not find')) {
-          setTableMissing(true);
+      if (finErr) {
+        console.error('Check financial_records:', finErr);
+        if (finErr.code === '42P01' || finErr.code === 'PGRST205' || finErr.message.includes('not found') || finErr.message.includes('schema cache')) {
+          missing = true;
+          currentMissing.push('financial_records');
+          errorLog.push(`financial_records: [${finErr.code}] ${finErr.message}`);
         } else {
-          throw error;
+          throw finErr;
         }
-      } else {
-        setRecords(data || []);
       }
-    } catch (err) {
+
+      // 2. Check Tithe Records
+      const { data: titheData, error: titheErr } = await supabase
+        .from('tithe_records')
+        .select('*')
+        .limit(1);
+      
+      if (titheErr) {
+        console.error('Check tithe_records:', titheErr);
+        if (titheErr.code === '42P01' || titheErr.code === 'PGRST205' || titheErr.message.includes('not found') || titheErr.message.includes('schema cache')) {
+          missing = true;
+          currentMissing.push('tithe_records');
+          errorLog.push(`tithe_records: [${titheErr.code}] ${titheErr.message}`);
+        } else {
+          errorLog.push(`tithe_records: ${titheErr.message}`);
+        }
+      }
+
+      // 3. Check Members
+      const { data: memData, error: memErr } = await supabase
+        .from('members')
+        .select('*')
+        .limit(1);
+      
+      if (memErr) {
+        console.error('Check members:', memErr);
+        if (memErr.code === '42P01' || memErr.code === 'PGRST205' || memErr.message.includes('not found') || memErr.message.includes('schema cache')) {
+          missing = true;
+          currentMissing.push('members');
+          errorLog.push(`members: [${memErr.code}] ${memErr.message}`);
+        } else {
+          errorLog.push(`members: ${memErr.message}`);
+        }
+      }
+
+      // If we found missing tables, stay on repair screen
+      if (missing) {
+        setTableMissing(true);
+        setMissingTables(currentMissing);
+        setLastError(errorLog.join(' | '));
+        return;
+      }
+
+      // If we got here, tables exist. Now fetch full data.
+      const [finRes, titheRes, memRes] = await Promise.all([
+        supabase.from('financial_records').select('*').order('service_date', { ascending: false }),
+        supabase.from('tithe_records').select('*, members(*)').order('payment_date', { ascending: false }),
+        supabase.from('members').select('*').eq('status', 'Active').order('first_name')
+      ]);
+
+      if (finRes.error) throw finRes.error;
+      if (titheRes.error) throw titheRes.error;
+      if (memRes.error) throw memRes.error;
+
+      setRecords(finRes.data || []);
+      setTitheRecords(titheRes.data || []);
+      setMembers(memRes.data || []);
+      setTableMissing(false);
+      setLastError('');
+
+    } catch (err: any) {
       console.error('Database Access Error:', err);
+      setLastError(err.message || 'An unexpected database error occurred.');
+      // If it's a schema error, keep the repair screen
+      if (err.message?.includes('schema cache') || err.code === 'PGRST205') {
+        setTableMissing(true);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -110,6 +202,42 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
     }
   };
 
+  const handleTitheSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!titheFormData.member_id || !titheFormData.amount) return alert("Please fill all required fields.");
+    
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase.from('tithe_records').insert([{
+        ...titheFormData,
+        recorded_by: userProfile?.id
+      }]);
+      
+      if (error) throw error;
+      
+      alert("Tithe recorded successfully.");
+      setIsTitheModalOpen(false);
+      setTitheFormData({
+        member_id: '',
+        amount: 0,
+        payment_date: new Date().toISOString().split('T')[0],
+        payment_method: 'Cash',
+        service_type: 'Prophetic Word Service',
+        notes: ''
+      });
+      fetchInitialData();
+    } catch (err: any) {
+      if (err.code === 'PGRST205' || err.message?.includes('schema cache') || err.message?.includes('not found') || err.message?.includes('Could not find')) {
+        setTableMissing(true);
+        setIsTitheModalOpen(false);
+      } else {
+        alert("Error: " + err.message);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const formatGHS = (val: number) => new Intl.NumberFormat('en-GH', { 
     style: 'currency', 
     currency: 'GHS',
@@ -122,6 +250,14 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
 
   if (tableMissing) {
     const repairSQL = `-- MASTER FINANCIAL RECORDS REPAIR SCRIPT
+CREATE TABLE IF NOT EXISTS public.members (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  status TEXT DEFAULT 'Active',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS public.financial_records (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   service_date DATE NOT NULL,
@@ -141,8 +277,32 @@ CREATE TABLE IF NOT EXISTS public.financial_records (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS public.tithe_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  member_id UUID NOT NULL REFERENCES public.members(id),
+  amount NUMERIC NOT NULL,
+  payment_date DATE NOT NULL,
+  payment_method TEXT NOT NULL,
+  service_type TEXT,
+  recorded_by UUID,
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
 ALTER TABLE public.financial_records ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all actions for staff" ON public.financial_records FOR ALL USING (true) WITH CHECK (true);`;
+DROP POLICY IF EXISTS "Allow all actions for staff" ON public.financial_records;
+CREATE POLICY "Allow all actions for staff" ON public.financial_records FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE public.tithe_records ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all actions for staff" ON public.tithe_records;
+CREATE POLICY "Allow all actions for staff" ON public.tithe_records FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all actions for staff" ON public.members;
+CREATE POLICY "Allow all actions for staff" ON public.members FOR ALL USING (true) WITH CHECK (true);
+
+-- FORCE SCHEMA CACHE RELOAD
+NOTIFY pgrst, 'reload schema';`;
 
     return (
       <div className="max-w-4xl mx-auto py-12 px-4 animate-in zoom-in-95 duration-500">
@@ -151,19 +311,62 @@ CREATE POLICY "Allow all actions for staff" ON public.financial_records FOR ALL 
             <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
           </div>
           <h2 className="text-3xl font-black text-fh-green tracking-tighter uppercase mb-4">Financial Records Missing</h2>
-          <p className="text-slate-500 mb-10 font-medium max-w-lg mx-auto leading-relaxed uppercase text-[10px] tracking-widest">
-            The financial database has not been initialized. Run the SQL Script in your Supabase Editor to continue.
+          <div className="mb-8 space-y-2">
+            <p className="text-slate-500 font-medium max-w-lg mx-auto leading-relaxed uppercase text-[10px] tracking-widest">
+              The following database tables were not detected:
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {missingTables.map(t => (
+                <span key={t} className="px-3 py-1 bg-rose-50 text-rose-600 text-[9px] font-black uppercase rounded-lg border border-rose-100">
+                  {t}
+                </span>
+              ))}
+            </div>
+            {lastError && (
+              <div className="mt-4 p-4 bg-rose-50 rounded-xl border border-rose-100">
+                <p className="text-rose-400 text-[8px] font-mono max-w-md mx-auto break-all">
+                  Last Error: {lastError}
+                </p>
+                <p className="text-slate-400 text-[8px] font-mono mt-2 uppercase tracking-tighter">
+                  Target Project: bhujaqeledtkmwhoqfcd
+                </p>
+              </div>
+            )}
+          </div>
+          <p className="text-slate-400 mb-10 font-bold max-w-lg mx-auto leading-relaxed uppercase text-[9px] tracking-[0.2em]">
+            Run the SQL Script in your Supabase Editor to initialize the treasury system.
           </p>
-          <pre className="bg-slate-900 text-fh-gold p-8 rounded-[2rem] text-[10px] font-mono text-left h-48 overflow-y-auto mb-10 shadow-inner border border-fh-gold/10 leading-relaxed scrollbar-hide">
-            {repairSQL}
-          </pre>
-          <button onClick={fetchInitialData} className="px-16 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-xs tracking-[0.4em] shadow-2xl active:scale-95 transition-all border-b-4 border-black">
-            Authorize Database Sync
-          </button>
+          <div className="relative group mb-10">
+            <pre className="bg-slate-900 text-fh-gold p-8 rounded-[2rem] text-[10px] font-mono text-left h-48 overflow-y-auto shadow-inner border border-fh-gold/10 leading-relaxed scrollbar-hide">
+              {repairSQL}
+            </pre>
+            <button 
+              onClick={() => {
+                navigator.clipboard.writeText(repairSQL);
+                alert("SQL Script copied to clipboard!");
+              }}
+              className="absolute top-4 right-4 bg-fh-gold text-fh-green px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest hover:scale-105 transition-transform shadow-lg"
+            >
+              Copy Script
+            </button>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button onClick={fetchInitialData} className="px-10 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-xs tracking-[0.4em] shadow-2xl active:scale-95 transition-all border-b-4 border-black">
+              Authorize Database Sync
+            </button>
+            <button onClick={() => window.location.reload()} className="px-10 py-5 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-xs tracking-[0.4em] hover:bg-slate-200 transition-all">
+              Hard Refresh App
+            </button>
+          </div>
         </div>
       </div>
     );
   }
+
+  const filteredTithes = titheRecords.filter(t => {
+    const memberName = `${t.members?.first_name} ${t.members?.last_name}`.toLowerCase();
+    return memberName.includes(searchTerm.toLowerCase());
+  });
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700 pb-20">
@@ -183,14 +386,32 @@ CREATE POLICY "Allow all actions for staff" ON public.financial_records FOR ALL 
             <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
             Print Audit
           </button>
-          <button onClick={() => setIsModalOpen(true)} className="px-10 py-5 bg-fh-green text-fh-gold rounded-[1.75rem] font-black uppercase text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30">
-            + Provision Entry
+          <button onClick={() => activeTab === 'Ledger' ? setIsModalOpen(true) : setIsTitheModalOpen(true)} className="px-10 py-5 bg-fh-green text-fh-gold rounded-[1.75rem] font-black uppercase text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30">
+            {activeTab === 'Ledger' ? '+ Provision Entry' : '+ Record Tithe'}
           </button>
         </div>
       </div>
 
-      {/* 2. Visual KPI Summary (Matches Dashboard Colors) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Tab Switcher */}
+      <div className="flex bg-slate-100 p-1 rounded-2xl w-fit no-print">
+        <button 
+          onClick={() => setActiveTab('Ledger')}
+          className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'Ledger' ? 'bg-white text-fh-green shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+        >
+          Financial Ledger
+        </button>
+        <button 
+          onClick={() => setActiveTab('Tithers')}
+          className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'Tithers' ? 'bg-white text-fh-green shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+        >
+          Tithers Registry
+        </button>
+      </div>
+
+      {activeTab === 'Ledger' ? (
+        <>
+          {/* 2. Visual KPI Summary (Matches Dashboard Colors) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         
         {/* Row 1: Income (Solid bold colors like Dashboard) */}
         <div className="bg-cms-blue rounded-xl shadow-md p-6 text-white flex items-center justify-between group overflow-hidden relative">
@@ -263,49 +484,223 @@ CREATE POLICY "Allow all actions for staff" ON public.financial_records FOR ALL 
 
       {/* 3. Transaction History */}
       <div className="cms-card cms-card-emerald bg-white rounded-[3.5rem] overflow-hidden border-none shadow-sm">
-        <div className="p-10 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
-           <h3 className="text-sm font-black text-fh-green uppercase tracking-widest leading-none">Financial Ledger Repository</h3>
-           <span className="px-5 py-1.5 bg-white border border-slate-200 rounded-full text-[9px] font-black text-fh-green uppercase shadow-sm">Verified Audit Trail Active</span>
+          <div className="p-10 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
+             <h3 className="text-sm font-black text-fh-green uppercase tracking-widest leading-none">Financial Ledger Repository</h3>
+             <span className="px-5 py-1.5 bg-white border border-slate-200 rounded-full text-[9px] font-black text-fh-green uppercase shadow-sm">Verified Audit Trail Active</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] border-b border-slate-100">
+                <tr><th className="px-10 py-6">Timeline / Service</th><th className="px-10 py-6">Revenue Summary</th><th className="px-10 py-6">Security Verification</th><th className="px-10 py-6 text-right">Status</th></tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {isLoading ? (
+                  <tr><td colSpan={4} className="px-10 py-24 text-center animate-pulse text-slate-300 font-black uppercase tracking-[0.5em]">Synchronizing Database...</td></tr>
+                ) : records.length > 0 ? (
+                  records.map(rec => (
+                    <tr key={rec.id} className="hover:bg-slate-50 transition-all group text-xs">
+                      <td className="px-10 py-6">
+                        <p className="font-black text-slate-800 uppercase tracking-tight mb-1">{new Date(rec.service_date).toLocaleDateString()}</p>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{rec.service_type}</p>
+                      </td>
+                      <td className="px-10 py-6">
+                        <div className="flex flex-col gap-1 text-[10px] font-black uppercase tracking-tight">
+                           <p className="text-fh-green">Inbound: {formatGHS(rec.total_income)}</p>
+                           <p className="text-rose-500">Expense: {formatGHS(rec.expenses || 0)}</p>
+                        </div>
+                      </td>
+                      <td className="px-10 py-6">
+                        <div className="flex flex-col gap-1">
+                           <p className="text-[10px] font-bold text-slate-600 uppercase tracking-tight">Witness 1: {rec.witness1_name}</p>
+                           <p className="text-[10px] font-bold text-slate-600 uppercase tracking-tight">Witness 2: {rec.witness2_name}</p>
+                        </div>
+                      </td>
+                      <td className="px-10 py-6 text-right">
+                        <span className="px-4 py-1.5 bg-emerald-50 text-cms-emerald text-[8px] font-black uppercase tracking-[0.2em] rounded-lg border border-emerald-100">Recorded</span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr><td colSpan={4} className="px-10 py-32 text-center text-slate-300 italic text-[10px] font-black uppercase tracking-[0.5em]">The Ledger is empty</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] border-b border-slate-100">
-              <tr><th className="px-10 py-6">Timeline / Service</th><th className="px-10 py-6">Revenue Summary</th><th className="px-10 py-6">Security Verification</th><th className="px-10 py-6 text-right">Status</th></tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {isLoading ? (
-                <tr><td colSpan={4} className="px-10 py-24 text-center animate-pulse text-slate-300 font-black uppercase tracking-[0.5em]">Synchronizing Database...</td></tr>
-              ) : records.length > 0 ? (
-                records.map(rec => (
-                  <tr key={rec.id} className="hover:bg-slate-50 transition-all group text-xs">
-                    <td className="px-10 py-6">
-                      <p className="font-black text-slate-800 uppercase tracking-tight mb-1">{new Date(rec.service_date).toLocaleDateString()}</p>
-                      <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{rec.service_type}</p>
-                    </td>
-                    <td className="px-10 py-6">
-                      <div className="flex flex-col gap-1 text-[10px] font-black uppercase tracking-tight">
-                         <p className="text-fh-green">Inbound: {formatGHS(rec.total_income)}</p>
-                         <p className="text-rose-500">Expense: {formatGHS(rec.expenses || 0)}</p>
-                      </div>
-                    </td>
-                    <td className="px-10 py-6">
-                      <div className="flex flex-col gap-1">
-                         <p className="text-[10px] font-bold text-slate-600 uppercase tracking-tight">Witness 1: {rec.witness1_name}</p>
-                         <p className="text-[10px] font-bold text-slate-600 uppercase tracking-tight">Witness 2: {rec.witness2_name}</p>
-                      </div>
-                    </td>
-                    <td className="px-10 py-6 text-right">
-                      <span className="px-4 py-1.5 bg-emerald-50 text-cms-emerald text-[8px] font-black uppercase tracking-[0.2em] rounded-lg border border-emerald-100">Recorded</span>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr><td colSpan={4} className="px-10 py-32 text-center text-slate-300 italic text-[10px] font-black uppercase tracking-[0.5em]">The Ledger is empty</td></tr>
-              )}
-            </tbody>
-          </table>
+      </>
+    ) : (
+      <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
+          <div className="flex flex-col md:flex-row items-center gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+            <div className="relative flex-1 w-full">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input 
+                type="text" 
+                placeholder="Search tithers by name..." 
+                className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 ring-fh-green/20 transition-all"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredTithes.length > 0 ? filteredTithes.map(tithe => (
+              <div key={tithe.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-md transition-all group">
+                <div className="flex items-start justify-between mb-6">
+                  <div className="w-12 h-12 bg-violet-50 rounded-2xl flex items-center justify-center group-hover:bg-violet-600 transition-all">
+                    <Users className="w-6 h-6 text-violet-600 group-hover:text-white" />
+                  </div>
+                  <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase rounded-lg border border-emerald-100">
+                    {tithe.payment_method}
+                  </span>
+                </div>
+                <h4 className="text-lg font-black text-slate-900 uppercase tracking-tighter mb-1">
+                  {tithe.members?.first_name} {tithe.members?.last_name}
+                </h4>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">
+                  {new Date(tithe.payment_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </p>
+                <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
+                  <div>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Amount Paid</p>
+                    <p className="text-xl font-black text-fh-green">{formatGHS(tithe.amount)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Service</p>
+                    <p className="text-[10px] font-black text-slate-700 uppercase">{tithe.service_type}</p>
+                  </div>
+                </div>
+              </div>
+            )) : (
+              <div className="col-span-full py-20 text-center bg-white rounded-[3.5rem] border border-slate-100">
+                <div className="w-20 h-20 bg-slate-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6">
+                  <Hash className="w-10 h-10 text-slate-200" />
+                </div>
+                <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-2">No Tithe Records Found</h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Start recording tithes to see them here.</p>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Tithe Recording Modal */}
+      {isTitheModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="bg-fh-green p-10 text-fh-gold flex items-center justify-between">
+              <div>
+                <h2 className="text-3xl font-black uppercase tracking-tighter">Record Tithe</h2>
+                <p className="text-[10px] font-bold uppercase tracking-widest opacity-80">Individual Member Contribution</p>
+              </div>
+              <button onClick={() => setIsTitheModalOpen(false)} className="p-3 bg-black/20 rounded-2xl hover:bg-black/40 transition-all">
+                <Plus className="w-6 h-6 rotate-45" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleTitheSubmit} className="p-10 space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Select Member</label>
+                  <div className="relative">
+                    <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <select 
+                      required
+                      className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 ring-fh-green/20 transition-all text-xs font-black uppercase"
+                      value={titheFormData.member_id}
+                      onChange={(e) => setTitheFormData(p => ({ ...p, member_id: e.target.value }))}
+                    >
+                      <option value="">Choose Member...</option>
+                      {members.map(m => (
+                        <option key={m.id} value={m.id}>{m.first_name} {m.last_name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Amount (GHS)</label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input 
+                      type="number" 
+                      required
+                      step="0.01"
+                      className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 ring-fh-green/20 transition-all text-xs font-black"
+                      placeholder="0.00"
+                      value={titheFormData.amount || ''}
+                      onChange={(e) => setTitheFormData(p => ({ ...p, amount: parseFloat(e.target.value) || 0 }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Payment Date</label>
+                  <div className="relative">
+                    <CalendarIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input 
+                      type="date" 
+                      required
+                      className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 ring-fh-green/20 transition-all text-xs font-black"
+                      value={titheFormData.payment_date}
+                      onChange={(e) => setTitheFormData(p => ({ ...p, payment_date: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Payment Method</label>
+                  <div className="relative">
+                    <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <select 
+                      className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 ring-fh-green/20 transition-all text-xs font-black uppercase"
+                      value={titheFormData.payment_method}
+                      onChange={(e) => setTitheFormData(p => ({ ...p, payment_method: e.target.value as any }))}
+                    >
+                      <option>Cash</option>
+                      <option>Bank Transfer</option>
+                      <option>MoMo</option>
+                      <option>Cheque</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Service Type</label>
+                <div className="relative">
+                  <FileText className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <select 
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 ring-fh-green/20 transition-all text-xs font-black uppercase"
+                    value={titheFormData.service_type}
+                    onChange={(e) => setTitheFormData(p => ({ ...p, service_type: e.target.value }))}
+                  >
+                    <option>Prophetic Word Service</option>
+                    <option>Help from above service</option>
+                    <option>Special services</option>
+                    <option>Conferences</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-6">
+                <button 
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full py-5 bg-fh-green text-fh-gold rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] shadow-xl border-b-4 border-black/20 hover:translate-y-0.5 transition-all flex items-center justify-center gap-3"
+                >
+                  {isSubmitting ? 'Processing Transaction...' : (
+                    <>
+                      <CheckCircle2 className="w-5 h-5" />
+                      Finalize Tithe Entry
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* 4. MODALS: PROVISION ENTRY FORM */}
       {isModalOpen && (

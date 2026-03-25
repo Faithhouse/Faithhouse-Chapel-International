@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { UserProfile, Member } from '../types';
+import { UserProfile, Member, AttendanceEvent, AttendanceRecord } from '../types';
 import { motion } from 'framer-motion';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -28,6 +28,19 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
   const [selectedMemberId, setSelectedMemberId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [memberSearchTerm, setMemberSearchTerm] = useState('');
+
+  // Young Adult Ministry Specific State
+  const [yaAttendanceEvents, setYaAttendanceEvents] = useState<AttendanceEvent[]>([]);
+  const [activeYaEvent, setActiveYaEvent] = useState<AttendanceEvent | null>(null);
+  const [yaAttendanceRecords, setYaAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [isYaAttendanceModalOpen, setIsYaAttendanceModalOpen] = useState(false);
+  const [isYaSubmitting, setIsYaSubmitting] = useState(false);
+  const [yaStats, setYaStats] = useState({
+    avgAttendance: 0,
+    newConverts: 0,
+    retentionRate: 0,
+    peakAttendance: 0
+  });
 
   const [regForm, setRegForm] = useState({
     first_name: '',
@@ -81,7 +94,161 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
 
   useEffect(() => {
     fetchPersonnel();
+    if (ministryName === 'Young Adult Ministry') {
+      fetchYaAttendance();
+    }
   }, [ministryName]);
+
+  const fetchYaAttendance = async () => {
+    try {
+      const { data: events, error } = await supabase
+        .from('attendance_events')
+        .select('*')
+        .eq('event_type', 'Young Adult Ministry')
+        .order('event_date', { ascending: false });
+      
+      if (error) throw error;
+      setYaAttendanceEvents(events || []);
+
+      if (events && events.length > 0) {
+        const total = events.reduce((acc, curr) => acc + (curr.total_attendance || 0), 0);
+        const peak = Math.max(...events.map(e => e.total_attendance || 0));
+        setYaStats(prev => ({
+          ...prev,
+          avgAttendance: Math.round(total / events.length),
+          peakAttendance: peak
+        }));
+      }
+    } catch (err) {
+      console.error('Error fetching YA attendance:', err);
+    }
+  };
+
+  const openYaAttendanceSheet = async (event: AttendanceEvent) => {
+    setActiveYaEvent(event);
+    setIsYaAttendanceModalOpen(true);
+    setIsLoading(true);
+    try {
+      const { data: records, error } = await supabase
+        .from('attendance_records')
+        .select('*')
+        .eq('attendance_event_id', event.id);
+      
+      if (error) throw error;
+      
+      // Pre-populate records for all ministry members
+      const existingRecords = records || [];
+      const fullRecords: AttendanceRecord[] = ministryMembers.map(m => {
+        const existing = existingRecords.find(r => r.member_id === m.id);
+        if (existing) return existing;
+        return {
+          attendance_event_id: event.id,
+          member_id: m.id,
+          status: 'Unmarked'
+        };
+      });
+      
+      setYaAttendanceRecords(fullRecords);
+    } catch (err) {
+      console.error('Error opening YA sheet:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleYaStatusChange = (memberId: string, status: AttendanceRecord['status']) => {
+    setYaAttendanceRecords(prev => {
+      const idx = prev.findIndex(r => r.member_id === memberId);
+      if (idx > -1) {
+        const up = [...prev];
+        const newStatus = up[idx].status === status ? 'Unmarked' : status;
+        up[idx] = { ...up[idx], status: newStatus };
+        return up;
+      }
+      return prev;
+    });
+  };
+
+  const saveYaAttendance = async () => {
+    if (!activeYaEvent) return;
+    setIsYaSubmitting(true);
+    try {
+      const cleanRecords = yaAttendanceRecords.map(({ id, ...rest }) => id ? { id, ...rest } : rest);
+      const { error: recordsError } = await supabase
+        .from('attendance_records')
+        .upsert(cleanRecords, { onConflict: 'attendance_event_id, member_id' });
+      
+      if (recordsError) throw recordsError;
+
+      const total = yaAttendanceRecords.filter(r => r.status === 'Present').length;
+      
+      // Update the YA event itself
+      const { error: eventError } = await supabase
+        .from('attendance_events')
+        .update({
+          total_attendance: total,
+          young_adult_count: total // Self-sync
+        })
+        .eq('id', activeYaEvent.id);
+
+      if (eventError) throw eventError;
+
+      // SYNC LOGIC: Find main service event for the same date and update its children_count
+      // The user specifically asked for "children count should be in sync"
+      const { data: mainEvents } = await supabase
+        .from('attendance_events')
+        .select('id, children_count, young_adult_count')
+        .eq('event_date', activeYaEvent.event_date)
+        .in('event_type', ['Prophetic Word Service', 'Help from above service', 'Special services', 'Conferences']);
+
+      if (mainEvents && mainEvents.length > 0) {
+        for (const mainEvent of mainEvents) {
+          await supabase
+            .from('attendance_events')
+            .update({
+              children_count: total, // As requested: "children count should be in sync"
+              young_adult_count: total // Also update the new YA field for correctness
+            })
+            .eq('id', mainEvent.id);
+        }
+      }
+
+      setIsYaAttendanceModalOpen(false);
+      fetchYaAttendance();
+    } catch (err) {
+      console.error('Error saving YA attendance:', err);
+      alert('Failed to save attendance. Please try again.');
+    } finally {
+      setIsYaSubmitting(false);
+    }
+  };
+
+  const createYaSession = async () => {
+    const today = new Date().toISOString().split('T')[0];
+    setIsYaSubmitting(true);
+    try {
+      const { data, error } = await supabase
+        .from('attendance_events')
+        .insert([{
+          event_name: `YA Session - ${today}`,
+          event_type: 'Young Adult Ministry',
+          event_date: today,
+          branch_id: userProfile?.branch_id || null
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        openYaAttendanceSheet(data);
+      }
+      fetchYaAttendance();
+    } catch (err) {
+      console.error('Error creating YA session:', err);
+    } finally {
+      setIsYaSubmitting(false);
+    }
+  };
 
   const fetchPersonnel = async () => {
     setIsLoading(true);
@@ -730,9 +897,9 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
         <div className="space-y-6">
           <div className="bg-violet-600 p-8 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden">
              <Sparkles className="absolute -right-4 -bottom-4 w-32 h-32 opacity-10 rotate-12" />
-             <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60 mb-2">Next Hangout</p>
-             <h4 className="text-2xl font-black mb-1">Friday Night Live</h4>
-             <p className="text-xs font-medium opacity-80">7:30 PM • Youth Hall</p>
+             <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60 mb-2">Next Event</p>
+             <h4 className="text-2xl font-black mb-1">No Upcoming Events</h4>
+             <p className="text-xs font-medium opacity-80">Schedule a new session to begin</p>
           </div>
           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
             <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-6">Active Initiatives</h4>
@@ -805,21 +972,27 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Service & Event Participation</p>
           </div>
           <div className="flex items-center gap-4">
-            <button className="px-6 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Record New Session</button>
+            <button 
+              onClick={createYaSession}
+              disabled={isYaSubmitting}
+              className="px-6 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-50"
+            >
+              {isYaSubmitting ? 'Creating...' : 'Record New Session'}
+            </button>
             <button className="px-6 py-3 bg-slate-50 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all">Export Report</button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {[
-            { label: 'Avg. Attendance', value: '0', sub: 'No Sessions' },
-            { label: 'New Converts', value: '0', sub: 'This Month' },
-            { label: 'Retention Rate', value: '0%', sub: 'No Data' },
-            { label: 'Peak Attendance', value: '0', sub: 'No Data' },
+            { label: 'Avg. Attendance', value: yaStats.avgAttendance.toString(), sub: 'Last 4 Weeks' },
+            { label: 'New Converts', value: yaStats.newConverts.toString(), sub: 'This Month' },
+            { label: 'Retention Rate', value: yaStats.retentionRate.toString() + '%', sub: 'Year to Date' },
+            { label: 'Peak Attendance', value: yaStats.peakAttendance.toString(), sub: 'All Time' },
           ].map((stat, i) => (
             <div key={i} className="p-6 bg-slate-50 rounded-2xl border border-slate-100 text-center">
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{stat.label}</p>
-              <h4 className="text-3xl font-black text-slate-200 tracking-tighter">{stat.value}</h4>
+              <h4 className="text-3xl font-black text-slate-800 tracking-tighter">{stat.value}</h4>
               <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">{stat.sub}</p>
             </div>
           ))}
@@ -832,14 +1005,29 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
                 <th className="px-8 py-6">Service Date</th>
                 <th className="px-8 py-6">Service Type</th>
                 <th className="px-8 py-6">Attendance</th>
-                <th className="px-8 py-6">New Souls</th>
-                <th className="px-8 py-6 text-right">Status</th>
+                <th className="px-8 py-6 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              <tr>
-                <td colSpan={5} className="px-8 py-20 text-center text-slate-300 font-black uppercase tracking-widest italic opacity-50">No attendance logs available.</td>
-              </tr>
+              {yaAttendanceEvents.length > 0 ? yaAttendanceEvents.map((ev, i) => (
+                <tr key={i} className="hover:bg-slate-50 transition-all">
+                  <td className="px-8 py-6 text-sm font-black text-slate-800 uppercase tracking-tight">{new Date(ev.event_date).toLocaleDateString()}</td>
+                  <td className="px-8 py-6 text-[10px] font-bold text-slate-500 uppercase">{ev.event_type}</td>
+                  <td className="px-8 py-6 text-sm font-black text-violet-600">{ev.total_attendance || 0}</td>
+                  <td className="px-8 py-6 text-right">
+                    <button 
+                      onClick={() => openYaAttendanceSheet(ev)}
+                      className="px-4 py-2 bg-violet-100 text-violet-700 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-violet-600 hover:text-white transition-all"
+                    >
+                      Open Sheet
+                    </button>
+                  </td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan={4} className="px-8 py-20 text-center text-slate-300 font-black uppercase tracking-widest italic opacity-50">No attendance logs available.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -1327,6 +1515,85 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
                  {isSubmitting ? 'Processing...' : `Confirm Deployment to ${ministryName}`}
                </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* YOUNG ADULT ATTENDANCE MODAL */}
+      {isYaAttendanceModalOpen && activeYaEvent && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md" onClick={() => !isYaSubmitting && setIsYaAttendanceModalOpen(false)} />
+          <div className="relative bg-white w-full max-w-4xl h-[80vh] rounded-[4rem] shadow-2xl overflow-hidden flex flex-col border-b-[16px] border-violet-600">
+            <div className="p-10 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">YA Attendance Sheet</h3>
+                <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">{new Date(activeYaEvent.event_date).toLocaleDateString()} • {activeYaEvent.event_name}</p>
+              </div>
+              <button onClick={() => setIsYaAttendanceModalOpen(false)} className="p-4 hover:bg-white rounded-full transition-all text-slate-400"><Plus className="w-6 h-6 rotate-45" /></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-10">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {yaAttendanceRecords.map(record => {
+                  const member = ministryMembers.find(m => m.id === record.member_id);
+                  if (!member) return null;
+                  const s = record.status;
+                  return (
+                    <div key={member.id} className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 flex items-center justify-between group hover:bg-white hover:shadow-xl transition-all duration-500">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xs shadow-inner ${
+                          s === 'Present' ? 'bg-emerald-500 text-white' : 
+                          s === 'Absent' ? 'bg-rose-500 text-white' :
+                          'bg-slate-200 text-slate-400'
+                        }`}>
+                          {member.first_name[0]}{member.last_name ? member.last_name[0] : ''}
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{member.first_name} {member.last_name}</p>
+                          <p className="text-[9px] text-slate-400 font-bold uppercase">{member.phone || 'No Phone'}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        {(['Present', 'Absent'] as const).map(st => (
+                          <button 
+                            key={st} 
+                            onClick={() => handleYaStatusChange(member.id, st)} 
+                            className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
+                              s === st ? (
+                                st === 'Present' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'bg-rose-500 text-white shadow-lg shadow-rose-200'
+                              ) : 'bg-white text-slate-400 hover:bg-slate-100'
+                            }`}
+                          >
+                            {st}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="p-10 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-8">
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Present Count</p>
+                  <p className="text-2xl font-black text-emerald-600">{yaAttendanceRecords.filter(r => r.status === 'Present').length}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Absent Count</p>
+                  <p className="text-2xl font-black text-rose-600">{yaAttendanceRecords.filter(r => r.status === 'Absent').length}</p>
+                </div>
+              </div>
+              <button 
+                onClick={saveYaAttendance}
+                disabled={isYaSubmitting}
+                className="px-12 py-5 bg-violet-600 text-white rounded-2xl font-black uppercase text-[11px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all disabled:opacity-50 flex items-center gap-3"
+              >
+                {isYaSubmitting ? <div className="w-4 h-4 border-2 border-white/50 border-t-white animate-spin rounded-full" /> : <Zap className="w-4 h-4" />}
+                Authorize & Sync
+              </button>
+            </div>
           </div>
         </div>
       )}

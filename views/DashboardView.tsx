@@ -67,6 +67,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
       const localNow = new Date();
       const todayStr = localNow.toLocaleDateString('en-CA'); // YYYY-MM-DD
       
+      // 0. Auto-cleanup expired events to keep the system clean
+      const { error: cleanupError } = await supabase
+        .from('events')
+        .delete()
+        .lt('date', todayStr);
+      
+      if (cleanupError) {
+        console.error("Cleanup Error:", cleanupError);
+      } else {
+        console.log("Expired events cleaned up successfully.");
+      }
+
       // 1. Fetch Global Stats
       const { count: memberCount, error: mErr } = await supabase.from('members').select('*', { count: 'exact', head: true });
       if (mErr) console.warn("Member count fetch failed:", mErr);

@@ -162,12 +162,14 @@ export interface Minister {
 export interface AttendanceEvent {
   id: string;
   event_name: string;
-  event_type: 'Prophetic Word Service' | 'Help from above service' | 'Special services' | 'Conferences';
+  event_type: 'Prophetic Word Service' | 'Help from above service' | 'Special services' | 'Conferences' | 'Young Adult Ministry';
   event_date: string;
   branch_id?: string;
   men_count?: number;
   women_count?: number;
   children_count?: number;
+  young_adult_count?: number;
+  teen_count?: number;
   total_attendance?: number;
   created_at?: string;
   branches?: Branch;
@@ -241,4 +243,17 @@ export interface Volunteer {
   created_at?: string;
   members?: Member;
   branches?: Branch;
+}
+
+export interface TitheRecord {
+  id: string;
+  member_id: string;
+  amount: number;
+  payment_date: string;
+  payment_method: 'Cash' | 'Bank Transfer' | 'MoMo' | 'Cheque';
+  service_type?: string;
+  recorded_by: string;
+  notes?: string;
+  created_at?: string;
+  members?: Member;
 }

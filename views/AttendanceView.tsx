@@ -24,7 +24,9 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ userProfile }) => {
   const [activeEventCounts, setActiveEventCounts] = useState({
     men_count: 0,
     women_count: 0,
-    children_count: 0
+    children_count: 0,
+    young_adult_count: 0,
+    teen_count: 0
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -176,7 +178,9 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ userProfile }) => {
     setActiveEventCounts({
       men_count: event.men_count || 0,
       women_count: event.women_count || 0,
-      children_count: event.children_count || 0
+      children_count: event.children_count || 0,
+      young_adult_count: event.young_adult_count || 0,
+      teen_count: event.teen_count || 0
     });
     try {
       const { data, error } = await supabase.from('attendance_records').select('*').eq('attendance_event_id', event.id);
@@ -238,13 +242,15 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ userProfile }) => {
       }
 
       // Save the summary counts to attendance_events
-      const total = activeEventCounts.men_count + activeEventCounts.women_count + activeEventCounts.children_count;
+      const total = activeEventCounts.men_count + activeEventCounts.women_count + activeEventCounts.children_count + activeEventCounts.young_adult_count + activeEventCounts.teen_count;
       const { error: eventError } = await supabase
         .from('attendance_events')
         .update({
           men_count: activeEventCounts.men_count,
           women_count: activeEventCounts.women_count,
           children_count: activeEventCounts.children_count,
+          young_adult_count: activeEventCounts.young_adult_count,
+          teen_count: activeEventCounts.teen_count,
           total_attendance: total
         })
         .eq('id', activeEvent.id);
@@ -316,6 +322,8 @@ CREATE TABLE IF NOT EXISTS public.attendance_events (
   men_count INTEGER DEFAULT 0,
   women_count INTEGER DEFAULT 0,
   children_count INTEGER DEFAULT 0,
+  young_adult_count INTEGER DEFAULT 0,
+  teen_count INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
   UNIQUE(event_date, event_type, branch_id)
 );
@@ -352,6 +360,9 @@ ALTER TABLE public.attendance_records
 ALTER COLUMN id SET DEFAULT gen_random_uuid();
 
 -- ENSURE UNIQUE CONSTRAINT IS ACTIVE FOR UPSERT
+ALTER TABLE public.attendance_events ADD COLUMN IF NOT EXISTS young_adult_count INTEGER DEFAULT 0;
+ALTER TABLE public.attendance_events ADD COLUMN IF NOT EXISTS teen_count INTEGER DEFAULT 0;
+
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'unique_event_member') THEN
     ALTER TABLE public.attendance_records ADD CONSTRAINT unique_event_member UNIQUE (attendance_event_id, member_id);
@@ -445,6 +456,34 @@ END $$;`;
               />
             </div>
           </div>
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4">
+            <div className="w-12 h-12 bg-violet-100 text-violet-600 rounded-2xl flex items-center justify-center">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+            </div>
+            <div>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Young Adults</p>
+              <input 
+                type="number" 
+                value={activeEventCounts.young_adult_count} 
+                onChange={e => setActiveEventCounts({...activeEventCounts, young_adult_count: parseInt(e.target.value) || 0})}
+                className="text-xl font-black text-slate-800 bg-transparent border-none p-0 focus:ring-0 w-full"
+              />
+            </div>
+          </div>
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4">
+            <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+            </div>
+            <div>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Teens</p>
+              <input 
+                type="number" 
+                value={activeEventCounts.teen_count} 
+                onChange={e => setActiveEventCounts({...activeEventCounts, teen_count: parseInt(e.target.value) || 0})}
+                className="text-xl font-black text-slate-800 bg-transparent border-none p-0 focus:ring-0 w-full"
+              />
+            </div>
+          </div>
           <div className="bg-fh-green p-6 rounded-[2rem] shadow-xl flex items-center gap-4 border-b-4 border-black/20">
             <div className="w-12 h-12 bg-white/20 text-fh-gold rounded-2xl flex items-center justify-center">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
@@ -452,7 +491,7 @@ END $$;`;
             <div>
               <p className="text-[9px] font-black text-fh-gold/60 uppercase tracking-widest">Total Attendance</p>
               <p className="text-2xl font-black text-fh-gold leading-none">
-                {activeEventCounts.men_count + activeEventCounts.women_count + activeEventCounts.children_count}
+                {activeEventCounts.men_count + activeEventCounts.women_count + activeEventCounts.children_count + activeEventCounts.young_adult_count + activeEventCounts.teen_count}
               </p>
             </div>
           </div>
@@ -580,7 +619,7 @@ END $$;`;
                    <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-cms-emerald"></span><span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">Present: {stats.present}</span></div>
                    <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-cms-rose"></span><span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">Absent: {stats.absent}</span></div>
                    <div className="mt-2 pt-2 border-t border-slate-100 w-full flex flex-col items-end gap-1">
-                      <span className="text-[8px] font-bold text-slate-400 uppercase">M: {ev.men_count || 0} • W: {ev.women_count || 0} • C: {ev.children_count || 0}</span>
+                      <span className="text-[8px] font-bold text-slate-400 uppercase">M: {ev.men_count || 0} • W: {ev.women_count || 0} • C: {ev.children_count || 0} • YA: {ev.young_adult_count || 0} • T: {ev.teen_count || 0}</span>
                       <span className="text-[9px] font-black text-fh-green uppercase">Total: {ev.total_attendance || 0}</span>
                    </div>
                 </div>
