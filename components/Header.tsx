@@ -1,13 +1,17 @@
 
 import React from 'react';
 import { UserProfile } from '../types';
+import { ArrowLeft } from 'lucide-react';
 
 interface HeaderProps {
   toggleSidebar: () => void;
   userProfile: UserProfile | null;
+  activeItem: string;
+  onBack: () => void;
+  hasHistory: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ toggleSidebar, userProfile }) => {
+const Header: React.FC<HeaderProps> = ({ toggleSidebar, userProfile, activeItem, onBack, hasHistory }) => {
   // Direct download link format for Google Drive
   const logoUrl = "https://lh3.googleusercontent.com/d/1la57sO6NOuNEZaqa9zDxuxRnWPBavkjH";
 
@@ -24,6 +28,17 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, userProfile }) => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
+
+        {hasHistory && activeItem !== 'Dashboard' && (
+          <button 
+            onClick={onBack}
+            className="flex items-center gap-2 p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all active:scale-90 border border-slate-200 text-slate-600"
+            title="Go Back"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest">Back</span>
+          </button>
+        )}
         
       </div>
 

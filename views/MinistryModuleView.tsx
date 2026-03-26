@@ -94,7 +94,7 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
 
   useEffect(() => {
     fetchPersonnel();
-    if (ministryName === 'Young Adult Ministry') {
+    if (ministryName === 'Children Ministry') {
       fetchYaAttendance();
     }
   }, [ministryName]);
@@ -104,7 +104,7 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
       const { data: events, error } = await supabase
         .from('attendance_events')
         .select('*')
-        .eq('event_type', 'Young Adult Ministry')
+        .eq('event_type', 'Children Ministry')
         .order('event_date', { ascending: false });
       
       if (error) throw error;
@@ -182,22 +182,21 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
 
       const total = yaAttendanceRecords.filter(r => r.status === 'Present').length;
       
-      // Update the YA event itself
+      // Update the event itself
       const { error: eventError } = await supabase
         .from('attendance_events')
         .update({
           total_attendance: total,
-          young_adult_count: total // Self-sync
+          children_count: total // Self-sync for Children Ministry
         })
         .eq('id', activeYaEvent.id);
 
       if (eventError) throw eventError;
 
       // SYNC LOGIC: Find main service event for the same date and update its children_count
-      // The user specifically asked for "children count should be in sync"
       const { data: mainEvents } = await supabase
         .from('attendance_events')
-        .select('id, children_count, young_adult_count')
+        .select('id, children_count')
         .eq('event_date', activeYaEvent.event_date)
         .in('event_type', ['Prophetic Word Service', 'Help from above service', 'Special services', 'Conferences']);
 
@@ -206,8 +205,7 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
           await supabase
             .from('attendance_events')
             .update({
-              children_count: total, // As requested: "children count should be in sync"
-              young_adult_count: total // Also update the new YA field for correctness
+              children_count: total
             })
             .eq('id', mainEvent.id);
         }
@@ -230,8 +228,8 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
       const { data, error } = await supabase
         .from('attendance_events')
         .insert([{
-          event_name: `YA Session - ${today}`,
-          event_type: 'Young Adult Ministry',
+          event_name: `Children Ministry Session - ${today}`,
+          event_type: 'Children Ministry',
           event_date: today,
           branch_id: userProfile?.branch_id || null
         }])
@@ -419,12 +417,9 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
       case 'Evangelism Ministry':
         return { ...base, icon: 'M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z', accent: 'text-emerald-600', bg: 'bg-emerald-50', opsLabel: 'Souls Tracking', kpi1: 'Fields Active', kpi1Val: '4' };
       case 'Children Ministry':
-      case 'Children\'s Ministry':
         return { ...base, icon: 'M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', accent: 'text-orange-500', bg: 'bg-orange-50', opsLabel: 'Curriculum Oversight', kpi1: 'Educators', kpi1Val: '10' };
       case 'Protocol Ministry':
         return { ...base, icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z', accent: 'text-slate-900', bg: 'bg-slate-100', opsLabel: 'Security & Order', kpi1: 'Officers', kpi1Val: '8' };
-      case 'Young Adult Ministry':
-        return { ...base, icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z', accent: 'text-violet-600', bg: 'bg-violet-50', opsLabel: 'Church Operations', kpi1: 'Congregation', kpi1Val: '120' };
       default:
         return base;
     }
@@ -1226,7 +1221,7 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
     );
   };
 
-  const tabs = ministryName === 'Young Adult Ministry' 
+  const tabs = ministryName === 'Children Ministry' 
     ? (['Overview', 'Leadership', 'Attendance', 'Personnel', 'Operations', 'Resources'] as const)
     : (['Overview', 'Personnel', 'Operations', 'Resources'] as const);
 
@@ -1255,7 +1250,7 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
                 onClick={() => setActiveTab(tab as any)}
                 className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeTab === tab ? 'bg-fh-green text-fh-gold shadow-lg' : 'text-slate-400 hover:text-fh-green'}`}
              >
-               {tab === 'Personnel' && ministryName === 'Young Adult Ministry' ? 'Member Registry' : tab}
+               {tab === 'Personnel' && ministryName === 'Children Ministry' ? 'Member Registry' : tab}
              </button>
             ))}
         </div>
@@ -1265,19 +1260,18 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
       {activeTab === 'Operations' && ministryName === 'Music Ministry' && renderMusicMinistryOperations()}
       {activeTab === 'Resources' && ministryName === 'Music Ministry' && renderMusicMinistryResources()}
 
-      {activeTab === 'Operations' && ['Evangelism', 'Evangelism Ministry', 'Media Ministry', 'Prayer Ministry', 'Ushering Ministry', 'Protocol Ministry', 'Children Ministry', 'Children\'s Ministry'].includes(ministryName) && renderGenericOperations()}
-      {activeTab === 'Resources' && ['Evangelism', 'Evangelism Ministry', 'Media Ministry', 'Prayer Ministry', 'Ushering Ministry', 'Protocol Ministry', 'Children Ministry', 'Children\'s Ministry'].includes(ministryName) && renderGenericResources()}
+      {activeTab === 'Operations' && ['Evangelism', 'Evangelism Ministry', 'Media Ministry', 'Prayer Ministry', 'Ushering Ministry', 'Protocol Ministry', 'Children Ministry'].includes(ministryName) && renderGenericOperations()}
+      {activeTab === 'Resources' && ['Evangelism', 'Evangelism Ministry', 'Media Ministry', 'Prayer Ministry', 'Ushering Ministry', 'Protocol Ministry', 'Children Ministry'].includes(ministryName) && renderGenericResources()}
 
       {activeTab === 'Overview' && (ministryName === 'Evangelism' || ministryName === 'Evangelism Ministry') && renderEvangelismOverview()}
       {activeTab === 'Overview' && ministryName === 'Media Ministry' && renderMediaOverview()}
       {activeTab === 'Overview' && ministryName === 'Prayer Ministry' && renderPrayerOverview()}
       {activeTab === 'Overview' && (ministryName === 'Ushering Ministry' || ministryName === 'Protocol Ministry') && renderUsheringOverview()}
-      {activeTab === 'Overview' && (ministryName === 'Children Ministry' || ministryName === 'Children\'s Ministry') && renderChildrenOverview()}
-      {activeTab === 'Overview' && ministryName === 'Young Adult Ministry' && renderYoungAdultOverview()}
-      {activeTab === 'Leadership' && ministryName === 'Young Adult Ministry' && renderYoungAdultLeadership()}
-      {activeTab === 'Attendance' && ministryName === 'Young Adult Ministry' && renderYoungAdultAttendance()}
+      {activeTab === 'Overview' && ministryName === 'Children Ministry' && renderChildrenOverview()}
+      {activeTab === 'Leadership' && ministryName === 'Children Ministry' && renderYoungAdultLeadership()}
+      {activeTab === 'Attendance' && ministryName === 'Children Ministry' && renderYoungAdultAttendance()}
 
-      {activeTab === 'Overview' && !['Music Ministry', 'Evangelism', 'Evangelism Ministry', 'Media Ministry', 'Prayer Ministry', 'Ushering Ministry', 'Protocol Ministry', 'Children Ministry', 'Children\'s Ministry', 'Young Adult Ministry'].includes(ministryName) && (
+      {activeTab === 'Overview' && !['Music Ministry', 'Evangelism', 'Evangelism Ministry', 'Media Ministry', 'Prayer Ministry', 'Ushering Ministry', 'Protocol Ministry', 'Children Ministry'].includes(ministryName) && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 animate-in fade-in duration-500">
            <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm text-center">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">{cfg.kpi1}</p>
@@ -1326,7 +1320,7 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
                   </p>
               </div>
               <div className="flex items-center gap-4">
-                {ministryName === 'Young Adult Ministry' && (
+                {ministryName === 'Children Ministry' && (
                   <button 
                     onClick={() => setIsRegisterModalOpen(true)} 
                     className="px-10 py-4 bg-violet-600 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest shadow-xl active:scale-95 transition-all border-b-4 border-violet-800 flex items-center gap-3"
@@ -1340,7 +1334,7 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
                   className="px-10 py-4 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[11px] tracking-widest shadow-xl active:scale-95 transition-all border-b-4 border-black/30 flex items-center gap-3"
                 >
                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-                   {ministryName === 'Young Adult Ministry' ? 'Deploy Existing' : 'Provision Staff'}
+                   {ministryName === 'Children Ministry' ? 'Deploy Existing' : 'Provision Staff'}
                 </button>
               </div>
            </div>
@@ -1390,7 +1384,7 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
           <div className="relative bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden border-b-[12px] border-violet-600">
             <div className="p-8 bg-slate-50 flex items-center justify-between border-b border-slate-100">
                <div>
-                 <h3 className="text-2xl font-black text-violet-600 uppercase tracking-tighter">Young Adult Registration</h3>
+                 <h3 className="text-2xl font-black text-violet-600 uppercase tracking-tighter">Children Registration</h3>
                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Direct Entry to {ministryName}</p>
                </div>
                <button onClick={() => setIsRegisterModalOpen(false)} className="text-slate-400 hover:text-black"><Plus className="w-6 h-6 rotate-45" /></button>

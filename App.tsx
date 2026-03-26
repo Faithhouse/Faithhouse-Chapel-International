@@ -31,6 +31,7 @@ import { supabase } from './supabaseClient';
 
 const App: React.FC = () => {
   const [activeItem, setActiveItem] = useState<NavItem | string>('Dashboard');
+  const [history, setHistory] = useState<string[]>(['Dashboard']);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [initialEditId, setInitialEditId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -38,6 +39,21 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+
+  const handleSetActiveItem = (item: string) => {
+    if (item === activeItem) return;
+    setHistory(prev => [...prev, item]);
+    setActiveItem(item);
+  };
+
+  const handleBack = () => {
+    if (history.length <= 1) return;
+    const newHistory = [...history];
+    newHistory.pop(); // Remove current
+    const previous = newHistory[newHistory.length - 1];
+    setHistory(newHistory);
+    setActiveItem(previous);
+  };
   
   useEffect(() => {
     // Check for simulated session first
@@ -60,7 +76,7 @@ const App: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         setIsRecoveryMode(true);
-        setActiveItem('Settings');
+        handleSetActiveItem('Settings');
       }
       
       if (session?.user) {
@@ -240,7 +256,7 @@ const App: React.FC = () => {
     try {
       switch (activeItem) {
         case 'Dashboard':
-          return <DashboardView userProfile={profile} setActiveItem={setActiveItem as any} />;
+          return <DashboardView userProfile={profile} setActiveItem={handleSetActiveItem as any} />;
         
         case 'Members':
           if (!canAccess(role, 'LEVEL_2')) return <SecurityDenied module={activeItem} />;
@@ -251,7 +267,7 @@ const App: React.FC = () => {
               onSelectMember={(id) => { 
                 setSelectedMemberId(id); 
                 setInitialEditId(null);
-                setActiveItem('Member Profile'); 
+                handleSetActiveItem('Member Profile'); 
               }} 
             />
           );
@@ -262,10 +278,10 @@ const App: React.FC = () => {
             <MemberProfileView 
               memberId={selectedMemberId || ''} 
               userProfile={profile} 
-              onBack={() => setActiveItem('Members')} 
+              onBack={handleBack} 
               onEdit={() => {
                 setInitialEditId(selectedMemberId);
-                setActiveItem('Members');
+                handleSetActiveItem('Members');
               }}
             />
           );
@@ -294,7 +310,7 @@ const App: React.FC = () => {
           return <LeadershipView userProfile={profile} />;
         
         case 'Ministries':
-          return <MinistriesView userProfile={profile} setActiveItem={setActiveItem as any} />;
+          return <MinistriesView userProfile={profile} setActiveItem={handleSetActiveItem as any} />;
         
         case 'Visitation & Follow-up':
         case 'Follow-up & Visitation ministry':
@@ -336,8 +352,12 @@ const App: React.FC = () => {
         case 'Evangelism Ministry':
         case 'Children Ministry':
         case 'Children\'s Ministry':
+        case 'Teens Ministry':
         case 'Young Adult Ministry':
-          return <MinistryModuleView ministryName={activeItem} userProfile={profile} />;
+          const normalizedMinistryName = ['Children Ministry', 'Children\'s Ministry', 'Teens Ministry', 'Young Adult Ministry'].includes(activeItem) 
+            ? 'Children Ministry' 
+            : activeItem;
+          return <MinistryModuleView ministryName={normalizedMinistryName} userProfile={profile} />;
 
         default:
           return <PlaceholderView title={activeItem} />;
@@ -357,7 +377,7 @@ const App: React.FC = () => {
       <Sidebar 
         activeItem={activeItem} 
         setActiveItem={(item) => {
-          setActiveItem(item);
+          handleSetActiveItem(item);
           setIsSidebarOpen(false);
         }}
         isOpen={isSidebarOpen}
@@ -367,7 +387,13 @@ const App: React.FC = () => {
       />
 
       <div className="flex-1 flex flex-col lg:pl-64 transition-all duration-300">
-        <Header toggleSidebar={toggleSidebar} userProfile={profile} />
+        <Header 
+          toggleSidebar={toggleSidebar} 
+          userProfile={profile} 
+          activeItem={activeItem as string}
+          onBack={handleBack}
+          hasHistory={history.length > 1}
+        />
         <main className="flex-1 p-4 md:p-8">
           <div className="max-w-7xl mx-auto">
             {renderContent()}

@@ -162,7 +162,7 @@ export interface Minister {
 export interface AttendanceEvent {
   id: string;
   event_name: string;
-  event_type: 'Prophetic Word Service' | 'Help from above service' | 'Special services' | 'Conferences' | 'Young Adult Ministry';
+  event_type: 'Prophetic Word Service' | 'Help from above service' | 'Special services' | 'Conferences' | 'Children Ministry';
   event_date: string;
   branch_id?: string;
   men_count?: number;
