@@ -342,7 +342,7 @@ NOTIFY pgrst, 'reload schema';`;
       
       {/* 1. Header Section */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-6 py-4">
-        <div className="flex-1 text-center md:text-left">
+        <div className="flex-1 text-center">
           <h2 className="text-4xl md:text-5xl font-black text-fh-green tracking-tighter uppercase leading-none">
             {isLeadership ? 'Church Governance & Oversight' : 'Staff Insight'}
           </h2>

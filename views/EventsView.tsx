@@ -285,7 +285,16 @@ CREATE POLICY "Allow all" ON public.branches FOR ALL USING (true) WITH CHECK (tr
 DROP POLICY IF EXISTS "Allow all" ON public.events;
 CREATE POLICY "Allow all" ON public.events FOR ALL USING (true) WITH CHECK (true);
 DROP POLICY IF EXISTS "Allow all" ON public.attendance_events;
-CREATE POLICY "Allow all" ON public.attendance_events FOR ALL USING (true) WITH CHECK (true);`;
+CREATE POLICY "Allow all" ON public.attendance_events FOR ALL USING (true) WITH CHECK (true);
+
+-- 6. ENSURE ALL ATTENDANCE COLUMNS EXIST (REPAIR)
+ALTER TABLE public.attendance_events ADD COLUMN IF NOT EXISTS total_attendance INTEGER DEFAULT 0;
+ALTER TABLE public.attendance_events ADD COLUMN IF NOT EXISTS children_count INTEGER DEFAULT 0;
+ALTER TABLE public.attendance_events ADD COLUMN IF NOT EXISTS men_count INTEGER DEFAULT 0;
+ALTER TABLE public.attendance_events ADD COLUMN IF NOT EXISTS women_count INTEGER DEFAULT 0;
+
+-- 7. REFRESH SCHEMA CACHE
+NOTIFY pgrst, 'reload schema';`;
 
     return (
       <div className="max-w-4xl mx-auto py-12 px-4 animate-in zoom-in-95 duration-500">

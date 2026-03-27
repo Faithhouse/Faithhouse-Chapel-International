@@ -156,7 +156,20 @@ CREATE TABLE IF NOT EXISTS public.ministries (
 );
 ALTER TABLE public.ministries ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow all for staff" ON public.ministries;
-CREATE POLICY "Allow all for staff" ON public.ministries FOR ALL USING (true) WITH CHECK (true);`;
+CREATE POLICY "Allow all for staff" ON public.ministries FOR ALL USING (true) WITH CHECK (true);
+
+-- Create ministry_members table for roles
+CREATE TABLE IF NOT EXISTS public.ministry_members (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  member_id UUID REFERENCES public.members(id) ON DELETE CASCADE,
+  ministry_name TEXT NOT NULL,
+  role TEXT DEFAULT 'Member',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  UNIQUE(member_id, ministry_name)
+);
+ALTER TABLE public.ministry_members ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all for staff" ON public.ministry_members;
+CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (true) WITH CHECK (true);`;
 
     return (
       <div className="max-w-4xl mx-auto py-12 px-4 animate-in zoom-in-95 duration-500">

@@ -313,11 +313,12 @@ const App: React.FC = () => {
           return <MinistriesView userProfile={profile} setActiveItem={handleSetActiveItem as any} />;
         
         case 'Visitation & Follow-up':
+        case 'Follow-up & Visitation':
         case 'Follow-up & Visitation ministry':
           if (!['System Administrator', 'Head Pastor', 'Follow-up & Visitation', 'Evangelism Ministry', 'General Office'].includes(role || '')) {
             return <SecurityDenied module={activeItem} />;
           }
-          return <VisitationView userProfile={profile} />;
+          return <MinistryModuleView ministryName="Follow-up & Visitation" userProfile={profile} />;
         
         case 'WhatsApp Hub':
           if (!canAccess(role, 'LEVEL_3')) return <SecurityDenied module={activeItem} />;
@@ -354,6 +355,7 @@ const App: React.FC = () => {
         case 'Children\'s Ministry':
         case 'Teens Ministry':
         case 'Young Adult Ministry':
+        case 'Follow-up & Visitation':
           const normalizedMinistryName = ['Children Ministry', 'Children\'s Ministry', 'Teens Ministry', 'Young Adult Ministry'].includes(activeItem) 
             ? 'Children Ministry' 
             : activeItem;

@@ -7,11 +7,13 @@ import {
   BarChart, Bar, Legend, Cell, AreaChart, Area
 } from 'recharts';
 import { 
-  Music, Mic2, Play, FileText, Download, Plus, Trash2, 
+  Music, Mic2, Play, FileText, Download, Plus, Trash2, Edit3,
   Users, Calendar, Activity, ListMusic, Headphones, Video,
   Globe, Radio, Heart, Shield, Baby, Zap, MapPin, MessageCircle,
-  Camera, Settings, Layers, BookOpen, Clock, Sparkles
+  Camera, Settings, Layers, BookOpen, Clock, Sparkles, Footprints, TrendingUp
 } from 'lucide-react';
+import { toast } from 'sonner';
+import VisitationView from './VisitationView';
 
 interface MinistryModuleViewProps {
   ministryName: string;
@@ -19,23 +21,35 @@ interface MinistryModuleViewProps {
 }
 
 const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, userProfile }) => {
-  const [activeTab, setActiveTab] = useState<'Overview' | 'Leadership' | 'Personnel' | 'Operations' | 'Resources' | 'Attendance'>('Overview');
+  const [activeTab, setActiveTab] = useState<'Overview' | 'Leadership' | 'Personnel' | 'Operations' | 'Resources' | 'Attendance' | 'Visitation' | 'Curriculum'>('Overview');
+
+  useEffect(() => {
+    if (ministryName === 'Follow-up & Visitation' || ministryName === 'Follow-up & Visitation ministry') {
+      setActiveTab('Visitation');
+    } else {
+      setActiveTab('Overview');
+    }
+  }, [ministryName]);
+
   const [ministryMembers, setMinistryMembers] = useState<Member[]>([]);
   const [allMembers, setAllMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState('');
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [memberSearchTerm, setMemberSearchTerm] = useState('');
+  const [tableMissing, setTableMissing] = useState<string | null>(null);
 
-  // Young Adult Ministry Specific State
-  const [yaAttendanceEvents, setYaAttendanceEvents] = useState<AttendanceEvent[]>([]);
-  const [activeYaEvent, setActiveYaEvent] = useState<AttendanceEvent | null>(null);
-  const [yaAttendanceRecords, setYaAttendanceRecords] = useState<AttendanceRecord[]>([]);
-  const [isYaAttendanceModalOpen, setIsYaAttendanceModalOpen] = useState(false);
-  const [isYaSubmitting, setIsYaSubmitting] = useState(false);
-  const [yaStats, setYaStats] = useState({
+  // Departmental Ministry Specific State
+  const [deptAttendanceEvents, setDeptAttendanceEvents] = useState<AttendanceEvent[]>([]);
+  const [activeDeptEvent, setActiveDeptEvent] = useState<AttendanceEvent | null>(null);
+  const [deptAttendanceRecords, setDeptAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [isDeptAttendanceModalOpen, setIsDeptAttendanceModalOpen] = useState(false);
+  const [isDeptSubmitting, setIsDeptSubmitting] = useState(false);
+  const [schemaError, setSchemaError] = useState<string | null>(null);
+  const [deptStats, setDeptStats] = useState({
     avgAttendance: 0,
     newConverts: 0,
     retentionRate: 0,
@@ -94,39 +108,44 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
 
   useEffect(() => {
     fetchPersonnel();
-    if (ministryName === 'Children Ministry') {
-      fetchYaAttendance();
+    if (ministryName === 'Children Ministry' || ministryName === 'Teens Ministry' || ministryName === 'Young Adult Ministry') {
+      fetchDeptAttendance();
     }
   }, [ministryName]);
 
-  const fetchYaAttendance = async () => {
+  const fetchDeptAttendance = async () => {
     try {
       const { data: events, error } = await supabase
         .from('attendance_events')
         .select('*')
-        .eq('event_type', 'Children Ministry')
+        .eq('event_type', ministryName)
         .order('event_date', { ascending: false });
       
-      if (error) throw error;
-      setYaAttendanceEvents(events || []);
+      if (error) {
+        if (error.code === 'PGRST204') {
+          setSchemaError("REPAIR_REQUIRED");
+        }
+        throw error;
+      }
+      setDeptAttendanceEvents(events || []);
 
       if (events && events.length > 0) {
         const total = events.reduce((acc, curr) => acc + (curr.total_attendance || 0), 0);
         const peak = Math.max(...events.map(e => e.total_attendance || 0));
-        setYaStats(prev => ({
+        setDeptStats(prev => ({
           ...prev,
           avgAttendance: Math.round(total / events.length),
           peakAttendance: peak
         }));
       }
     } catch (err) {
-      console.error('Error fetching YA attendance:', err);
+      console.error('Error fetching department attendance:', err);
     }
   };
 
-  const openYaAttendanceSheet = async (event: AttendanceEvent) => {
-    setActiveYaEvent(event);
-    setIsYaAttendanceModalOpen(true);
+  const openDeptAttendanceSheet = async (event: AttendanceEvent) => {
+    setActiveDeptEvent(event);
+    setIsDeptAttendanceModalOpen(true);
     setIsLoading(true);
     try {
       const { data: records, error } = await supabase
@@ -148,16 +167,16 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
         };
       });
       
-      setYaAttendanceRecords(fullRecords);
+      setDeptAttendanceRecords(fullRecords);
     } catch (err) {
-      console.error('Error opening YA sheet:', err);
+      console.error('Error opening department sheet:', err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleYaStatusChange = (memberId: string, status: AttendanceRecord['status']) => {
-    setYaAttendanceRecords(prev => {
+  const handleDeptStatusChange = (memberId: string, status: AttendanceRecord['status']) => {
+    setDeptAttendanceRecords(prev => {
       const idx = prev.findIndex(r => r.member_id === memberId);
       if (idx > -1) {
         const up = [...prev];
@@ -169,67 +188,87 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
     });
   };
 
-  const saveYaAttendance = async () => {
-    if (!activeYaEvent) return;
-    setIsYaSubmitting(true);
+  const saveDeptAttendance = async () => {
+    if (!activeDeptEvent) return;
+    setIsDeptSubmitting(true);
     try {
-      const cleanRecords = yaAttendanceRecords.map(({ id, ...rest }) => id ? { id, ...rest } : rest);
+      const cleanRecords = deptAttendanceRecords.map(({ id, ...rest }) => id ? { id, ...rest } : rest);
       const { error: recordsError } = await supabase
         .from('attendance_records')
         .upsert(cleanRecords, { onConflict: 'attendance_event_id, member_id' });
       
       if (recordsError) throw recordsError;
 
-      const total = yaAttendanceRecords.filter(r => r.status === 'Present').length;
+      const total = deptAttendanceRecords.filter(r => r.status === 'Present').length;
+      
+      // Determine which field to update based on ministry name
+      let fieldToUpdate = 'children_count';
       
       // Update the event itself
+      const updatePayload: any = { total_attendance: total };
+      updatePayload[fieldToUpdate] = total;
+      
       const { error: eventError } = await supabase
         .from('attendance_events')
-        .update({
-          total_attendance: total,
-          children_count: total // Self-sync for Children Ministry
-        })
-        .eq('id', activeYaEvent.id);
+        .update(updatePayload)
+        .eq('id', activeDeptEvent.id);
 
       if (eventError) throw eventError;
 
-      // SYNC LOGIC: Find main service event for the same date and update its children_count
+      // SYNC LOGIC: Find main service event for the same date and update its count
       const { data: mainEvents } = await supabase
         .from('attendance_events')
-        .select('id, children_count')
-        .eq('event_date', activeYaEvent.event_date)
+        .select('id, men_count, women_count, children_count')
+        .eq('event_date', activeDeptEvent.event_date)
         .in('event_type', ['Prophetic Word Service', 'Help from above service', 'Special services', 'Conferences']);
 
       if (mainEvents && mainEvents.length > 0) {
         for (const mainEvent of mainEvents) {
-          await supabase
+          const syncPayload: any = {};
+          syncPayload[fieldToUpdate] = total;
+          
+          // Recalculate total for main event
+          const newTotal = (mainEvent.men_count || 0) + 
+                           (mainEvent.women_count || 0) + 
+                           total;
+          
+          syncPayload.total_attendance = newTotal;
+
+          const { error: syncError } = await supabase
             .from('attendance_events')
-            .update({
-              children_count: total
-            })
+            .update(syncPayload)
             .eq('id', mainEvent.id);
+          
+          if (syncError) console.error('Main service sync failed:', syncError);
         }
       }
 
-      setIsYaAttendanceModalOpen(false);
-      fetchYaAttendance();
-    } catch (err) {
-      console.error('Error saving YA attendance:', err);
-      alert('Failed to save attendance. Please try again.');
+      setIsDeptAttendanceModalOpen(false);
+      fetchDeptAttendance();
+      toast.success("Attendance saved successfully");
+    } catch (err: any) {
+      console.error('Error saving department attendance:', err);
+      if (err.code === 'PGRST204') {
+        setSchemaError("REPAIR_REQUIRED");
+        const missingCol = err.message?.includes('children_count') ? 'children_count' : 'total_attendance';
+        toast.error(`Database schema out of sync (${missingCol} missing). Please run the repair script.`);
+      } else {
+        toast.error('Failed to save attendance: ' + err.message);
+      }
     } finally {
-      setIsYaSubmitting(false);
+      setIsDeptSubmitting(false);
     }
   };
 
-  const createYaSession = async () => {
+  const createDeptSession = async () => {
     const today = new Date().toISOString().split('T')[0];
-    setIsYaSubmitting(true);
+    setIsDeptSubmitting(true);
     try {
       const { data, error } = await supabase
         .from('attendance_events')
         .insert([{
-          event_name: `Children Ministry Session - ${today}`,
-          event_type: 'Children Ministry',
+          event_name: `${ministryName} Session - ${today}`,
+          event_type: ministryName,
           event_date: today,
           branch_id: userProfile?.branch_id || null
         }])
@@ -238,13 +277,13 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
 
       if (error) throw error;
       if (data) {
-        openYaAttendanceSheet(data);
+        openDeptAttendanceSheet(data);
       }
-      fetchYaAttendance();
+      fetchDeptAttendance();
     } catch (err) {
-      console.error('Error creating YA session:', err);
+      console.error('Error creating department session:', err);
     } finally {
-      setIsYaSubmitting(false);
+      setIsDeptSubmitting(false);
     }
   };
 
@@ -259,9 +298,30 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
         .order('first_name');
       
       if (assignedErr) throw assignedErr;
-      setMinistryMembers(assigned || []);
 
-      // 2. Get ALL members so we can pick from them in the "Add" modal
+      // 2. Fetch roles from ministry_members
+      const { data: roles, error: rolesErr } = await supabase
+        .from('ministry_members')
+        .select('member_id, role')
+        .eq('ministry_name', ministryName);
+
+      if (rolesErr) {
+        if (rolesErr.code === '42P01' || rolesErr.message.includes('not found') || rolesErr.code === 'PGRST205' || rolesErr.message.includes('schema cache') || rolesErr.message.includes('Could not find')) {
+          setTableMissing("ministry_members");
+        }
+        console.warn('Could not fetch roles:', rolesErr);
+      } else {
+        setTableMissing(null);
+      }
+
+      const enrichedMembers = (assigned || []).map(m => {
+        const roleData = (roles || []).find(r => r.member_id === m.id);
+        return { ...m, role: roleData?.role || 'Member' };
+      });
+
+      setMinistryMembers(enrichedMembers);
+
+      // 3. Get ALL members so we can pick from them in the "Add" modal
       const { data: available, error: availableErr } = await supabase
         .from('members')
         .select('*')
@@ -312,38 +372,55 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
 
     setIsSubmitting(true);
     try {
-      // 1. Create the member in global registry
-      const { data: newMember, error: memberError } = await supabase
-        .from('members')
-        .insert([{
-          first_name: regForm.first_name,
-          last_name: regForm.last_name,
-          phone: regForm.phone,
-          email: regForm.email,
-          dob: regForm.dob,
-          gender: regForm.gender,
-          ministry: ministryName,
-          status: 'Active'
-        }])
-        .select()
-        .single();
+      const payload = {
+        first_name: regForm.first_name,
+        last_name: regForm.last_name,
+        phone: regForm.phone,
+        email: regForm.email,
+        dob: regForm.dob,
+        gender: regForm.gender,
+        ministry: ministryName,
+        status: 'Active'
+      };
 
-      if (memberError) throw memberError;
+      if (editingMemberId) {
+        // Update existing member
+        const { error: memberError } = await supabase
+          .from('members')
+          .update(payload)
+          .eq('id', editingMemberId);
 
-      // 2. Add to ministry_members
-      if (newMember) {
-        const { error: joinError } = await supabase
-          .from('ministry_members')
-          .insert([{
-            ministry_name: ministryName,
-            member_id: newMember.id,
-            role: 'Member'
-          }]);
-        
-        if (joinError) throw joinError;
+        if (memberError) throw memberError;
+        toast.success("Profile updated successfully");
+      } else {
+        // 1. Create the member in global registry
+        const { data: newMember, error: memberError } = await supabase
+          .from('members')
+          .insert([payload])
+          .select()
+          .single();
+
+        if (memberError) throw memberError;
+
+        // 2. Add to ministry_members (optional join table sync)
+        if (newMember) {
+          const { error: roleErr } = await supabase
+            .from('ministry_members')
+            .insert([{
+              ministry_name: ministryName,
+              member_id: newMember.id,
+              role: 'Member'
+            }]);
+          
+          if (roleErr && (roleErr.code === '42P01' || roleErr.message.includes('not found') || roleErr.code === 'PGRST205' || roleErr.message.includes('schema cache') || roleErr.message.includes('Could not find'))) {
+            setTableMissing("ministry_members");
+          }
+        }
+        toast.success("Registration successful");
       }
 
       setIsRegisterModalOpen(false);
+      setEditingMemberId(null);
       setRegForm({
         first_name: '',
         last_name: '',
@@ -355,14 +432,98 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
         educational_level: ''
       });
       fetchPersonnel();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Registration error:', err);
-      alert('Failed to register member. Please check your connection.');
+      toast.error('Failed to process request: ' + err.message);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const seedSampleChildren = async () => {
+    if (ministryName !== 'Children Ministry') return;
+    setIsSubmitting(true);
+    const samples = [
+      { first_name: 'Samuel', last_name: 'Appiah', gender: 'Male', phone: '0244123456', ministry: 'Children Ministry', status: 'Active', dob: '2015-05-12' },
+      { first_name: 'Grace', last_name: 'Mensah', gender: 'Female', phone: '0555987654', ministry: 'Children Ministry', status: 'Active', dob: '2016-08-20' },
+      { first_name: 'David', last_name: 'Osei', gender: 'Male', phone: '0200112233', ministry: 'Children Ministry', status: 'Active', dob: '2014-03-15' },
+      { first_name: 'Abigail', last_name: 'Tetteh', gender: 'Female', phone: '0277445566', ministry: 'Children Ministry', status: 'Active', dob: '2017-11-02' }
+    ];
+    
+    try {
+      const { error } = await supabase.from('members').insert(samples);
+      if (error) throw error;
+      toast.success("Sample children added successfully");
+      fetchPersonnel();
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Failed to seed sample data: " + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const deleteMemberPermanently = async (id: string, name: string) => {
+    if (!confirm(`PERMANENT DELETE: Are you sure you want to completely delete ${name} from the global registry? This action cannot be undone.`)) return;
+    
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('members')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success(`${name} deleted permanently`);
+      await fetchPersonnel();
+    } catch (err: any) {
+      console.error('Delete Error:', err);
+      toast.error('Delete failed: ' + err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const openEditMemberModal = (member: Member) => {
+    setEditingMemberId(member.id);
+    setRegForm({
+      first_name: member.first_name,
+      last_name: member.last_name || '',
+      phone: member.phone || '',
+      email: member.email || '',
+      dob: member.dob || '',
+      gender: member.gender || 'Male',
+      occupation: '',
+      educational_level: ''
+    });
+    setIsRegisterModalOpen(true);
+  };
+
+  const updateMemberRole = async (memberId: string, newRole: string) => {
+    setIsLoading(true);
+    try {
+      // We update the role in ministry_members
+      const { error } = await supabase
+        .from('ministry_members')
+        .upsert({ 
+          member_id: memberId, 
+          ministry_name: ministryName,
+          role: newRole 
+        }, { onConflict: 'member_id, ministry_name' });
+
+      if (error) throw error;
+      toast.success(`Role updated to ${newRole}`);
+      fetchPersonnel();
+    } catch (err: any) {
+      console.error('Role Update Error:', err);
+      if (err.code === '42P01' || err.message.includes('not found') || err.code === 'PGRST205' || err.message.includes('schema cache') || err.message.includes('Could not find')) {
+        setTableMissing("ministry_members");
+      }
+      toast.error('Failed to update role: ' + err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
   const removeMember = async (id: string, name: string) => {
     if (!confirm(`Revoke ministry assignment for ${name}?`)) return;
     
@@ -387,14 +548,31 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
   // Filter members for the search dropdown: 
   // 1. Don't show people already in THIS ministry.
   // 2. Filter by search text.
-  const filteredAvailableMembers = allMembers.filter(m => 
-    m.ministry !== ministryName && 
+  const filteredAvailableMembers = allMembers.filter(m => {
+    const ministryFilter = ministryName === 'Children Ministry' 
+      ? ['Children Ministry', 'Teens Ministry', 'Young Adults Ministry'] 
+      : [ministryName];
+    
+    return !ministryFilter.includes(m.ministry || '') && 
     (`${m.first_name} ${m.last_name}`).toLowerCase().includes(memberSearchTerm.toLowerCase())
-  ).slice(0, 10); // Limit to top 10 for performance
+  }).slice(0, 10); // Limit to top 10 for performance
 
-  const getMinistryConfig = () => {
+  interface MinistryConfig {
+    icon: string | React.ReactNode;
+    accent: string;
+    bg: string;
+    opsLabel: string;
+    kpi1: string;
+    kpi1Val: string;
+    kpi2: string;
+    kpi2Val: string;
+    kpi3: string;
+    kpi3Val: string;
+  }
+
+  const getMinistryConfig = (): MinistryConfig => {
     // Ensuring every case returns a valid object to avoid "Missing Initializer" errors
-    const base = {
+    const base: MinistryConfig = {
        icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16',
        accent: 'text-slate-600',
        bg: 'bg-slate-50',
@@ -418,12 +596,61 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
         return { ...base, icon: 'M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z', accent: 'text-emerald-600', bg: 'bg-emerald-50', opsLabel: 'Souls Tracking', kpi1: 'Fields Active', kpi1Val: '4' };
       case 'Children Ministry':
         return { ...base, icon: 'M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', accent: 'text-orange-500', bg: 'bg-orange-50', opsLabel: 'Curriculum Oversight', kpi1: 'Educators', kpi1Val: '10' };
+    case 'Follow-up & Visitation':
+    case 'Follow-up & Visitation ministry':
+      return {
+        ...base,
+        icon: <Footprints className="w-6 h-6" />,
+        accent: 'text-indigo-600',
+        bg: 'bg-indigo-50',
+        opsLabel: 'Outreach & Visitation Protocols',
+        kpi1: 'Active Cases', kpi1Val: '24',
+        kpi2: 'Follow-up Rate', kpi2Val: '88%',
+        kpi3: 'Retention', kpi3Val: '76%'
+      };
       case 'Protocol Ministry':
         return { ...base, icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z', accent: 'text-slate-900', bg: 'bg-slate-100', opsLabel: 'Security & Order', kpi1: 'Officers', kpi1Val: '8' };
       default:
         return base;
     }
   };
+
+  if (tableMissing) {
+    const repairSQL = `-- MINISTRY MEMBERSHIP & ROLES REPAIR SCRIPT
+CREATE TABLE IF NOT EXISTS public.ministry_members (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  member_id UUID REFERENCES public.members(id) ON DELETE CASCADE,
+  ministry_name TEXT NOT NULL,
+  role TEXT DEFAULT 'Member',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  UNIQUE(member_id, ministry_name)
+);
+ALTER TABLE public.ministry_members ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all for staff" ON public.ministry_members;
+CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (true) WITH CHECK (true);`;
+
+    return (
+      <div className="max-w-4xl mx-auto py-12 px-4 animate-in zoom-in-95 duration-500">
+        <div className="royal-card p-12 md:p-16 rounded-[4rem] bg-white text-center border-2 border-rose-100 shadow-2xl overflow-hidden relative">
+          <div className="absolute top-0 inset-x-0 h-2 bg-rose-500"></div>
+          <div className="w-24 h-24 bg-rose-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-10 shadow-inner">
+             <svg className="w-12 h-12 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          </div>
+          <h2 className="text-3xl font-black text-slate-900 uppercase mb-4 tracking-tighter">Ministry Roles Database Inaccessible</h2>
+          <p className="text-slate-500 mb-10 font-medium max-w-lg mx-auto leading-relaxed">
+            The database table for tracking ministry roles and leadership is missing. Run the restoration script to enable role management.
+          </p>
+          <pre className="bg-slate-900 text-fh-gold-pale p-8 rounded-[2rem] text-[10px] font-mono text-left h-48 overflow-y-auto mb-10 shadow-inner leading-relaxed border border-fh-gold/10 scrollbar-hide">
+            {repairSQL}
+          </pre>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button onClick={() => { navigator.clipboard.writeText(repairSQL); toast.success('SQL Script copied.'); }} className="px-10 py-5 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all">Copy Script</button>
+            <button onClick={fetchPersonnel} className="px-16 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl active:scale-95 transition-all border-b-4 border-black">Verify Restoration</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const cfg = getMinistryConfig();
 
@@ -797,55 +1024,72 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
     </div>
   );
 
-  const renderChildrenOverview = () => (
+  const renderFollowUpOverview = () => (
     <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-700">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Growth & Engagement</h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Sunday School Attendance Trends</p>
+              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Outreach Performance</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Visitation & Follow-up Engagement</p>
             </div>
-            <Baby className="w-6 h-6 text-orange-500" />
+            <Footprints className="w-6 h-6 text-indigo-600" />
           </div>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={[
-                { name: 'Toddlers', count: 25 },
-                { name: 'Pre-School', count: 42 },
-                { name: 'Primary', count: 58 },
-                { name: 'Pre-Teens', count: 35 },
+              <AreaChart data={[
+                { name: 'Mon', visits: 12 },
+                { name: 'Tue', visits: 18 },
+                { name: 'Wed', visits: 15 },
+                { name: 'Thu', visits: 22 },
+                { name: 'Fri', visits: 30 },
+                { name: 'Sat', visits: 25 },
+                { name: 'Sun', visits: 40 },
               ]}>
+                <defs>
+                  <linearGradient id="colorVisits" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 900, fill: '#94a3b8'}} />
                 <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 900, fill: '#94a3b8'}} />
-                <Tooltip cursor={{fill: '#fff7ed'}} />
-                <Bar dataKey="count" fill="#f97316" radius={[12, 12, 0, 0]} />
-              </BarChart>
+                <Tooltip />
+                <Area type="monotone" dataKey="visits" stroke="#4f46e5" fillOpacity={1} fill="url(#colorVisits)" strokeWidth={4} />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         <div className="space-y-6">
-          <div className="bg-orange-500 p-8 rounded-[2.5rem] text-white shadow-xl">
-             <BookOpen className="w-8 h-8 mb-4 opacity-60" />
-             <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60 mb-2">Today's Lesson</p>
-             <h4 className="text-2xl font-black mb-1">The Fruit of the Spirit</h4>
-             <p className="text-xs font-medium opacity-80">Module 4 • Week 2</p>
+          <div className="bg-indigo-600 p-8 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden">
+             <Users className="absolute -right-4 -bottom-4 w-32 h-32 opacity-10 rotate-12" />
+             <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60 mb-2">Active Radar</p>
+             <h4 className="text-2xl font-black mb-1">12 Absentees</h4>
+             <p className="text-xs font-medium opacity-80">Requiring immediate follow-up</p>
+             <button 
+               onClick={() => setActiveTab('Visitation')}
+               className="mt-6 px-6 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+             >
+               Open Radar
+             </button>
           </div>
           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
-            <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-6">Safety Checklist</h4>
-            <div className="space-y-3">
+            <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-6">Recent Activity</h4>
+            <div className="space-y-4">
               {[
-                { task: 'Check-in System Active', status: true },
-                { task: 'First Aid Kit Verified', status: true },
-                { task: 'Teacher-Child Ratio OK', status: true },
-                { task: 'Snack Allergy Review', status: false },
+                { user: 'John Doe', action: 'Visited First Timer', time: '2h ago' },
+                { user: 'Sarah Smith', action: 'Called Absentee', time: '5h ago' },
+                { user: 'Mike Ross', action: 'Sent WhatsApp', time: '1d ago' },
               ].map((item, i) => (
-                <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                  <p className="text-[10px] font-black text-slate-800 uppercase">{item.task}</p>
-                  <div className={`w-5 h-5 rounded-lg flex items-center justify-center ${item.status ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
-                    {item.status ? <Shield className="w-3 h-3" /> : <Activity className="w-3 h-3" />}
+                <div key={i} className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-500">
+                    {item.user[0]}
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-800 uppercase leading-none">{item.user}</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter mt-1">{item.action} • {item.time}</p>
                   </div>
                 </div>
               ))}
@@ -856,7 +1100,111 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
     </div>
   );
 
-  const renderYoungAdultOverview = () => (
+  const renderChildrenCurriculum = () => (
+    <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-700">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {[
+          { title: 'Toddlers (0-3)', topic: 'God Made Me', status: 'In Progress', color: 'bg-rose-500' },
+          { title: 'Pre-School (4-6)', topic: 'The Creation Story', status: 'Completed', color: 'bg-amber-500' },
+          { title: 'Primary (7-9)', topic: 'David and Goliath', status: 'Upcoming', color: 'bg-fh-green' },
+          { title: 'Pre-Teens (10-12)', topic: 'The Life of Jesus', status: 'In Progress', color: 'bg-cms-blue' },
+        ].map((level, i) => (
+          <div key={i} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all group">
+            <div className={`w-12 h-12 ${level.color} text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg`}>
+              <BookOpen className="w-6 h-6" />
+            </div>
+            <h4 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-2">{level.title}</h4>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">Current Topic: {level.topic}</p>
+            <div className="flex items-center justify-between">
+              <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                level.status === 'Completed' ? 'bg-emerald-100 text-emerald-600' :
+                level.status === 'In Progress' ? 'bg-blue-100 text-blue-600' :
+                'bg-slate-100 text-slate-400'
+              }`}>
+                {level.status}
+              </span>
+              <button className="text-[9px] font-black text-fh-green uppercase tracking-widest hover:underline">View Lesson</button>
+            </div>
+          </div>
+        ))}
+        <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center group cursor-pointer hover:bg-white hover:border-fh-green transition-all">
+           <Plus className="w-8 h-8 text-slate-300 group-hover:text-fh-green mb-4" />
+           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-fh-green">Add Level</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderChildrenOverview = () => {
+    const chartData = [...deptAttendanceEvents]
+      .reverse()
+      .slice(-6)
+      .map(ev => ({
+        name: new Date(ev.event_date).toLocaleDateString(undefined, { weekday: 'short' }),
+        count: ev.total_attendance || 0
+      }));
+
+    return (
+      <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-700">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Growth & Engagement</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Sunday School Attendance Trends</p>
+              </div>
+              <Baby className="w-6 h-6 text-orange-500" />
+            </div>
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData.length > 0 ? chartData : [
+                  { name: 'Week 1', count: 0 },
+                  { name: 'Week 2', count: 0 },
+                  { name: 'Week 3', count: 0 },
+                  { name: 'Week 4', count: 0 },
+                ]}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 900, fill: '#94a3b8'}} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 900, fill: '#94a3b8'}} />
+                  <Tooltip cursor={{fill: '#fff7ed'}} />
+                  <Bar dataKey="count" fill="#f97316" radius={[12, 12, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="bg-orange-500 p-8 rounded-[2.5rem] text-white shadow-xl">
+               <BookOpen className="w-8 h-8 mb-4 opacity-60" />
+               <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60 mb-2">Today's Lesson</p>
+               <h4 className="text-2xl font-black mb-1">The Fruit of the Spirit</h4>
+               <p className="text-xs font-medium opacity-80">Module 4 • Week 2</p>
+            </div>
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+              <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-6">Safety Checklist</h4>
+              <div className="space-y-3">
+                {[
+                  { task: 'Check-in System Active', status: true },
+                  { task: 'First Aid Kit Verified', status: true },
+                  { task: 'Teacher-Child Ratio OK', status: true },
+                  { task: 'Snack Allergy Review', status: false },
+                ].map((item, i) => (
+                  <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                    <p className="text-[10px] font-black text-slate-800 uppercase">{item.task}</p>
+                    <div className={`w-5 h-5 rounded-lg flex items-center justify-center ${item.status ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                      {item.status ? <Shield className="w-3 h-3" /> : <Activity className="w-3 h-3" />}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderDeptOverview = () => (
     <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-700">
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-3 bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
@@ -928,37 +1276,89 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
     </div>
   );
 
-  const renderYoungAdultLeadership = () => (
-    <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-700">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
-          <Users className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-          <h4 className="text-lg font-black text-slate-400 uppercase tracking-tight">No Leadership Assigned</h4>
-          <p className="text-[10px] text-slate-300 font-black uppercase tracking-[0.3em] mt-2">Provision leaders via the personnel registry</p>
-        </div>
-      </div>
+  const renderDeptLeadership = () => {
+    const heads = ministryMembers.filter(m => m.role === 'Ministry Head');
+    const deputies = ministryMembers.filter(m => m.role === 'Deputy');
 
-      <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
-        <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-8">Tier Leadership Structure</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[
-            { tier: 'Tier 1', title: 'Pastoral Oversight', desc: 'Spiritual direction and visionary leadership.' },
-            { tier: 'Tier 2', title: 'Executive Council', desc: 'Strategic planning and administrative control.' },
-            { tier: 'Tier 3', title: 'Departmental Heads', desc: 'Operational execution and team management.' },
-            { tier: 'Tier 4', title: 'Cell Leaders', desc: 'Grassroots engagement and member care.' },
-          ].map((t, i) => (
-            <div key={i} className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
-              <span className="text-[10px] font-black text-violet-600 uppercase tracking-widest">{t.tier}</span>
-              <h4 className="text-sm font-black text-slate-800 uppercase mt-1 mb-2 tracking-tight">{t.title}</h4>
-              <p className="text-[10px] text-slate-500 font-medium leading-relaxed">{t.desc}</p>
+    return (
+      <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-700">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Ministry Head */}
+          <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Ministry Head</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Primary Oversight</p>
+              </div>
+              <div className="w-12 h-12 bg-fh-green/10 text-fh-green rounded-2xl flex items-center justify-center">
+                <Shield className="w-6 h-6" />
+              </div>
             </div>
-          ))}
+            
+            {heads.length > 0 ? heads.map(h => (
+              <div key={h.id} className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="w-12 h-12 bg-slate-900 text-fh-gold rounded-xl flex items-center justify-center font-black text-xs uppercase">
+                  {h.first_name[0]}{h.last_name ? h.last_name[0] : ''}
+                </div>
+                <div>
+                  <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{h.first_name} {h.last_name}</p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Appointed Leader</p>
+                </div>
+              </div>
+            )) : (
+              <div className="py-10 text-center border-2 border-dashed border-slate-100 rounded-2xl">
+                <p className="text-[10px] text-slate-300 font-black uppercase tracking-widest">No Head Assigned</p>
+              </div>
+            )}
+          </div>
+
+          {/* Deputies */}
+          <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Deputies</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Support & Coordination</p>
+              </div>
+              <div className="w-12 h-12 bg-violet-50 text-violet-600 rounded-2xl flex items-center justify-center">
+                <Users className="w-6 h-6" />
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              {deputies.length > 0 ? deputies.map(d => (
+                <div key={d.id} className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <div className="w-12 h-12 bg-slate-900 text-fh-gold rounded-xl flex items-center justify-center font-black text-xs uppercase">
+                    {d.first_name[0]}{d.last_name ? d.last_name[0] : ''}
+                  </div>
+                  <div>
+                    <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{d.first_name} {d.last_name}</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Deputy Leader</p>
+                  </div>
+                </div>
+              )) : (
+                <div className="py-10 text-center border-2 border-dashed border-slate-100 rounded-2xl">
+                  <p className="text-[10px] text-slate-300 font-black uppercase tracking-widest">No Deputies Assigned</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm text-center">
+          <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-4">Assign Leadership</h3>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-8">Promote members from the registry to leadership roles</p>
+          <button 
+            onClick={() => setActiveTab('Personnel')}
+            className="px-10 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all"
+          >
+            Go to Member Registry
+          </button>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
-  const renderYoungAdultAttendance = () => (
+  const renderDeptAttendance = () => (
     <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-700">
       <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
@@ -968,11 +1368,11 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
           </div>
           <div className="flex items-center gap-4">
             <button 
-              onClick={createYaSession}
-              disabled={isYaSubmitting}
+              onClick={createDeptSession}
+              disabled={isDeptSubmitting}
               className="px-6 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-50"
             >
-              {isYaSubmitting ? 'Creating...' : 'Record New Session'}
+              {isDeptSubmitting ? 'Creating...' : 'Record New Session'}
             </button>
             <button className="px-6 py-3 bg-slate-50 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all">Export Report</button>
           </div>
@@ -980,10 +1380,10 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {[
-            { label: 'Avg. Attendance', value: yaStats.avgAttendance.toString(), sub: 'Last 4 Weeks' },
-            { label: 'New Converts', value: yaStats.newConverts.toString(), sub: 'This Month' },
-            { label: 'Retention Rate', value: yaStats.retentionRate.toString() + '%', sub: 'Year to Date' },
-            { label: 'Peak Attendance', value: yaStats.peakAttendance.toString(), sub: 'All Time' },
+            { label: 'Avg. Attendance', value: deptStats.avgAttendance.toString(), sub: 'Last 4 Weeks' },
+            { label: 'New Converts', value: deptStats.newConverts.toString(), sub: 'This Month' },
+            { label: 'Retention Rate', value: deptStats.retentionRate.toString() + '%', sub: 'Year to Date' },
+            { label: 'Peak Attendance', value: deptStats.peakAttendance.toString(), sub: 'All Time' },
           ].map((stat, i) => (
             <div key={i} className="p-6 bg-slate-50 rounded-2xl border border-slate-100 text-center">
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{stat.label}</p>
@@ -1004,14 +1404,14 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {yaAttendanceEvents.length > 0 ? yaAttendanceEvents.map((ev, i) => (
+              {deptAttendanceEvents.length > 0 ? deptAttendanceEvents.map((ev, i) => (
                 <tr key={i} className="hover:bg-slate-50 transition-all">
                   <td className="px-8 py-6 text-sm font-black text-slate-800 uppercase tracking-tight">{new Date(ev.event_date).toLocaleDateString()}</td>
                   <td className="px-8 py-6 text-[10px] font-bold text-slate-500 uppercase">{ev.event_type}</td>
                   <td className="px-8 py-6 text-sm font-black text-violet-600">{ev.total_attendance || 0}</td>
                   <td className="px-8 py-6 text-right">
                     <button 
-                      onClick={() => openYaAttendanceSheet(ev)}
+                      onClick={() => openDeptAttendanceSheet(ev)}
                       className="px-4 py-2 bg-violet-100 text-violet-700 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-violet-600 hover:text-white transition-all"
                     >
                       Open Sheet
@@ -1222,8 +1622,38 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
   };
 
   const tabs = ministryName === 'Children Ministry' 
-    ? (['Overview', 'Leadership', 'Attendance', 'Personnel', 'Operations', 'Resources'] as const)
+    ? (['Overview', 'Leadership', 'Attendance', 'Curriculum', 'Personnel', 'Operations', 'Resources'] as const)
+    : (ministryName === 'Follow-up & Visitation' || ministryName === 'Follow-up & Visitation ministry')
+    ? (['Overview', 'Visitation', 'Personnel', 'Operations', 'Resources'] as const)
     : (['Overview', 'Personnel', 'Operations', 'Resources'] as const);
+
+  if (schemaError === "REPAIR_REQUIRED") {
+    const repairSQL = `-- SCHEMA REPAIR: ADD MISSING COLUMNS & REFRESH CACHE
+ALTER TABLE public.attendance_events ADD COLUMN IF NOT EXISTS total_attendance INTEGER DEFAULT 0;
+ALTER TABLE public.attendance_events ADD COLUMN IF NOT EXISTS children_count INTEGER DEFAULT 0;
+ALTER TABLE public.attendance_events ADD COLUMN IF NOT EXISTS men_count INTEGER DEFAULT 0;
+ALTER TABLE public.attendance_events ADD COLUMN IF NOT EXISTS women_count INTEGER DEFAULT 0;
+
+-- REFRESH SCHEMA CACHE
+NOTIFY pgrst, 'reload schema';`;
+
+    return (
+      <div className="max-w-4xl mx-auto py-12 px-4 animate-in zoom-in-95">
+        <div className="bg-white p-12 rounded-[4rem] shadow-2xl text-center border-b-[16px] border-amber-500">
+          <div className="w-20 h-20 bg-amber-50 text-amber-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner">
+             <Activity className="w-10 h-10" />
+          </div>
+          <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-4">Schema Synchronization Required</h2>
+          <p className="text-slate-500 mb-10 text-[11px] font-bold uppercase tracking-widest max-w-lg mx-auto">To enable departmental attendance tracking, your database requires a minor schema update. Copy and execute the script below in your Supabase SQL Editor.</p>
+          <pre className="bg-slate-950 text-fh-gold p-8 rounded-[2rem] text-[10px] font-mono text-left h-48 overflow-y-auto mb-10 shadow-2xl border border-white/5 scrollbar-hide">{repairSQL}</pre>
+          <div className="flex gap-4 justify-center">
+             <button onClick={() => { navigator.clipboard.writeText(repairSQL); toast.success('Repair script copied to clipboard'); }} className="px-10 py-5 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-95">Copy Script</button>
+             <button onClick={() => { setSchemaError(null); fetchDeptAttendance(); }} className="px-16 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-xl border-b-4 border-black active:scale-95">Verify Repair</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-1000 pb-20">
@@ -1232,7 +1662,13 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 py-4 bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
         <div className="flex items-center gap-6">
           <div className={`w-20 h-20 ${cfg.bg} ${cfg.accent} rounded-[2.5rem] flex items-center justify-center shadow-xl border-4 border-white ring-1 ring-slate-100 transform hover:rotate-3 transition-transform`}>
-            <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d={cfg.icon} /></svg>
+            {typeof cfg.icon === 'string' ? (
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d={cfg.icon} />
+              </svg>
+            ) : (
+              cfg.icon
+            )}
           </div>
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-fh-gold/10 rounded-full mb-1">
@@ -1268,10 +1704,13 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
       {activeTab === 'Overview' && ministryName === 'Prayer Ministry' && renderPrayerOverview()}
       {activeTab === 'Overview' && (ministryName === 'Ushering Ministry' || ministryName === 'Protocol Ministry') && renderUsheringOverview()}
       {activeTab === 'Overview' && ministryName === 'Children Ministry' && renderChildrenOverview()}
-      {activeTab === 'Leadership' && ministryName === 'Children Ministry' && renderYoungAdultLeadership()}
-      {activeTab === 'Attendance' && ministryName === 'Children Ministry' && renderYoungAdultAttendance()}
+      {activeTab === 'Overview' && (ministryName === 'Follow-up & Visitation' || ministryName === 'Follow-up & Visitation ministry') && renderFollowUpOverview()}
+      {activeTab === 'Visitation' && (ministryName === 'Follow-up & Visitation' || ministryName === 'Follow-up & Visitation ministry') && <VisitationView userProfile={userProfile} />}
+      {activeTab === 'Leadership' && ministryName === 'Children Ministry' && renderDeptLeadership()}
+      {activeTab === 'Attendance' && ministryName === 'Children Ministry' && renderDeptAttendance()}
+      {activeTab === 'Curriculum' && ministryName === 'Children Ministry' && renderChildrenCurriculum()}
 
-      {activeTab === 'Overview' && !['Music Ministry', 'Evangelism', 'Evangelism Ministry', 'Media Ministry', 'Prayer Ministry', 'Ushering Ministry', 'Protocol Ministry', 'Children Ministry'].includes(ministryName) && (
+      {activeTab === 'Overview' && !['Music Ministry', 'Evangelism', 'Evangelism Ministry', 'Media Ministry', 'Prayer Ministry', 'Ushering Ministry', 'Protocol Ministry', 'Children Ministry', 'Follow-up & Visitation', 'Follow-up & Visitation ministry'].includes(ministryName) && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 animate-in fade-in duration-500">
            <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm text-center">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">{cfg.kpi1}</p>
@@ -1313,21 +1752,37 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
            <div className="p-10 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-6 bg-slate-50/30">
               <div>
                  <h3 className="text-2xl font-black text-fh-green uppercase tracking-tighter">
-                    {ministryName === 'Young Adult Ministry' ? 'Member Registry' : 'Ministry Workforce'}
+                    {ministryName === 'Children Ministry' ? 'Member Registry' : 'Ministry Workforce'}
                   </h3>
                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
-                    {ministryName === 'Young Adult Ministry' ? 'Congregational Database' : 'Departmental Registry'}
+                    {ministryName === 'Children Ministry' ? 'Congregational Database' : 'Departmental Registry'}
                   </p>
               </div>
               <div className="flex items-center gap-4">
                 {ministryName === 'Children Ministry' && (
-                  <button 
-                    onClick={() => setIsRegisterModalOpen(true)} 
-                    className="px-10 py-4 bg-violet-600 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest shadow-xl active:scale-95 transition-all border-b-4 border-violet-800 flex items-center gap-3"
-                  >
-                     <Plus className="w-5 h-5" />
-                     Register New
-                  </button>
+                  <>
+                    <button 
+                      onClick={seedSampleChildren}
+                      disabled={isSubmitting}
+                      className="px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all flex items-center gap-2"
+                    >
+                      <Sparkles className="w-4 h-4 text-fh-gold" />
+                      Seed Samples
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setEditingMemberId(null);
+                        setRegForm({
+                          first_name: '', last_name: '', phone: '', email: '', dob: '', gender: 'Male', occupation: '', educational_level: ''
+                        });
+                        setIsRegisterModalOpen(true);
+                      }} 
+                      className="px-10 py-4 bg-violet-600 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest shadow-xl active:scale-95 transition-all border-b-4 border-violet-800 flex items-center gap-3"
+                    >
+                       <Plus className="w-5 h-5" />
+                       Register New
+                    </button>
+                  </>
                 )}
                 <button 
                   onClick={() => setIsAddModalOpen(true)} 
@@ -1363,9 +1818,40 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
                         </td>
                         <td className="px-10 py-6 text-[10px] font-bold text-slate-500 uppercase">{m.phone || 'NO PHONE'}</td>
                         <td className="px-10 py-6 text-right">
-                           <button onClick={() => removeMember(m.id, m.first_name)} className="p-3 text-slate-300 hover:text-rose-500 transition-all">
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                           </button>
+                           <div className="flex items-center justify-end gap-2">
+                             {ministryName === 'Children Ministry' && (
+                               <select 
+                                 value={m.role || 'Member'}
+                                 onChange={(e) => updateMemberRole(m.id, e.target.value)}
+                                 className="px-3 py-2 bg-slate-100 rounded-lg text-[9px] font-black uppercase tracking-widest outline-none border border-slate-200 focus:ring-2 focus:ring-fh-green/20"
+                               >
+                                 <option value="Member">Member</option>
+                                 <option value="Ministry Head">Ministry Head</option>
+                                 <option value="Deputy">Deputy</option>
+                               </select>
+                             )}
+                             <button 
+                               onClick={() => openEditMemberModal(m)}
+                               className="p-2.5 text-slate-400 hover:text-fh-green hover:bg-slate-50 rounded-xl transition-all"
+                               title="Edit Profile"
+                             >
+                                <Edit3 className="w-5 h-5" />
+                             </button>
+                             <button 
+                               onClick={() => removeMember(m.id, m.first_name)} 
+                               className="p-2.5 text-slate-400 hover:text-amber-600 hover:bg-slate-50 rounded-xl transition-all"
+                               title="Revoke Ministry Assignment"
+                             >
+                                <Users className="w-5 h-5" />
+                             </button>
+                             <button 
+                               onClick={() => deleteMemberPermanently(m.id, m.first_name)} 
+                               className="p-2.5 text-slate-400 hover:text-rose-500 hover:bg-slate-50 rounded-xl transition-all"
+                               title="Delete Permanently"
+                             >
+                                <Trash2 className="w-5 h-5" />
+                             </button>
+                           </div>
                         </td>
                       </tr>
                     )) : (
@@ -1382,13 +1868,17 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm" onClick={() => !isSubmitting && setIsRegisterModalOpen(false)} />
           <div className="relative bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden border-b-[12px] border-violet-600">
-            <div className="p-8 bg-slate-50 flex items-center justify-between border-b border-slate-100">
-               <div>
-                 <h3 className="text-2xl font-black text-violet-600 uppercase tracking-tighter">Children Registration</h3>
-                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Direct Entry to {ministryName}</p>
-               </div>
-               <button onClick={() => setIsRegisterModalOpen(false)} className="text-slate-400 hover:text-black"><Plus className="w-6 h-6 rotate-45" /></button>
-            </div>
+             <div className="p-8 bg-slate-50 flex items-center justify-between border-b border-slate-100">
+                <div>
+                  <h3 className="text-2xl font-black text-violet-600 uppercase tracking-tighter">
+                    {editingMemberId ? 'Modify Profile' : 'Children Registration'}
+                  </h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                    {editingMemberId ? `Updating ${regForm.first_name}` : `Direct Entry to ${ministryName}`}
+                  </p>
+                </div>
+                <button onClick={() => setIsRegisterModalOpen(false)} className="text-slate-400 hover:text-black"><Plus className="w-6 h-6 rotate-45" /></button>
+             </div>
 
             <form onSubmit={handleRegisterMember} className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
                <div className="space-y-2">
@@ -1456,7 +1946,7 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
                    disabled={isSubmitting} 
                    className="w-full py-5 bg-violet-600 text-white rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl hover:translate-y-[-2px] active:translate-y-0 transition-all disabled:opacity-50"
                  >
-                   {isSubmitting ? 'Registering...' : 'Complete Registration'}
+                   {isSubmitting ? 'Processing...' : (editingMemberId ? 'Update Profile' : 'Complete Registration')}
                  </button>
                </div>
             </form>
@@ -1513,22 +2003,22 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
         </div>
       )}
 
-      {/* YOUNG ADULT ATTENDANCE MODAL */}
-      {isYaAttendanceModalOpen && activeYaEvent && (
+      {/* DEPARTMENTAL ATTENDANCE MODAL */}
+      {isDeptAttendanceModalOpen && activeDeptEvent && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md" onClick={() => !isYaSubmitting && setIsYaAttendanceModalOpen(false)} />
+          <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md" onClick={() => !isDeptSubmitting && setIsDeptAttendanceModalOpen(false)} />
           <div className="relative bg-white w-full max-w-4xl h-[80vh] rounded-[4rem] shadow-2xl overflow-hidden flex flex-col border-b-[16px] border-violet-600">
             <div className="p-10 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
               <div>
-                <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">YA Attendance Sheet</h3>
-                <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">{new Date(activeYaEvent.event_date).toLocaleDateString()} • {activeYaEvent.event_name}</p>
+                <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">{ministryName} Attendance Sheet</h3>
+                <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">{new Date(activeDeptEvent.event_date).toLocaleDateString()} • {activeDeptEvent.event_name}</p>
               </div>
-              <button onClick={() => setIsYaAttendanceModalOpen(false)} className="p-4 hover:bg-white rounded-full transition-all text-slate-400"><Plus className="w-6 h-6 rotate-45" /></button>
+              <button onClick={() => setIsDeptAttendanceModalOpen(false)} className="p-4 hover:bg-white rounded-full transition-all text-slate-400"><Plus className="w-6 h-6 rotate-45" /></button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-10">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {yaAttendanceRecords.map(record => {
+                {deptAttendanceRecords.map(record => {
                   const member = ministryMembers.find(m => m.id === record.member_id);
                   if (!member) return null;
                   const s = record.status;
@@ -1551,7 +2041,7 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
                         {(['Present', 'Absent'] as const).map(st => (
                           <button 
                             key={st} 
-                            onClick={() => handleYaStatusChange(member.id, st)} 
+                            onClick={() => handleDeptStatusChange(member.id, st)} 
                             className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
                               s === st ? (
                                 st === 'Present' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'bg-rose-500 text-white shadow-lg shadow-rose-200'
@@ -1572,19 +2062,19 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
               <div className="flex items-center gap-8">
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Present Count</p>
-                  <p className="text-2xl font-black text-emerald-600">{yaAttendanceRecords.filter(r => r.status === 'Present').length}</p>
+                  <p className="text-2xl font-black text-emerald-600">{deptAttendanceRecords.filter(r => r.status === 'Present').length}</p>
                 </div>
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Absent Count</p>
-                  <p className="text-2xl font-black text-rose-600">{yaAttendanceRecords.filter(r => r.status === 'Absent').length}</p>
+                  <p className="text-2xl font-black text-rose-600">{deptAttendanceRecords.filter(r => r.status === 'Absent').length}</p>
                 </div>
               </div>
               <button 
-                onClick={saveYaAttendance}
-                disabled={isYaSubmitting}
+                onClick={saveDeptAttendance}
+                disabled={isDeptSubmitting}
                 className="px-12 py-5 bg-violet-600 text-white rounded-2xl font-black uppercase text-[11px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all disabled:opacity-50 flex items-center gap-3"
               >
-                {isYaSubmitting ? <div className="w-4 h-4 border-2 border-white/50 border-t-white animate-spin rounded-full" /> : <Zap className="w-4 h-4" />}
+                {isDeptSubmitting ? <div className="w-4 h-4 border-2 border-white/50 border-t-white animate-spin rounded-full" /> : <Zap className="w-4 h-4" />}
                 Authorize & Sync
               </button>
             </div>

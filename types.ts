@@ -68,6 +68,7 @@ export interface Member {
   branch_id: string;
   status: 'Active' | 'Inactive' | 'Visitor' | 'Probation';
   ministry?: string;
+  role?: string;
   gps_address?: string;
   emergency_contact_name?: string;
   emergency_contact_phone?: string;
