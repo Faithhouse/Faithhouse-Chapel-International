@@ -7,13 +7,17 @@ interface FinancialReportDocumentProps {
   reportPeriod: string;
   dateGenerated: string;
   records: FinancialRecord[];
+  bankBalance: number;
+  momoBalance: number;
 }
 
 const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
   organizationName,
   reportPeriod,
   dateGenerated,
-  records
+  records,
+  bankBalance,
+  momoBalance
 }) => {
   // Calculations
   const totalTithes = records.reduce((sum, r) => sum + (r.tithes || 0), 0);
@@ -21,189 +25,213 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
   const totalSeed = records.reduce((sum, r) => sum + (r.seed || 0), 0);
   const totalOtherIncome = records.reduce((sum, r) => sum + (r.other_income || 0), 0);
   const totalExpenses = records.reduce((sum, r) => sum + (r.expenses || 0), 0);
-  const totalIncome = totalTithes + totalOfferings + totalSeed + totalOtherIncome;
-  const netBalance = totalIncome - totalExpenses;
-
-  // For Accounts Overview, we take the latest record's balances
-  const latestRecord = records[0];
-  const bankBalance = latestRecord?.bank_balance || 0;
-  const momoBalance = latestRecord?.momo_balance || 0;
-  const cashBalance = netBalance; // Simplified assumption for the report
+  const totalRevenue = totalTithes + totalOfferings + totalSeed + totalOtherIncome;
+  const netLiquidity = totalRevenue - totalExpenses;
+  const totalNetBalance = bankBalance + momoBalance;
 
   const formatGHS = (amount: number) => {
     return `GH₵${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   return (
-    <div className="bg-white text-slate-900 p-12 max-w-[210mm] mx-auto font-serif min-h-screen">
-      {/* HEADER SECTION */}
-      <div className="text-center mb-12">
-        <h1 className="text-3xl font-bold uppercase mb-2 tracking-tight">{organizationName}</h1>
-        <h2 className="text-xl font-bold mb-4 border-y-2 border-slate-900 py-2 inline-block px-8">FINANCIAL REPORT</h2>
-        <div className="mt-4 text-sm font-medium space-y-1">
-          <p>Reporting Period: <span className="font-bold">{reportPeriod}</span></p>
-          <p>Date Generated: <span className="font-bold">{dateGenerated}</span></p>
+    <div className="bg-white text-black p-12 max-w-[210mm] mx-auto font-serif min-h-screen print:p-0">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          body { background: white !important; }
+          .no-print { display: none !important; }
+          @page { margin: 2cm; }
+        }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 1.5rem; }
+        th, td { border: 1px solid black; padding: 8px; text-align: left; font-size: 10pt; }
+        th { background-color: #f2f2f2; font-weight: bold; text-transform: uppercase; }
+        .text-right { text-align: right; }
+        .font-bold { font-weight: bold; }
+        .uppercase { text-transform: uppercase; }
+        .text-center { text-align: center; }
+      `}} />
+
+      {/* 1. HEADER SECTION */}
+      <div className="text-center mb-8">
+        <h1 className="text-2xl font-bold uppercase mb-1">{organizationName}</h1>
+        <h2 className="text-lg font-bold uppercase mb-1">Treasury & Audit Department</h2>
+        <h2 className="text-xl font-bold uppercase border-b-2 border-black pb-2 mb-4">FINANCIAL AUDIT REPORT</h2>
+        
+        <div className="flex justify-between text-sm mt-4 px-4">
+          <p><span className="font-bold">Report Date:</span> {dateGenerated}</p>
+          <p><span className="font-bold">Reporting Period:</span> {reportPeriod}</p>
         </div>
       </div>
 
-      {/* FINANCIAL SUMMARY */}
-      <div className="mb-12">
-        <h3 className="text-lg font-bold uppercase mb-4 flex items-center">
-          <span className="mr-2">1.</span> FINANCIAL SUMMARY
-        </h3>
-        <table className="w-full border-collapse border-2 border-slate-900">
+      {/* 2. EXECUTIVE SUMMARY */}
+      <div className="mb-8">
+        <h3 className="text-md font-bold uppercase mb-3">1. EXECUTIVE SUMMARY</h3>
+        <table>
           <thead>
-            <tr className="bg-slate-100">
-              <th className="border border-slate-900 p-3 text-left uppercase text-xs">Category</th>
-              <th className="border border-slate-900 p-3 text-right uppercase text-xs">Amount (GH₵)</th>
+            <tr>
+              <th>Item</th>
+              <th className="text-right">Amount (GH₵)</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td className="border border-slate-900 p-3">Total Tithes</td>
-              <td className="border border-slate-900 p-3 text-right">{formatGHS(totalTithes)}</td>
+              <td>Gross Revenue</td>
+              <td className="text-right">{formatGHS(totalRevenue)}</td>
             </tr>
             <tr>
-              <td className="border border-slate-900 p-3">Total Offerings</td>
-              <td className="border border-slate-900 p-3 text-right">{formatGHS(totalOfferings)}</td>
+              <td>Total Expenditure</td>
+              <td className="text-right">{formatGHS(totalExpenses)}</td>
             </tr>
-            <tr>
-              <td className="border border-slate-900 p-3">Seeds & Pledges</td>
-              <td className="border border-slate-900 p-3 text-right">{formatGHS(totalSeed)}</td>
-            </tr>
-            <tr>
-              <td className="border border-slate-900 p-3">Other Income</td>
-              <td className="border border-slate-900 p-3 text-right">{formatGHS(totalOtherIncome)}</td>
-            </tr>
-            <tr className="font-bold bg-slate-50">
-              <td className="border border-slate-900 p-3">Total Income (Calculated)</td>
-              <td className="border border-slate-900 p-3 text-right">{formatGHS(totalIncome)}</td>
-            </tr>
-            <tr>
-              <td className="border border-slate-900 p-3">Expenses</td>
-              <td className="border border-slate-900 p-3 text-right">{formatGHS(totalExpenses)}</td>
-            </tr>
-            <tr className="font-bold bg-slate-200">
-              <td className="border border-slate-900 p-3">Net Balance (Calculated)</td>
-              <td className="border border-slate-900 p-3 text-right">{formatGHS(netBalance)}</td>
+            <tr className="font-bold">
+              <td>Net Liquidity</td>
+              <td className="text-right">{formatGHS(netLiquidity)}</td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      {/* ACCOUNTS OVERVIEW */}
-      <div className="mb-12">
-        <h3 className="text-lg font-bold uppercase mb-4 flex items-center">
-          <span className="mr-2">2.</span> ACCOUNTS OVERVIEW
-        </h3>
-        <table className="w-full border-collapse border-2 border-slate-900">
+      {/* 3. REVENUE BREAKDOWN */}
+      <div className="mb-8">
+        <h3 className="text-md font-bold uppercase mb-3">2. REVENUE BREAKDOWN</h3>
+        <table>
           <thead>
-            <tr className="bg-slate-100">
-              <th className="border border-slate-900 p-3 text-left uppercase text-xs">Account Type</th>
-              <th className="border border-slate-900 p-3 text-right uppercase text-xs">Balance (GH₵)</th>
+            <tr>
+              <th>Category</th>
+              <th className="text-right">Amount (GH₵)</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td className="border border-slate-900 p-3">Bank Balance</td>
-              <td className="border border-slate-900 p-3 text-right">{formatGHS(bankBalance)}</td>
+              <td>Tithes</td>
+              <td className="text-right">{formatGHS(totalTithes)}</td>
             </tr>
             <tr>
-              <td className="border border-slate-900 p-3">MoMo Balance</td>
-              <td className="border border-slate-900 p-3 text-right">{formatGHS(momoBalance)}</td>
+              <td>Offerings</td>
+              <td className="text-right">{formatGHS(totalOfferings)}</td>
             </tr>
             <tr>
-              <td className="border border-slate-900 p-3">Cash Balance</td>
-              <td className="border border-slate-900 p-3 text-right">{formatGHS(cashBalance)}</td>
+              <td>Seeds & Pledges</td>
+              <td className="text-right">{formatGHS(totalSeed)}</td>
+            </tr>
+            <tr>
+              <td>Other Income</td>
+              <td className="text-right">{formatGHS(totalOtherIncome)}</td>
+            </tr>
+            <tr className="font-bold">
+              <td>Total Revenue</td>
+              <td className="text-right">{formatGHS(totalRevenue)}</td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      {/* DETAILED LEDGER */}
-      <div className="mb-12">
-        <h3 className="text-lg font-bold uppercase mb-4 flex items-center">
-          <span className="mr-2">3.</span> DETAILED LEDGER
-        </h3>
+      {/* 4. EXPENDITURE SUMMARY */}
+      <div className="mb-8">
+        <h3 className="text-md font-bold uppercase mb-3">3. EXPENDITURE SUMMARY</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th className="text-right">Amount (GH₵)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Total Expenses</td>
+              <td className="text-right">{formatGHS(totalExpenses)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* 5. ACCOUNTS OVERVIEW */}
+      <div className="mb-8">
+        <h3 className="text-md font-bold uppercase mb-3">4. ACCOUNTS OVERVIEW</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Account Type</th>
+              <th className="text-right">Amount (GH₵)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Bank Holdings</td>
+              <td className="text-right">{formatGHS(bankBalance)}</td>
+            </tr>
+            <tr>
+              <td>MoMo Balance</td>
+              <td className="text-right">{formatGHS(momoBalance)}</td>
+            </tr>
+            <tr className="font-bold">
+              <td>Total Net Balance</td>
+              <td className="text-right">{formatGHS(totalNetBalance)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* 6. DETAILED TRANSACTIONS */}
+      <div className="mb-8">
+        <h3 className="text-md font-bold uppercase mb-3">5. DETAILED TRANSACTIONS</h3>
         {records.length === 0 ? (
-          <div className="border-2 border-dashed border-slate-300 p-8 text-center">
-            <p className="italic text-slate-500">No transactions available for this period.</p>
-          </div>
+          <p className="italic text-center border border-black p-4">No transactions recorded for this period.</p>
         ) : (
-          <table className="w-full border-collapse border border-slate-900 text-[10pt]">
+          <table>
             <thead>
-              <tr className="bg-slate-100">
-                <th className="border border-slate-900 p-2 text-left uppercase text-[8pt]">Date</th>
-                <th className="border border-slate-900 p-2 text-left uppercase text-[8pt]">Description</th>
-                <th className="border border-slate-900 p-2 text-left uppercase text-[8pt]">Category</th>
-                <th className="border border-slate-900 p-2 text-right uppercase text-[8pt]">Debit (GH₵)</th>
-                <th className="border border-slate-900 p-2 text-right uppercase text-[8pt]">Credit (GH₵)</th>
-                <th className="border border-slate-900 p-2 text-right uppercase text-[8pt]">Balance</th>
+              <tr>
+                <th>Date</th>
+                <th>Description</th>
+                <th>Service</th>
+                <th className="text-right">Income (GH₵)</th>
+                <th className="text-right">Expense (GH₵)</th>
+                <th>Witnesses</th>
               </tr>
             </thead>
             <tbody>
-              {records.map((rec, idx) => {
-                const runningBalance = records.slice(idx).reduce((sum, r) => sum + (r.total_income || 0) - (r.expenses || 0), 0);
-                return (
-                  <tr key={rec.id}>
-                    <td className="border border-slate-900 p-2">{new Date(rec.service_date).toLocaleDateString()}</td>
-                    <td className="border border-slate-900 p-2">{rec.service_type}</td>
-                    <td className="border border-slate-900 p-2">Service Revenue</td>
-                    <td className="border border-slate-900 p-2 text-right">{formatGHS(rec.expenses || 0)}</td>
-                    <td className="border border-slate-900 p-2 text-right">{formatGHS(rec.total_income || 0)}</td>
-                    <td className="border border-slate-900 p-2 text-right font-bold">{formatGHS(runningBalance)}</td>
-                  </tr>
-                );
-              })}
+              {records.map((rec) => (
+                <tr key={rec.id}>
+                  <td>{new Date(rec.service_date).toLocaleDateString()}</td>
+                  <td>Service Revenue</td>
+                  <td className="uppercase">{rec.service_type}</td>
+                  <td className="text-right">{formatGHS(rec.total_income || 0)}</td>
+                  <td className="text-right">{formatGHS(rec.expenses || 0)}</td>
+                  <td className="text-xs uppercase">{rec.witness1_name} / {rec.witness2_name}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}
       </div>
 
-      {/* AUDIT / NOTES SECTION */}
+      {/* 7. AUDIT STATUS */}
       <div className="mb-12">
-        <h3 className="text-lg font-bold uppercase mb-4 flex items-center">
-          <span className="mr-2">4.</span> AUDIT / NOTES SECTION
-        </h3>
-        <div className="border-2 border-slate-900 p-6 space-y-4">
-          <div>
-            <p className="font-bold text-sm uppercase tracking-wider mb-1">Audit Status:</p>
-            <p className="text-slate-700">Verified & Reconciled against internal ledgers and witness signatures.</p>
-          </div>
-          <div>
-            <p className="font-bold text-sm uppercase tracking-wider mb-1">Remarks:</p>
-            <p className="text-slate-700 text-sm leading-relaxed italic">
-              The financial records for this period have been reviewed. All income from tithes, offerings, and seeds has been accurately captured and verified by dual witness protocols. Expenses are documented with corresponding receipts where applicable.
-            </p>
-          </div>
+        <h3 className="text-md font-bold uppercase mb-3">6. AUDIT STATUS</h3>
+        <div className="border border-black p-4 space-y-2">
+          <p><span className="font-bold uppercase">Audit Status:</span> Verified</p>
+          <p><span className="font-bold uppercase">Notes:</span> All financial entries have been reconciled with dual-witness signatures and bank/MoMo statements. No discrepancies found.</p>
         </div>
       </div>
 
-      {/* SIGNATURE SECTION */}
-      <div className="mt-24 grid grid-cols-3 gap-12">
+      {/* 7. SIGNATURES */}
+      <div className="mt-20 grid grid-cols-3 gap-8">
         <div className="text-center">
-          <div className="border-t-2 border-slate-900 pt-3">
-            <p className="font-bold text-xs uppercase tracking-widest">Treasurer</p>
-            <p className="text-[8pt] text-slate-500 mt-1">Signature & Date</p>
+          <div className="border-t border-black pt-2">
+            <p className="font-bold uppercase text-xs">Treasurer</p>
+            <p className="text-[8pt] mt-4">Signature & Date</p>
           </div>
         </div>
         <div className="text-center">
-          <div className="border-t-2 border-slate-900 pt-3">
-            <p className="font-bold text-xs uppercase tracking-widest">Head Pastor</p>
-            <p className="text-[8pt] text-slate-500 mt-1">Signature & Date</p>
+          <div className="border-t border-black pt-2">
+            <p className="font-bold uppercase text-xs">Auditor</p>
+            <p className="text-[8pt] mt-4">Signature & Date</p>
           </div>
         </div>
         <div className="text-center">
-          <div className="border-t-2 border-slate-900 pt-3">
-            <p className="font-bold text-xs uppercase tracking-widest">Auditor</p>
-            <p className="text-[8pt] text-slate-500 mt-1">Signature & Date</p>
+          <div className="border-t border-black pt-2">
+            <p className="font-bold uppercase text-xs">Head Pastor</p>
+            <p className="text-[8pt] mt-4">Signature & Date</p>
           </div>
         </div>
-      </div>
-
-      {/* PRINT FOOTER */}
-      <div className="mt-12 text-center text-[8pt] text-slate-400 uppercase tracking-[0.3em]">
-        End of Financial Report • Faithhouse Chapel International
       </div>
     </div>
   );

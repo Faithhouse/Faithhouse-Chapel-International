@@ -331,53 +331,6 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
     maximumFractionDigits: 0 
   }).format(val);
 
-  const processedRecords = useMemo(() => {
-    return records.map(rec => {
-      const serviceTithes = titheRecords
-        .filter(t => t.payment_date === rec.service_date && t.service_type === rec.service_type)
-        .reduce((acc, t) => acc + (Number(t.amount) || 0), 0);
-      
-      // If we have individual tithes in the registry, use that sum as the source of truth
-      const tithes = serviceTithes > 0 ? serviceTithes : (Number(rec.tithes) || 0);
-      const total_income = tithes + (Number(rec.offerings) || 0) + (Number(rec.seed) || 0) + (Number(rec.other_income) || 0);
-      
-      return { ...rec, tithes, total_income };
-    });
-  }, [records, titheRecords]);
-
-  const sum = (key: keyof FinancialRecord) => processedRecords.reduce((a, r) => a + (Number(r[key]) || 0), 0);
-  const totalRevenue = sum('tithes') + sum('offerings') + sum('seed') + sum('other_income');
-  const netBalance = totalRevenue - sum('expenses');
-
-  if (isPrintMode) {
-    return (
-      <div className="bg-white min-h-screen">
-        <div className="fixed top-4 right-4 flex gap-2 no-print z-[200]">
-          <button 
-            onClick={() => window.print()} 
-            className="flex items-center gap-2 px-6 py-3 bg-fh-green text-fh-gold rounded-xl font-black uppercase text-[10px] tracking-widest shadow-2xl hover:scale-105 transition-all"
-          >
-            <Printer className="w-4 h-4" />
-            Print Report
-          </button>
-          <button 
-            onClick={() => setIsPrintMode(false)} 
-            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-2xl hover:scale-105 transition-all"
-          >
-            <X className="w-4 h-4" />
-            Exit Report
-          </button>
-        </div>
-        <FinancialReportDocument 
-          organizationName="Faithhouse Chapel International (Wonders Cathedral)"
-          reportPeriod={selectedMonth === 'All Months' ? 'Full Year 2024' : selectedMonth}
-          dateGenerated={new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
-          records={processedRecords}
-        />
-      </div>
-    );
-  }
-
   if (tableMissing) {
     const repairSQL = `-- MASTER FINANCIAL RECORDS REPAIR SCRIPT
 -- Ensure members table exists first with all required fields
@@ -517,35 +470,98 @@ NOTIFY pgrst, 'reload schema';`;
       const date = new Date(t.payment_date);
       months.add(date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }));
     });
+    records.forEach(r => {
+      const date = new Date(r.service_date);
+      months.add(date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }));
+    });
     return ['All Months', ...Array.from(months).sort((a, b) => {
       const dateA = new Date(a);
       const dateB = new Date(b);
       return dateB.getTime() - dateA.getTime();
     })];
-  }, [titheRecords]);
+  }, [titheRecords, records]);
 
-  const filteredTithes = titheRecords.filter(t => {
-    const memberName = t.members 
-      ? `${t.members.first_name} ${t.members.last_name}`.toLowerCase() 
-      : `member id: ${t.member_id}`.toLowerCase();
-    
-    const matchesSearch = memberName.includes(searchTerm.toLowerCase());
-    
-    if (selectedMonth === 'All Months') return matchesSearch;
-    
-    const titheMonth = new Date(t.payment_date).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-    return matchesSearch && titheMonth === selectedMonth;
-  });
+  const processedRecords = useMemo(() => {
+    const base = records.map(rec => {
+      const serviceTithes = titheRecords
+        .filter(t => t.payment_date === rec.service_date && t.service_type === rec.service_type)
+        .reduce((acc, t) => acc + (Number(t.amount) || 0), 0);
+      
+      const tithes = serviceTithes > 0 ? serviceTithes : (Number(rec.tithes) || 0);
+      const total_income = tithes + (Number(rec.offerings) || 0) + (Number(rec.seed) || 0) + (Number(rec.other_income) || 0);
+      
+      return { ...rec, tithes, total_income };
+    });
 
-  const groupedTithes = filteredTithes.reduce((acc, tithe) => {
-    const date = new Date(tithe.payment_date);
-    const monthYear = date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-    if (!acc[monthYear]) {
-      acc[monthYear] = [];
-    }
-    acc[monthYear].push(tithe);
-    return acc;
-  }, {} as Record<string, TitheRecord[]>);
+    if (selectedMonth === 'All Months') return base;
+
+    return base.filter(r => {
+      const recMonth = new Date(r.service_date).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+      return recMonth === selectedMonth;
+    });
+  }, [records, titheRecords, selectedMonth]);
+
+  const sum = (key: keyof FinancialRecord) => processedRecords.reduce((a, r) => a + (Number(r[key]) || 0), 0);
+  const totalRevenue = sum('tithes') + sum('offerings') + sum('seed') + sum('other_income');
+  const netBalance = totalRevenue - sum('expenses');
+
+  const filteredTithes = useMemo(() => {
+    return titheRecords.filter(t => {
+      const memberName = t.members 
+        ? `${t.members.first_name} ${t.members.last_name}`.toLowerCase() 
+        : `member id: ${t.member_id}`.toLowerCase();
+      
+      const matchesSearch = memberName.includes(searchTerm.toLowerCase());
+      
+      if (selectedMonth === 'All Months') return matchesSearch;
+      
+      const titheMonth = new Date(t.payment_date).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+      return matchesSearch && titheMonth === selectedMonth;
+    });
+  }, [titheRecords, searchTerm, selectedMonth]);
+
+  const groupedTithes = useMemo(() => {
+    return filteredTithes.reduce((acc, tithe) => {
+      const date = new Date(tithe.payment_date);
+      const monthYear = date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+      if (!acc[monthYear]) {
+        acc[monthYear] = [];
+      }
+      acc[monthYear].push(tithe);
+      return acc;
+    }, {} as Record<string, TitheRecord[]>);
+  }, [filteredTithes]);
+
+  if (isPrintMode) {
+    return (
+      <div className="bg-white min-h-screen">
+        <div className="fixed top-4 right-4 flex gap-2 no-print z-[200]">
+          <button 
+            onClick={() => window.print()} 
+            className="flex items-center gap-2 px-6 py-3 bg-fh-green text-fh-gold rounded-xl font-black uppercase text-[10px] tracking-widest shadow-2xl hover:scale-105 transition-all"
+          >
+            <Printer className="w-4 h-4" />
+            Print Report
+          </button>
+          <button 
+            onClick={() => setIsPrintMode(false)} 
+            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-2xl hover:scale-105 transition-all"
+          >
+            <X className="w-4 h-4" />
+            Exit Report
+          </button>
+        </div>
+        <FinancialReportDocument 
+          organizationName="Faithhouse Chapel International (Wonders Cathedral)"
+          reportPeriod={selectedMonth === 'All Months' ? 'Full Year 2024' : selectedMonth}
+          dateGenerated={new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+          records={processedRecords}
+          bankBalance={processedRecords.length > 0 ? (processedRecords[0].bank_balance || 0) : 0}
+          momoBalance={processedRecords.length > 0 ? (processedRecords[0].momo_balance || 0) : 0}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700 pb-20">
@@ -556,7 +572,19 @@ NOTIFY pgrst, 'reload schema';`;
           <h2 className="text-3xl font-black text-fh-green tracking-tighter uppercase leading-none">Treasury</h2>
           <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em]">Authorized Entries Only</p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="relative">
+            <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <select 
+              className="pl-12 pr-10 py-4 bg-white border border-slate-200 rounded-[1.75rem] font-black uppercase text-[10px] tracking-widest outline-none focus:ring-2 ring-fh-green/20 transition-all shadow-sm"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+            >
+              {availableMonths.map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
           <button onClick={() => setIsReportModalOpen(true)} className="px-8 py-5 bg-white border border-slate-200 rounded-[1.75rem] font-black uppercase text-[10px] tracking-widest flex items-center gap-3 hover:bg-slate-50 transition-all shadow-sm active:scale-95">
             <svg className="w-5 h-5 text-fh-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
             Generate Report
@@ -735,18 +763,6 @@ NOTIFY pgrst, 'reload schema';`;
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
-            </div>
-            <div className="relative w-full md:w-64">
-              <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <select 
-                className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 ring-fh-green/20 transition-all text-[10px] font-black uppercase tracking-widest"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-              >
-                {availableMonths.map(m => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
             </div>
           </div>
 
