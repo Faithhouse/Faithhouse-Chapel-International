@@ -3,7 +3,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../supabaseClient';
 import { UserProfile, FinancialRecord, Member, TitheRecord } from '../types';
-import { Users, Plus, Search, Calendar as CalendarIcon, DollarSign, CreditCard, Smartphone, Hash, FileText, CheckCircle2, Trash2, Edit3, Filter } from 'lucide-react';
+import { Users, Plus, Search, Calendar as CalendarIcon, DollarSign, CreditCard, Smartphone, Hash, FileText, CheckCircle2, Trash2, Edit3, Filter, Printer, X } from 'lucide-react';
+import FinancialReportDocument from '../src/components/FinancialReportDocument';
 
 interface FinanceViewProps {
   userProfile: UserProfile | null;
@@ -73,6 +74,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
   }, [formData.service_date, formData.service_type, titheRecords, isModalOpen]);
 
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isPrintMode, setIsPrintMode] = useState(false);
 
   const [tableStatus, setTableStatus] = useState<Record<string, boolean>>({
     members: false,
@@ -346,6 +348,35 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
   const sum = (key: keyof FinancialRecord) => processedRecords.reduce((a, r) => a + (Number(r[key]) || 0), 0);
   const totalRevenue = sum('tithes') + sum('offerings') + sum('seed') + sum('other_income');
   const netBalance = totalRevenue - sum('expenses');
+
+  if (isPrintMode) {
+    return (
+      <div className="bg-white min-h-screen">
+        <div className="fixed top-4 right-4 flex gap-2 no-print z-[200]">
+          <button 
+            onClick={() => window.print()} 
+            className="flex items-center gap-2 px-6 py-3 bg-fh-green text-fh-gold rounded-xl font-black uppercase text-[10px] tracking-widest shadow-2xl hover:scale-105 transition-all"
+          >
+            <Printer className="w-4 h-4" />
+            Print Report
+          </button>
+          <button 
+            onClick={() => setIsPrintMode(false)} 
+            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-2xl hover:scale-105 transition-all"
+          >
+            <X className="w-4 h-4" />
+            Exit Report
+          </button>
+        </div>
+        <FinancialReportDocument 
+          organizationName="Faithhouse Chapel International (Wonders Cathedral)"
+          reportPeriod={selectedMonth === 'All Months' ? 'Full Year 2024' : selectedMonth}
+          dateGenerated={new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+          records={processedRecords}
+        />
+      </div>
+    );
+  }
 
   if (tableMissing) {
     const repairSQL = `-- MASTER FINANCIAL RECORDS REPAIR SCRIPT
@@ -1094,7 +1125,14 @@ NOTIFY pgrst, 'reload schema';`;
             <div className="p-10 border-b border-slate-50 flex items-center justify-between no-print">
               <h3 className="text-2xl font-black text-fh-green uppercase tracking-tighter">Financial Audit Report</h3>
               <div className="flex gap-4">
-                <button onClick={() => window.print()} className="px-6 py-3 bg-slate-900 text-fh-gold rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg">Print Report</button>
+                <button 
+                  onClick={() => setIsPrintMode(true)} 
+                  className="px-6 py-3 bg-fh-green text-fh-gold rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg flex items-center gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  Generate Official Document
+                </button>
+                <button onClick={() => window.print()} className="px-6 py-3 bg-slate-900 text-fh-gold rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg">Print Summary</button>
                 <button onClick={() => setIsReportModalOpen(false)} className="p-3 hover:bg-slate-100 rounded-full transition-all text-slate-400"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg></button>
               </div>
             </div>
