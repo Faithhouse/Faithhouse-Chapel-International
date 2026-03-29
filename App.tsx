@@ -20,6 +20,7 @@ import MinistryModuleView from './views/MinistryModuleView';
 import CellMeetingView from './views/CellMeetingView';
 import WhatsAppSchedulerView from './views/WhatsAppSchedulerView';
 import MemberProfileView from './views/MemberProfileView';
+import ChildrenMinistryView from './views/ChildrenMinistryView';
 import PlaceholderView from './views/PlaceholderView';
 import Auth from './components/Auth';
 import RecurringTasksView from './views/RecurringTasksView';
@@ -353,10 +354,12 @@ const App: React.FC = () => {
         case 'Evangelism Ministry':
         case 'Children Ministry':
         case 'Children\'s Ministry':
+          return <ChildrenMinistryView userProfile={profile} />;
+
         case 'Teens Ministry':
         case 'Young Adult Ministry':
         case 'Follow-up & Visitation':
-          const normalizedMinistryName = ['Children Ministry', 'Children\'s Ministry', 'Teens Ministry', 'Young Adult Ministry'].includes(activeItem) 
+          const normalizedMinistryName = ['Teens Ministry', 'Young Adult Ministry'].includes(activeItem) 
             ? 'Children Ministry' 
             : activeItem;
           return <MinistryModuleView ministryName={normalizedMinistryName} userProfile={profile} />;

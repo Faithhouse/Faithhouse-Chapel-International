@@ -246,6 +246,112 @@ export interface Volunteer {
   branches?: Branch;
 }
 
+export interface Child {
+  id: string;
+  first_name: string;
+  last_name: string;
+  date_of_birth: string;
+  gender: 'Male' | 'Female';
+  class_group_id: string;
+  parent_id: string;
+  medical_notes?: string;
+  allergies?: string;
+  special_needs?: string;
+  registration_date: string;
+  status: 'Active' | 'Inactive';
+  created_at?: string;
+}
+
+export interface Parent {
+  id: string;
+  full_name: string;
+  phone_number: string;
+  alternate_phone?: string;
+  email?: string;
+  address?: string;
+  relationship_to_child: string;
+  emergency_contact: string;
+  created_at?: string;
+}
+
+export interface ClassGroup {
+  id: string;
+  group_name: string;
+  age_range: string;
+  teacher_id?: string;
+  classroom_location?: string;
+  created_at?: string;
+}
+
+export interface Teacher {
+  id: string;
+  full_name: string;
+  phone: string;
+  role: 'Teacher' | 'Assistant' | 'Volunteer';
+  assigned_group?: string;
+  background_check_status: 'Pending' | 'Passed' | 'Failed';
+  ministry_start_date: string;
+  created_at?: string;
+}
+
+export interface ChildrenService {
+  id: string;
+  service_name: string;
+  date: string;
+  theme?: string;
+  teacher_in_charge?: string;
+  created_at?: string;
+}
+
+export interface ChildrenAttendance {
+  id: string;
+  child_id: string;
+  class_group_id: string;
+  service_id: string;
+  date: string;
+  check_in_time?: string;
+  check_out_time?: string;
+  marked_by: string;
+  status: 'Present' | 'Absent';
+  notes?: string;
+  created_at?: string;
+}
+
+export interface CheckInLog {
+  id: string;
+  child_id: string;
+  parent_id: string;
+  service_id: string;
+  check_in_time: string;
+  check_out_time?: string;
+  authorized_person: string;
+  verification_method: 'PIN' | 'QR' | 'Manual';
+  recorded_by: string;
+  created_at?: string;
+}
+
+export interface MedicalRecord {
+  id: string;
+  child_id: string;
+  allergies?: string;
+  medications?: string;
+  special_instructions?: string;
+  emergency_action_plan?: string;
+  created_at?: string;
+}
+
+export interface IncidentReport {
+  id: string;
+  child_id: string;
+  service_id: string;
+  date: string;
+  description: string;
+  action_taken?: string;
+  reported_by: string;
+  severity_level: 'Low' | 'Medium' | 'High' | 'Critical';
+  created_at?: string;
+}
+
 export interface TitheRecord {
   id: string;
   member_id: string;

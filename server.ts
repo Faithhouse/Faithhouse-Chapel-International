@@ -132,7 +132,7 @@ app.get(['/auth/callback', '/auth/callback/'], async (req, res) => {
 async function setupVite() {
   if (process.env.NODE_ENV === "production") {
     app.use(express.static(path.join(__dirname, "dist")));
-    app.get("*", (req, res) => {
+    app.get("*all", (req, res) => {
       res.sendFile(path.join(__dirname, "dist", "index.html"));
     });
   } else {
@@ -158,7 +158,7 @@ if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
 } else {
   // In Vercel production, just setup the static middleware immediately
   app.use(express.static(path.join(__dirname, "dist")));
-  app.get("*", (req, res) => {
+  app.get("*all", (req, res) => {
     res.sendFile(path.join(__dirname, "dist", "index.html"));
   });
 }

@@ -75,6 +75,100 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
 
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isPrintMode, setIsPrintMode] = useState(false);
+  const [selectedReportType, setSelectedReportType] = useState<'Monthly' | 'Audit'>('Monthly');
+
+  const availableMonths = useMemo(() => {
+    const months = new Set<string>();
+    titheRecords.forEach(t => {
+      const date = new Date(t.payment_date);
+      months.add(date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }));
+    });
+    records.forEach(r => {
+      const date = new Date(r.service_date);
+      months.add(date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }));
+    });
+    return ['All Months', ...Array.from(months).sort((a, b) => {
+      const dateA = new Date(a);
+      const dateB = new Date(b);
+      return dateB.getTime() - dateA.getTime();
+    })];
+  }, [titheRecords, records]);
+
+  const processedRecords = useMemo(() => {
+    const base = records.map(rec => {
+      const serviceTithes = titheRecords
+        .filter(t => t.payment_date === rec.service_date && t.service_type === rec.service_type)
+        .reduce((acc, t) => acc + (Number(t.amount) || 0), 0);
+      
+      const tithes = serviceTithes > 0 ? serviceTithes : (Number(rec.tithes) || 0);
+      const total_income = tithes + (Number(rec.offerings) || 0) + (Number(rec.seed) || 0) + (Number(rec.other_income) || 0);
+      
+      return { ...rec, tithes, total_income };
+    });
+
+    if (selectedMonth === 'All Months') return base;
+
+    return base.filter(r => {
+      const recMonth = new Date(r.service_date).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+      return recMonth === selectedMonth;
+    });
+  }, [records, titheRecords, selectedMonth]);
+
+  const sum = (key: keyof FinancialRecord) => processedRecords.reduce((a, r) => a + (Number(r[key]) || 0), 0);
+  const totalRevenue = sum('tithes') + sum('offerings') + sum('seed') + sum('other_income');
+  const netBalance = totalRevenue - sum('expenses');
+
+  const filteredTithes = useMemo(() => {
+    return titheRecords.filter(t => {
+      const memberName = t.members 
+        ? `${t.members.first_name} ${t.members.last_name}`.toLowerCase() 
+        : `member id: ${t.member_id}`.toLowerCase();
+      
+      const matchesSearch = memberName.includes(searchTerm.toLowerCase());
+      
+      if (selectedMonth === 'All Months') return matchesSearch;
+      
+      const titheMonth = new Date(t.payment_date).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+      return matchesSearch && titheMonth === selectedMonth;
+    });
+  }, [titheRecords, searchTerm, selectedMonth]);
+
+  const groupedTithes = useMemo(() => {
+    return filteredTithes.reduce((acc, tithe) => {
+      const date = new Date(tithe.payment_date);
+      const monthYear = date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+      if (!acc[monthYear]) {
+        acc[monthYear] = [];
+      }
+      acc[monthYear].push(tithe);
+      return acc;
+    }, {} as Record<string, TitheRecord[]>);
+  }, [filteredTithes]);
+
+  const openingBalance = useMemo(() => {
+    if (selectedMonth === 'All Months') return 0;
+    
+    try {
+      const [monthName, yearStr] = selectedMonth.split(' ');
+      const monthIndex = new Date(`${monthName} 1, ${yearStr}`).getMonth();
+      const year = parseInt(yearStr);
+      const startDate = new Date(year, monthIndex, 1);
+      
+      return records
+        .filter(r => new Date(r.service_date) < startDate)
+        .reduce((acc, rec) => {
+          const serviceTithes = titheRecords
+            .filter(t => t.payment_date === rec.service_date && t.service_type === rec.service_type)
+            .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+          
+          const tithes = serviceTithes > 0 ? serviceTithes : (Number(rec.tithes) || 0);
+          const income = tithes + (Number(rec.offerings) || 0) + (Number(rec.seed) || 0) + (Number(rec.other_income) || 0);
+          return acc + income - (Number(rec.expenses) || 0);
+        }, 0);
+    } catch (e) {
+      return 0;
+    }
+  }, [records, titheRecords, selectedMonth]);
 
   const [tableStatus, setTableStatus] = useState<Record<string, boolean>>({
     members: false,
@@ -110,13 +204,21 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
       else if (memErr.code === '42P01' || memErr.code === 'PGRST205') currentMissing.push('members');
       else errorLog.push(`members: ${memErr.message}`);
 
+      // 4. Check Relationship (PGRST200)
+      const { error: relErr } = await supabase.from('tithe_entries').select('*, members(id)').limit(1);
+      let relationshipBroken = false;
+      if (relErr && relErr.code === 'PGRST200') {
+        relationshipBroken = true;
+        errorLog.push('PGRST200: Missing relationship between tithe_entries and members');
+      }
+
       setTableStatus(status);
-      const isMissing = !status.members || !status.financial_records || !status.tithe_entries;
+      const isMissing = !status.members || !status.financial_records || !status.tithe_entries || relationshipBroken;
       setTableMissing(isMissing);
       setMissingTables(currentMissing);
 
       if (isMissing) {
-        setLastError(errorLog.length > 0 ? errorLog.join(' | ') : 'Some tables are still missing from the schema cache.');
+        setLastError(errorLog.length > 0 ? errorLog.join(' | ') : 'Some tables or relationships are still missing from the schema cache.');
         return;
       }
 
@@ -331,9 +433,9 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
     maximumFractionDigits: 0 
   }).format(val);
 
-  if (tableMissing) {
+  if (tableMissing || (lastError && lastError.includes('PGRST200'))) {
     const repairSQL = `-- MASTER FINANCIAL RECORDS REPAIR SCRIPT
--- Ensure members table exists first with all required fields
+-- 1. Ensure members table exists
 CREATE TABLE IF NOT EXISTS public.members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   first_name TEXT NOT NULL,
@@ -348,6 +450,7 @@ CREATE TABLE IF NOT EXISTS public.members (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
+-- 2. Ensure financial_records table exists
 CREATE TABLE IF NOT EXISTS public.financial_records (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   service_date DATE NOT NULL,
@@ -367,7 +470,7 @@ CREATE TABLE IF NOT EXISTS public.financial_records (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
--- CREATE TITHE ENTRIES IF NOT EXISTS
+-- 3. Ensure tithe_entries table exists
 CREATE TABLE IF NOT EXISTS public.tithe_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   member_id UUID NOT NULL,
@@ -377,13 +480,21 @@ CREATE TABLE IF NOT EXISTS public.tithe_entries (
   service_type TEXT,
   recorded_by UUID,
   notes TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  CONSTRAINT fk_member FOREIGN KEY (member_id) REFERENCES public.members(id) ON DELETE CASCADE
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
--- Ensure index on foreign key for better relationship detection
-CREATE INDEX IF NOT EXISTS idx_tithe_member_id ON public.tithe_entries(member_id);
+-- 4. CRITICAL: Fix missing relationship (PGRST200 Error Fix)
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_member') THEN
+    ALTER TABLE public.tithe_entries 
+    ADD CONSTRAINT fk_member 
+    FOREIGN KEY (member_id) REFERENCES public.members(id) 
+    ON DELETE CASCADE;
+  END IF;
+END $$;
 
+-- 5. Enable RLS and Policies
 ALTER TABLE public.financial_records ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow all actions for staff" ON public.financial_records;
 CREATE POLICY "Allow all actions for staff" ON public.financial_records FOR ALL USING (true) WITH CHECK (true);
@@ -396,7 +507,7 @@ ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow all actions for staff" ON public.members;
 CREATE POLICY "Allow all actions for staff" ON public.members FOR ALL USING (true) WITH CHECK (true);
 
--- FORCE SCHEMA CACHE RELOAD
+-- 6. FORCE SCHEMA CACHE RELOAD
 NOTIFY pgrst, 'reload schema';`;
 
     return (
@@ -405,7 +516,9 @@ NOTIFY pgrst, 'reload schema';`;
           <div className="w-24 h-24 bg-fh-gold/10 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 text-fh-gold shadow-inner">
             <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
           </div>
-          <h2 className="text-3xl font-black text-fh-green tracking-tighter uppercase mb-4">Financial Records Missing</h2>
+          <h2 className="text-3xl font-black text-fh-green tracking-tighter uppercase mb-4">
+            {lastError && lastError.includes('PGRST200') ? 'Database Relationship Error' : 'Financial Records Missing'}
+          </h2>
           
           <div className="grid grid-cols-3 gap-4 mb-8 max-w-md mx-auto">
             {Object.entries(tableStatus).map(([name, exists]) => (
@@ -425,17 +538,17 @@ NOTIFY pgrst, 'reload schema';`;
           <div className="mb-8 space-y-2">
             {lastError && (
               <div className="mt-4 p-4 bg-rose-50 rounded-xl border border-rose-100">
+                <p className="text-rose-600 text-[10px] font-black uppercase tracking-widest mb-2">Technical Diagnosis</p>
                 <p className="text-rose-400 text-[8px] font-mono max-w-md mx-auto break-all">
-                  Last Error: {lastError}
-                </p>
-                <p className="text-slate-400 text-[8px] font-mono mt-2 uppercase tracking-tighter">
-                  Target Project: bhujaqeledtkmwhoqfcd
+                  {lastError.includes('PGRST200') 
+                    ? "The database relationship between 'tithe_entries' and 'members' is missing. This prevents fetching member names with their tithes."
+                    : `Error: ${lastError}`}
                 </p>
               </div>
             )}
           </div>
           <p className="text-slate-400 mb-10 font-bold max-w-lg mx-auto leading-relaxed uppercase text-[9px] tracking-[0.2em]">
-            Run the SQL Script in your Supabase Editor to initialize the treasury system.
+            Run the SQL Script below in your Supabase SQL Editor to fix the database relationship and reload the schema cache.
           </p>
           <div className="relative group mb-10">
             <pre className="bg-slate-900 text-fh-gold p-8 rounded-[2rem] text-[10px] font-mono text-left h-48 overflow-y-auto shadow-inner border border-fh-gold/10 leading-relaxed scrollbar-hide">
@@ -453,7 +566,7 @@ NOTIFY pgrst, 'reload schema';`;
           </div>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button onClick={fetchInitialData} className="px-10 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-xs tracking-[0.4em] shadow-2xl active:scale-95 transition-all border-b-4 border-black">
-              Authorize Database Sync
+              Retry Database Sync
             </button>
             <button onClick={() => window.location.reload()} className="px-10 py-5 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-xs tracking-[0.4em] hover:bg-slate-200 transition-all">
               Hard Refresh App
@@ -463,74 +576,6 @@ NOTIFY pgrst, 'reload schema';`;
       </div>
     );
   }
-
-  const availableMonths = useMemo(() => {
-    const months = new Set<string>();
-    titheRecords.forEach(t => {
-      const date = new Date(t.payment_date);
-      months.add(date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }));
-    });
-    records.forEach(r => {
-      const date = new Date(r.service_date);
-      months.add(date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }));
-    });
-    return ['All Months', ...Array.from(months).sort((a, b) => {
-      const dateA = new Date(a);
-      const dateB = new Date(b);
-      return dateB.getTime() - dateA.getTime();
-    })];
-  }, [titheRecords, records]);
-
-  const processedRecords = useMemo(() => {
-    const base = records.map(rec => {
-      const serviceTithes = titheRecords
-        .filter(t => t.payment_date === rec.service_date && t.service_type === rec.service_type)
-        .reduce((acc, t) => acc + (Number(t.amount) || 0), 0);
-      
-      const tithes = serviceTithes > 0 ? serviceTithes : (Number(rec.tithes) || 0);
-      const total_income = tithes + (Number(rec.offerings) || 0) + (Number(rec.seed) || 0) + (Number(rec.other_income) || 0);
-      
-      return { ...rec, tithes, total_income };
-    });
-
-    if (selectedMonth === 'All Months') return base;
-
-    return base.filter(r => {
-      const recMonth = new Date(r.service_date).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-      return recMonth === selectedMonth;
-    });
-  }, [records, titheRecords, selectedMonth]);
-
-  const sum = (key: keyof FinancialRecord) => processedRecords.reduce((a, r) => a + (Number(r[key]) || 0), 0);
-  const totalRevenue = sum('tithes') + sum('offerings') + sum('seed') + sum('other_income');
-  const netBalance = totalRevenue - sum('expenses');
-
-  const filteredTithes = useMemo(() => {
-    return titheRecords.filter(t => {
-      const memberName = t.members 
-        ? `${t.members.first_name} ${t.members.last_name}`.toLowerCase() 
-        : `member id: ${t.member_id}`.toLowerCase();
-      
-      const matchesSearch = memberName.includes(searchTerm.toLowerCase());
-      
-      if (selectedMonth === 'All Months') return matchesSearch;
-      
-      const titheMonth = new Date(t.payment_date).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-      return matchesSearch && titheMonth === selectedMonth;
-    });
-  }, [titheRecords, searchTerm, selectedMonth]);
-
-  const groupedTithes = useMemo(() => {
-    return filteredTithes.reduce((acc, tithe) => {
-      const date = new Date(tithe.payment_date);
-      const monthYear = date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-      if (!acc[monthYear]) {
-        acc[monthYear] = [];
-      }
-      acc[monthYear].push(tithe);
-      return acc;
-    }, {} as Record<string, TitheRecord[]>);
-  }, [filteredTithes]);
 
   if (isPrintMode) {
     return (
@@ -556,8 +601,8 @@ NOTIFY pgrst, 'reload schema';`;
           reportPeriod={selectedMonth === 'All Months' ? 'Full Year 2024' : selectedMonth}
           dateGenerated={new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
           records={processedRecords}
-          bankBalance={processedRecords.length > 0 ? (processedRecords[0].bank_balance || 0) : 0}
-          momoBalance={processedRecords.length > 0 ? (processedRecords[0].momo_balance || 0) : 0}
+          openingBalance={openingBalance}
+          reportType={selectedReportType}
         />
       </div>
     );
@@ -1139,14 +1184,30 @@ NOTIFY pgrst, 'reload schema';`;
           <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md animate-in fade-in" onClick={() => setIsReportModalOpen(false)} />
           <div className="relative bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 flex flex-col max-h-[90vh]">
             <div className="p-10 border-b border-slate-50 flex items-center justify-between no-print">
-              <h3 className="text-2xl font-black text-fh-green uppercase tracking-tighter">Financial Audit Report</h3>
+              <div className="flex items-center gap-6">
+                <h3 className="text-2xl font-black text-fh-green uppercase tracking-tighter">Report Center</h3>
+                <div className="flex bg-slate-100 p-1 rounded-xl">
+                  <button 
+                    onClick={() => setSelectedReportType('Monthly')}
+                    className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${selectedReportType === 'Monthly' ? 'bg-white text-fh-green shadow-sm' : 'text-slate-400'}`}
+                  >
+                    Monthly Report
+                  </button>
+                  <button 
+                    onClick={() => setSelectedReportType('Audit')}
+                    className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${selectedReportType === 'Audit' ? 'bg-white text-fh-green shadow-sm' : 'text-slate-400'}`}
+                  >
+                    Audit Report
+                  </button>
+                </div>
+              </div>
               <div className="flex gap-4">
                 <button 
                   onClick={() => setIsPrintMode(true)} 
                   className="px-6 py-3 bg-fh-green text-fh-gold rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg flex items-center gap-2"
                 >
                   <FileText className="w-4 h-4" />
-                  Generate Official Document
+                  Generate {selectedReportType} Document
                 </button>
                 <button onClick={() => window.print()} className="px-6 py-3 bg-slate-900 text-fh-gold rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg">Print Summary</button>
                 <button onClick={() => setIsReportModalOpen(false)} className="p-3 hover:bg-slate-100 rounded-full transition-all text-slate-400"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg></button>
