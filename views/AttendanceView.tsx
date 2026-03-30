@@ -101,7 +101,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ userProfile }) => {
 
       const { data: eventData, error: eventError } = await eventQuery;
       if (eventError) {
-         if (eventError.code === '42P01') throw new Error("ATTENDANCE_TABLE_MISSING");
+         if (eventError.code === '42P01' || eventError.code === 'PGRST205') throw new Error("ATTENDANCE_TABLE_MISSING");
          if (eventError.code === 'PGRST204') throw new Error("SCHEMA_OUT_OF_SYNC");
          throw eventError;
       }

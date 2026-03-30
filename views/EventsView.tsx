@@ -5,6 +5,7 @@ import { format, parseISO, isSameDay } from 'date-fns';
 import { supabase } from '../supabaseClient';
 import { UserProfile } from '../types';
 import { permissions } from '../src/utils/permissions';
+import { toast } from 'sonner';
 
 interface EventsViewProps {
   userProfile: UserProfile | null;
@@ -92,8 +93,9 @@ const EventsView: React.FC<EventsViewProps> = ({ userProfile }) => {
       // 2. Fetch branches
       const { data: bData, error: bError } = await supabase.from('branches').select('*').order('name');
       if (bError) {
-        if (bError.code === '42P01' || bError.message.includes('not found')) {
+        if (bError.code === '42P01' || bError.code === 'PGRST205' || bError.message.includes('not found')) {
           setTableMissing(true);
+          toast.error("Branches table missing. Please run the SQL script.");
           return;
         }
         throw bError;
@@ -103,13 +105,16 @@ const EventsView: React.FC<EventsViewProps> = ({ userProfile }) => {
       // 3. Fetch current/future events
       const { data: eventData, error: eventError } = await supabase.from('events').select('*').order('date', { ascending: false });
       if (eventError) {
-        if (eventError.code === '42P01' || eventError.message.includes('not found')) {
+        if (eventError.code === '42P01' || eventError.code === 'PGRST205' || eventError.message.includes('not found')) {
           setTableMissing(true);
+          toast.error("Events table missing. Please run the SQL script.");
           return;
         }
         throw eventError;
       }
       setEvents(eventData || []);
+      setTableMissing(false);
+      if (isLoading) toast.success("Events synced successfully!");
     } catch (err: any) {
       console.error("Sync Error:", err);
       const errorMessage = err.message === 'Failed to fetch' || err.name === 'TypeError' 
@@ -311,7 +316,13 @@ NOTIFY pgrst, 'reload schema';`;
           </pre>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button onClick={() => { navigator.clipboard.writeText(repairSQL); alert('SQL Copied.'); }} className="px-10 py-5 bg-slate-100 rounded-2xl font-black uppercase text-xs">Copy Script</button>
-            <button onClick={() => { setRepairNeeded(false); fetchInitialData(); }} className="px-16 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-xs">Verify Restoration</button>
+            <button 
+              onClick={() => { setRepairNeeded(false); fetchInitialData(); }} 
+              disabled={isLoading}
+              className="px-16 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-xs disabled:opacity-50"
+            >
+              {isLoading ? "Verifying..." : "Verify Restoration"}
+            </button>
           </div>
         </div>
       </div>

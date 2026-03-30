@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Volunteer, Member, Branch, UserProfile } from '../types';
+import { toast } from 'sonner';
 
 // Added interface for VolunteersView props
 interface VolunteersViewProps {
@@ -44,10 +45,14 @@ const VolunteersView: React.FC<VolunteersViewProps> = ({ userProfile }) => {
         .order('created_at', { ascending: false });
 
       if (error) {
-        if (error.code === '42P01') setTableMissing(true);
+        if (error.code === '42P01' || error.code === 'PGRST205') {
+          setTableMissing(true);
+          toast.error("Volunteers table missing. Please run the SQL script.");
+        }
       } else {
         setTableMissing(false);
         setVolunteers(vData || []);
+        if (isLoading) toast.success("Volunteers synced successfully!");
       }
     } catch (err) {
       console.error(err);
@@ -98,7 +103,13 @@ create policy "Allow all on volunteers" on volunteers for all using (true) with 
         <pre className="bg-slate-900 text-slate-300 p-6 rounded-xl text-left text-[10px] mb-6 overflow-x-auto leading-relaxed shadow-inner border border-slate-800">
           {repairSQL}
         </pre>
-        <button onClick={fetchData} className="px-10 py-3 bg-emerald-600 text-white rounded-xl font-black uppercase tracking-widest shadow-xl transition-all hover:bg-emerald-700 active:scale-95">Load Volunteers</button>
+        <button 
+          onClick={fetchData} 
+          disabled={isLoading}
+          className="px-10 py-3 bg-emerald-600 text-white rounded-xl font-black uppercase tracking-widest shadow-xl transition-all hover:bg-emerald-700 active:scale-95 disabled:opacity-50"
+        >
+          {isLoading ? "Verifying..." : "Load Volunteers"}
+        </button>
       </div>
     );
   }

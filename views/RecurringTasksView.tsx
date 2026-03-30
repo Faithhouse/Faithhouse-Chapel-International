@@ -4,6 +4,7 @@ import { UserProfile, RecurringTaskTemplate } from '../types';
 import { permissions } from '../src/utils/permissions';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Trash2, CheckCircle2, Clock, Settings2, ShieldAlert } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface RecurringTasksViewProps {
   userProfile: UserProfile | null;
@@ -36,13 +37,16 @@ const RecurringTasksView: React.FC<RecurringTasksViewProps> = ({ userProfile }) 
         .order('created_at', { ascending: false });
 
       if (error) {
-        if (error.code === '42P01') {
+        if (error.code === '42P01' || error.code === 'PGRST205') {
           setTableMissing(true);
+          toast.error("Database tables still missing. Please run the SQL script.");
           return;
         }
         throw error;
       }
       setTemplates(data || []);
+      setTableMissing(false);
+      toast.success("Database restored successfully!");
     } catch (err) {
       console.error("Error fetching templates:", err);
     } finally {
@@ -128,7 +132,13 @@ CREATE POLICY "Allow all for staff" ON public.task_instances FOR ALL USING (true
           <pre className="bg-slate-900 text-fh-gold p-6 rounded-2xl text-[10px] font-mono text-left overflow-x-auto mb-8">
             {repairSQL}
           </pre>
-          <button onClick={fetchTemplates} className="px-12 py-4 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-xs tracking-widest">Verify Restoration</button>
+          <button 
+            onClick={fetchTemplates} 
+            disabled={isLoading}
+            className="px-12 py-4 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-xs tracking-widest disabled:opacity-50"
+          >
+            {isLoading ? "Verifying..." : "Verify Restoration"}
+          </button>
         </div>
       </div>
     );

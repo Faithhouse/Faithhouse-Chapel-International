@@ -45,6 +45,20 @@ const ChildrenMinistryView: React.FC<ChildrenMinistryViewProps> = ({ userProfile
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [selectedReportType, setSelectedReportType] = useState<string>('Children Register');
 
+  // Form States
+  const [newChild, setNewChild] = useState({
+    first_name: '',
+    last_name: '',
+    date_of_birth: '',
+    gender: 'Male',
+    class_group_id: '',
+    parent_name: '',
+    parent_phone: '',
+    parent_relationship: '',
+    emergency_contact: '',
+    medical_notes: ''
+  });
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -66,12 +80,19 @@ const ChildrenMinistryView: React.FC<ChildrenMinistryViewProps> = ({ userProfile
         supabase.from('children_services').select('*').order('date', { ascending: false })
       ]);
 
-      if (childrenError?.code === '42P01') {
+      if (childrenError?.code === '42P01' || childrenError?.code === 'PGRST205') {
         setTableMissing(true);
         return;
       }
 
-      setChildren(childrenData || []);
+      // Filter for Children (Ages 12 and under)
+      const now = new Date();
+      const filteredChildren = (childrenData || []).filter(child => {
+        const age = now.getFullYear() - new Date(child.date_of_birth).getFullYear();
+        return age <= 12;
+      });
+
+      setChildren(filteredChildren);
       setParents(parentsData || []);
       setClassGroups(classesData || []);
       setTeachers(teachersData || []);
@@ -122,6 +143,60 @@ const ChildrenMinistryView: React.FC<ChildrenMinistryViewProps> = ({ userProfile
     } catch (error) {
       console.error('Check-in error:', error);
       toast.error('Check-in failed');
+    }
+  };
+
+  const handleRegisterChild = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      // 1. Create/Find Parent
+      const { data: parentData, error: parentError } = await supabase
+        .from('parents')
+        .insert([{
+          full_name: newChild.parent_name,
+          phone_number: newChild.parent_phone,
+          relationship_to_child: newChild.parent_relationship || 'Parent',
+          emergency_contact: newChild.emergency_contact
+        }])
+        .select()
+        .single();
+
+      if (parentError) throw parentError;
+
+      // 2. Create Child
+      const { error: childError } = await supabase
+        .from('children')
+        .insert([{
+          first_name: newChild.first_name,
+          last_name: newChild.last_name,
+          date_of_birth: newChild.date_of_birth,
+          gender: newChild.gender,
+          class_group_id: newChild.class_group_id || null,
+          parent_id: parentData.id,
+          medical_notes: newChild.medical_notes,
+          status: 'Active'
+        }]);
+
+      if (childError) throw childError;
+
+      toast.success('Child registered successfully');
+      setIsRegisterModalOpen(false);
+      setNewChild({
+        first_name: '',
+        last_name: '',
+        date_of_birth: '',
+        gender: 'Male',
+        class_group_id: '',
+        parent_name: '',
+        parent_phone: '',
+        parent_relationship: '',
+        emergency_contact: '',
+        medical_notes: ''
+      });
+      fetchData();
+    } catch (error) {
+      console.error('Registration error:', error);
+      toast.error('Failed to register child');
     }
   };
 
@@ -351,13 +426,21 @@ ALTER TABLE public.check_in_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.incident_reports ENABLE ROW LEVEL SECURITY;
 
 -- Create Permissive Policies
+DROP POLICY IF EXISTS "Allow all" ON public.parents;
 CREATE POLICY "Allow all" ON public.parents FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all" ON public.class_groups;
 CREATE POLICY "Allow all" ON public.class_groups FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all" ON public.children;
 CREATE POLICY "Allow all" ON public.children FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all" ON public.teachers;
 CREATE POLICY "Allow all" ON public.teachers FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all" ON public.children_services;
 CREATE POLICY "Allow all" ON public.children_services FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all" ON public.children_attendance;
 CREATE POLICY "Allow all" ON public.children_attendance FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all" ON public.check_in_logs;
 CREATE POLICY "Allow all" ON public.check_in_logs FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all" ON public.incident_reports;
 CREATE POLICY "Allow all" ON public.incident_reports FOR ALL USING (true) WITH CHECK (true);
 
 -- Refresh schema
@@ -931,33 +1014,59 @@ NOTIFY pgrst, 'reload schema';`;
                 </button>
               </div>
               <div className="p-10 max-h-[70vh] overflow-y-auto scrollbar-hide">
-                <form className="space-y-8">
+                <form onSubmit={handleRegisterChild} className="space-y-8">
                   <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">First Name</label>
-                      <input required className="w-full px-7 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:border-fh-green transition-all" />
+                      <input 
+                        required 
+                        className="w-full px-7 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:border-fh-green transition-all" 
+                        value={newChild.first_name}
+                        onChange={(e) => setNewChild({...newChild, first_name: e.target.value})}
+                      />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Last Name</label>
-                      <input required className="w-full px-7 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:border-fh-green transition-all" />
+                      <input 
+                        required 
+                        className="w-full px-7 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:border-fh-green transition-all" 
+                        value={newChild.last_name}
+                        onChange={(e) => setNewChild({...newChild, last_name: e.target.value})}
+                      />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Date of Birth</label>
-                      <input type="date" required className="w-full px-7 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:border-fh-green transition-all" />
+                      <input 
+                        type="date" 
+                        required 
+                        className="w-full px-7 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:border-fh-green transition-all" 
+                        value={newChild.date_of_birth}
+                        onChange={(e) => setNewChild({...newChild, date_of_birth: e.target.value})}
+                      />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Gender</label>
-                      <select required className="w-full px-7 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:border-fh-green transition-all">
-                        <option>Male</option>
-                        <option>Female</option>
+                      <select 
+                        required 
+                        className="w-full px-7 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:border-fh-green transition-all"
+                        value={newChild.gender}
+                        onChange={(e) => setNewChild({...newChild, gender: e.target.value})}
+                      >
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
                       </select>
                     </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Class Assignment</label>
-                    <select required className="w-full px-7 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:border-fh-green transition-all">
+                    <select 
+                      required 
+                      className="w-full px-7 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:border-fh-green transition-all"
+                      value={newChild.class_group_id}
+                      onChange={(e) => setNewChild({...newChild, class_group_id: e.target.value})}
+                    >
                       <option value="">Select Class...</option>
                       {classGroups.map(cg => <option key={cg.id} value={cg.id}>{cg.group_name}</option>)}
                     </select>
@@ -967,19 +1076,61 @@ NOTIFY pgrst, 'reload schema';`;
                     <div className="space-y-6">
                       <div className="space-y-2">
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Full Name</label>
-                        <input required className="w-full px-7 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:border-fh-green transition-all" />
+                        <input 
+                          required 
+                          className="w-full px-7 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:border-fh-green transition-all" 
+                          value={newChild.parent_name}
+                          onChange={(e) => setNewChild({...newChild, parent_name: e.target.value})}
+                        />
                       </div>
                       <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Phone Number</label>
-                          <input required className="w-full px-7 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:border-fh-green transition-all" />
+                          <input 
+                            required 
+                            className="w-full px-7 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:border-fh-green transition-all" 
+                            value={newChild.parent_phone}
+                            onChange={(e) => setNewChild({...newChild, parent_phone: e.target.value})}
+                          />
                         </div>
                         <div className="space-y-2">
                           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Relationship</label>
-                          <input required className="w-full px-7 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:border-fh-green transition-all" placeholder="e.g. Mother" />
+                          <input 
+                            required 
+                            className="w-full px-7 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:border-fh-green transition-all" 
+                            placeholder="e.g. Mother" 
+                            value={newChild.parent_relationship}
+                            onChange={(e) => setNewChild({...newChild, parent_relationship: e.target.value})}
+                          />
                         </div>
                       </div>
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Emergency Contact (Name & Phone)</label>
+                        <input 
+                          required 
+                          className="w-full px-7 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:border-fh-green transition-all" 
+                          placeholder="e.g. John Doe - 08012345678" 
+                          value={newChild.emergency_contact}
+                          onChange={(e) => setNewChild({...newChild, emergency_contact: e.target.value})}
+                        />
+                      </div>
                     </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Medical Notes / Allergies</label>
+                    <textarea 
+                      className="w-full px-7 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 outline-none focus:border-fh-green transition-all h-24 resize-none" 
+                      value={newChild.medical_notes}
+                      onChange={(e) => setNewChild({...newChild, medical_notes: e.target.value})}
+                    />
+                  </div>
+                  <div className="pt-6">
+                    <button 
+                      type="submit"
+                      className="w-full py-5 bg-fh-green text-fh-gold font-black uppercase tracking-[0.3em] rounded-2xl shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-95 transition-all"
+                    >
+                      Complete Registration
+                    </button>
                   </div>
                 </form>
               </div>

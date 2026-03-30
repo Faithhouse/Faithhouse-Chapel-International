@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { UserProfile, UserRole } from '../types';
+import { toast } from 'sonner';
 
 interface AdminUsersViewProps {
   userProfile: UserProfile | null;
@@ -64,11 +65,14 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({ userProfile }) => {
       if (error) {
         if (error.code === '42P01' || error.message.includes('not found') || (error as any).status === 404 || error.message.includes('schema cache') || error.message.includes('Could not find')) {
           setTableMissing(true);
+          toast.error("Profiles table missing. Please run the SQL script.");
           return;
         }
         throw error;
       }
       setUsers(data || []);
+      setTableMissing(false);
+      if (isLoading) toast.success("Profiles synced successfully!");
     } catch (err: any) {
       console.error('Directory access failed:', err);
       if (err.message?.includes('schema cache')) setTableMissing(true);
@@ -267,7 +271,13 @@ CREATE POLICY "Allow all for staff" ON public.profiles FOR ALL USING (true) WITH
           </pre>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button onClick={() => copyToClipboard(repairSQL, 'SQL Script')} className="px-10 py-5 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all">Copy Script</button>
-            <button onClick={fetchUsers} className="px-16 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl active:scale-95 transition-all border-b-4 border-black">Verify Restoration</button>
+            <button 
+              onClick={fetchUsers} 
+              disabled={isLoading}
+              className="px-16 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl active:scale-95 transition-all border-b-4 border-black disabled:opacity-50"
+            >
+              {isLoading ? "Verifying..." : "Verify Restoration"}
+            </button>
           </div>
         </div>
       </div>

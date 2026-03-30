@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { UserProfile, ScheduledMessage, Branch, Member, AttendanceEvent } from '../types';
+import { toast } from 'sonner';
 
 interface WhatsAppSchedulerViewProps {
   userProfile: UserProfile | null;
@@ -63,10 +64,16 @@ const WhatsAppSchedulerView: React.FC<WhatsAppSchedulerViewProps> = ({ userProfi
         .order('scheduled_for', { ascending: true });
 
       if (error) {
-        if (error.code === '42P01' || error.code === '42703') setTableMissing(true);
-        else throw error;
+        if (error.code === '42P01' || error.code === '42703' || error.code === 'PGRST205') {
+          setTableMissing(true);
+          toast.error("WhatsApp tables missing. Please run the SQL script.");
+        } else {
+          throw error;
+        }
       } else {
         setSchedules(sData || []);
+        setTableMissing(false);
+        if (isLoading) toast.success("WhatsApp Hub synced successfully!");
       }
     } catch (err) {
       console.error('WhatsApp Sync Error:', err);
@@ -195,7 +202,13 @@ CREATE POLICY "Allow all" ON public.whatsapp_schedules FOR ALL USING (true) WITH
           <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-4">WhatsApp Hub Reset</h2>
           <p className="text-slate-500 mb-10 text-[11px] font-bold uppercase tracking-widest max-w-lg mx-auto">The communication system is not ready. Run the script to authorize.</p>
           <pre className="bg-slate-950 text-fh-gold p-8 rounded-[2rem] text-[10px] font-mono text-left h-48 overflow-y-auto mb-10 shadow-2xl border border-white/5 scrollbar-hide">{repairSQL}</pre>
-          <button onClick={fetchInitialData} className="px-16 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-xl border-b-4 border-black active:scale-95">Verify Protocols</button>
+          <button 
+            onClick={fetchInitialData} 
+            disabled={isLoading}
+            className="px-16 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-xl border-b-4 border-black active:scale-95 disabled:opacity-50"
+          >
+            {isLoading ? "Verifying..." : "Verify Protocols"}
+          </button>
         </div>
       </div>
     );

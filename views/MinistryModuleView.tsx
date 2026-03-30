@@ -24,11 +24,7 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
   const [activeTab, setActiveTab] = useState<'Overview' | 'Leadership' | 'Personnel' | 'Operations' | 'Resources' | 'Attendance' | 'Visitation' | 'Curriculum'>('Overview');
 
   useEffect(() => {
-    if (ministryName === 'Follow-up & Visitation' || ministryName === 'Follow-up & Visitation ministry') {
-      setActiveTab('Visitation');
-    } else {
-      setActiveTab('Overview');
-    }
+    setActiveTab('Overview');
   }, [ministryName]);
 
   const [ministryMembers, setMinistryMembers] = useState<Member[]>([]);
@@ -108,7 +104,16 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
 
   useEffect(() => {
     fetchPersonnel();
-    if (ministryName === 'Children Ministry' || ministryName === 'Teens Ministry' || ministryName === 'Young Adult Ministry') {
+    // Fetch attendance for all ministries that have an overview using it
+    const ministriesWithAttendance = [
+      'Children Ministry', 'Teens Ministry', 'Young Adult Ministry', 
+      'Evangelism', 'Evangelism Ministry', 'Evangelism Department',
+      'Media Ministry', 'Media Department',
+      'Prayer Ministry', 'Prayer Department',
+      'Ushering Ministry', 'Ushering Department',
+      'Protocol Ministry', 'Protocol Department'
+    ];
+    if (ministriesWithAttendance.some(m => ministryName.toLowerCase().includes(m.toLowerCase()))) {
       fetchDeptAttendance();
     }
   }, [ministryName]);
@@ -584,31 +589,29 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
 
     switch (ministryName) {
       case 'Media Ministry':
+      case 'Media Department':
         return { ...base, icon: 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z', accent: 'text-cyan-500', bg: 'bg-cyan-50', opsLabel: 'Technical Asset Management', kpi1: 'Stream Uptime', kpi1Val: '99.8%' };
       case 'Music Ministry':
+      case 'Music Department':
         return { ...base, icon: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3', accent: 'text-indigo-600', bg: 'bg-indigo-50', opsLabel: 'Ensemble Control', kpi1: 'Vocal Ensemble', kpi1Val: '32' };
       case 'Prayer Ministry':
+      case 'Prayer Department':
         return { ...base, icon: 'M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z', accent: 'text-rose-600', bg: 'bg-rose-50', opsLabel: 'Intercession Registry', kpi1: 'Active Warriors', kpi1Val: '18' };
       case 'Ushering Ministry':
+      case 'Ushering Department':
         return { ...base, icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z', accent: 'text-amber-600', bg: 'bg-amber-50', opsLabel: 'Hospitality Protocols', kpi1: 'Ushers on Duty', kpi1Val: '12' };
       case 'Evangelism':
       case 'Evangelism Ministry':
+      case 'Evangelism Department':
         return { ...base, icon: 'M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z', accent: 'text-emerald-600', bg: 'bg-emerald-50', opsLabel: 'Souls Tracking', kpi1: 'Fields Active', kpi1Val: '4' };
       case 'Children Ministry':
         return { ...base, icon: 'M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', accent: 'text-orange-500', bg: 'bg-orange-50', opsLabel: 'Curriculum Oversight', kpi1: 'Educators', kpi1Val: '10' };
-    case 'Follow-up & Visitation':
-    case 'Follow-up & Visitation ministry':
-      return {
-        ...base,
-        icon: <Footprints className="w-6 h-6" />,
-        accent: 'text-indigo-600',
-        bg: 'bg-indigo-50',
-        opsLabel: 'Outreach & Visitation Protocols',
-        kpi1: 'Active Cases', kpi1Val: '24',
-        kpi2: 'Follow-up Rate', kpi2Val: '88%',
-        kpi3: 'Retention', kpi3Val: '76%'
-      };
+      case 'Teens Ministry':
+        return { ...base, icon: <Zap className="w-6 h-6" />, accent: 'text-blue-600', bg: 'bg-blue-50', opsLabel: 'Youth Engagement', kpi1: 'Teens Active', kpi1Val: '45' };
+      case 'Young Adult Ministry':
+        return { ...base, icon: <TrendingUp className="w-6 h-6" />, accent: 'text-violet-600', bg: 'bg-violet-50', opsLabel: 'Career & Spiritual Growth', kpi1: 'Young Adults', kpi1Val: '38' };
       case 'Protocol Ministry':
+      case 'Protocol Department':
         return { ...base, icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z', accent: 'text-slate-900', bg: 'bg-slate-100', opsLabel: 'Security & Order', kpi1: 'Officers', kpi1Val: '8' };
       default:
         return base;
@@ -1503,10 +1506,29 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
           { label: 'Primary Section', time: 'Sun 9AM', status: 'Active' },
           { label: 'Teachers Briefing', time: 'Sat 5PM', status: 'Ready' },
         ]
+      },
+      'Teens Ministry': {
+        title: 'Youth Activities',
+        icon: Zap,
+        items: [
+          { label: 'Bible Quiz Prep', time: 'Sat 4PM', status: 'Active' },
+          { label: 'Youth Hangout', time: 'Fri 6PM', status: 'Planned' },
+          { label: 'Sunday Service', time: 'Sun 9AM', status: 'Ready' },
+        ]
+      },
+      'Young Adult Ministry': {
+        title: 'Career & Growth',
+        icon: TrendingUp,
+        items: [
+          { label: 'Career Seminar', time: 'Sat 10AM', status: 'Confirmed' },
+          { label: 'Relationship Talk', time: 'Fri 7PM', status: 'Planned' },
+          { label: 'Sunday Service', time: 'Sun 11AM', status: 'Ready' },
+        ]
       }
     };
 
-    const config = opsData[ministryName] || { title: 'Operational Tasks', icon: Settings, items: [] };
+    const config = Object.entries(opsData).find(([key]) => ministryName.toLowerCase().includes(key.toLowerCase()))?.[1] 
+      || { title: 'Operational Tasks', icon: Settings, items: [] };
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in duration-700">
@@ -1591,7 +1613,8 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
       ]
     };
 
-    const currentResources = resData[ministryName] || [];
+    const currentResources = Object.entries(resData).find(([key]) => ministryName.toLowerCase().includes(key.toLowerCase()))?.[1] 
+      || [];
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in duration-700">
@@ -1696,21 +1719,21 @@ NOTIFY pgrst, 'reload schema';`;
       {activeTab === 'Operations' && ministryName === 'Music Ministry' && renderMusicMinistryOperations()}
       {activeTab === 'Resources' && ministryName === 'Music Ministry' && renderMusicMinistryResources()}
 
-      {activeTab === 'Operations' && ['Evangelism', 'Evangelism Ministry', 'Media Ministry', 'Prayer Ministry', 'Ushering Ministry', 'Protocol Ministry', 'Children Ministry'].includes(ministryName) && renderGenericOperations()}
-      {activeTab === 'Resources' && ['Evangelism', 'Evangelism Ministry', 'Media Ministry', 'Prayer Ministry', 'Ushering Ministry', 'Protocol Ministry', 'Children Ministry'].includes(ministryName) && renderGenericResources()}
+      {activeTab === 'Operations' && ['Evangelism', 'Media', 'Prayer', 'Ushering', 'Protocol', 'Children'].some(m => ministryName.toLowerCase().includes(m.toLowerCase())) && renderGenericOperations()}
+      {activeTab === 'Resources' && ['Evangelism', 'Media', 'Prayer', 'Ushering', 'Protocol', 'Children'].some(m => ministryName.toLowerCase().includes(m.toLowerCase())) && renderGenericResources()}
 
-      {activeTab === 'Overview' && (ministryName === 'Evangelism' || ministryName === 'Evangelism Ministry') && renderEvangelismOverview()}
-      {activeTab === 'Overview' && ministryName === 'Media Ministry' && renderMediaOverview()}
-      {activeTab === 'Overview' && ministryName === 'Prayer Ministry' && renderPrayerOverview()}
-      {activeTab === 'Overview' && (ministryName === 'Ushering Ministry' || ministryName === 'Protocol Ministry') && renderUsheringOverview()}
-      {activeTab === 'Overview' && ministryName === 'Children Ministry' && renderChildrenOverview()}
-      {activeTab === 'Overview' && (ministryName === 'Follow-up & Visitation' || ministryName === 'Follow-up & Visitation ministry') && renderFollowUpOverview()}
-      {activeTab === 'Visitation' && (ministryName === 'Follow-up & Visitation' || ministryName === 'Follow-up & Visitation ministry') && <VisitationView userProfile={userProfile} />}
-      {activeTab === 'Leadership' && ministryName === 'Children Ministry' && renderDeptLeadership()}
-      {activeTab === 'Attendance' && ministryName === 'Children Ministry' && renderDeptAttendance()}
-      {activeTab === 'Curriculum' && ministryName === 'Children Ministry' && renderChildrenCurriculum()}
+      {activeTab === 'Overview' && (ministryName.toLowerCase().includes('evangelism')) && renderEvangelismOverview()}
+      {activeTab === 'Overview' && (ministryName.toLowerCase().includes('media')) && renderMediaOverview()}
+      {activeTab === 'Overview' && (ministryName.toLowerCase().includes('prayer')) && renderPrayerOverview()}
+      {activeTab === 'Overview' && (ministryName.toLowerCase().includes('ushering') || ministryName.toLowerCase().includes('protocol')) && renderUsheringOverview()}
+      {activeTab === 'Overview' && (ministryName.toLowerCase().includes('children')) && renderChildrenOverview()}
+      {activeTab === 'Overview' && (ministryName.toLowerCase().includes('follow-up') || ministryName.toLowerCase().includes('visitation')) && renderFollowUpOverview()}
+      {activeTab === 'Visitation' && (ministryName.toLowerCase().includes('follow-up') || ministryName.toLowerCase().includes('visitation')) && <VisitationView userProfile={userProfile} />}
+      {activeTab === 'Leadership' && (ministryName.toLowerCase().includes('children')) && renderDeptLeadership()}
+      {activeTab === 'Attendance' && (ministryName.toLowerCase().includes('children')) && renderDeptAttendance()}
+      {activeTab === 'Curriculum' && (ministryName.toLowerCase().includes('children')) && renderChildrenCurriculum()}
 
-      {activeTab === 'Overview' && !['Music Ministry', 'Evangelism', 'Evangelism Ministry', 'Media Ministry', 'Prayer Ministry', 'Ushering Ministry', 'Protocol Ministry', 'Children Ministry', 'Follow-up & Visitation', 'Follow-up & Visitation ministry'].includes(ministryName) && (
+      {activeTab === 'Overview' && !['Music Ministry', 'Evangelism', 'Media', 'Prayer', 'Ushering', 'Protocol', 'Children', 'Follow-up', 'Visitation'].some(m => ministryName.toLowerCase().includes(m.toLowerCase())) && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 animate-in fade-in duration-500">
            <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm text-center">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">{cfg.kpi1}</p>

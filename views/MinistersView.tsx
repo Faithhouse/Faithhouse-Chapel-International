@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Minister, Member, Branch, UserProfile } from '../types';
+import { toast } from 'sonner';
 
 // Added interface for MinistersView props
 interface MinistersViewProps {
@@ -44,10 +45,14 @@ const MinistersView: React.FC<MinistersViewProps> = ({ userProfile }) => {
         .order('created_at', { ascending: false });
 
       if (error) {
-        if (error.code === '42P01') setTableMissing(true);
+        if (error.code === '42P01' || error.code === 'PGRST205') {
+          setTableMissing(true);
+          toast.error("Ministers table missing. Please run the SQL script.");
+        }
       } else {
         setTableMissing(false);
         setMinisters(ministerData || []);
+        if (isLoading) toast.success("Ministers synced successfully!");
       }
     } catch (err) {
       console.error(err);
@@ -105,7 +110,13 @@ create policy "Allow all on ministers" on ministers for all using (true) with ch
         <pre className="bg-slate-900 text-slate-300 p-6 rounded-xl text-left text-[10px] mb-6 overflow-x-auto leading-relaxed shadow-inner">
           {repairSQL}
         </pre>
-        <button onClick={fetchData} className="px-10 py-3 bg-indigo-600 text-white rounded-xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all">Refresh Database</button>
+        <button 
+          onClick={fetchData} 
+          disabled={isLoading}
+          className="px-10 py-3 bg-indigo-600 text-white rounded-xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all disabled:opacity-50"
+        >
+          {isLoading ? "Verifying..." : "Refresh Database"}
+        </button>
       </div>
     );
   }

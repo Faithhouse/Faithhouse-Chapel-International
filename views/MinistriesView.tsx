@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Ministry, UserProfile, NavItem } from '../types';
+import { toast } from 'sonner';
 
 interface MinistriesViewProps {
   userProfile: UserProfile | null;
@@ -47,16 +48,19 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ userProfile, setActiveI
       const { data, error } = await query;
 
       if (error) {
-        if (error.code === '42P01' || error.message.includes("does not exist") || error.message.includes('schema cache') || error.message.includes('Could not find')) {
+        if (error.code === '42P01' || error.code === 'PGRST205' || error.message.includes("does not exist") || error.message.includes('schema cache') || error.message.includes('Could not find')) {
           setTableError("Table Missing");
+          toast.error("Ministries table missing. Please run the SQL script.");
         } else if (error.code === 'PGRST204' || error.message.includes("column")) {
           setTableError("Schema Mismatch");
+          toast.error("Database schema mismatch. Please check your tables.");
         } else {
           console.error('Fetch error:', error);
         }
       } else {
         setTableError(null);
         setMinistries(data || []);
+        if (isLoading) toast.success("Ministries synced successfully!");
       }
     } catch (err) {
       console.error('System error:', err);
@@ -187,7 +191,13 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
           </pre>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button onClick={() => { navigator.clipboard.writeText(repairSQL); alert('SQL Script copied.'); }} className="px-10 py-5 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all">Copy Script</button>
-            <button onClick={fetchMinistries} className="px-16 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl active:scale-95 transition-all border-b-4 border-black">Verify Restoration</button>
+            <button 
+              onClick={fetchMinistries} 
+              disabled={isLoading}
+              className="px-16 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl active:scale-95 transition-all border-b-4 border-black disabled:opacity-50"
+            >
+              {isLoading ? "Verifying..." : "Verify Restoration"}
+            </button>
           </div>
         </div>
       </div>

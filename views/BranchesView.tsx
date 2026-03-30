@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Branch, UserProfile } from '../types';
+import { toast } from 'sonner';
 
 // Added interface for BranchesView props
 interface BranchesViewProps {
@@ -47,17 +48,20 @@ const BranchesView: React.FC<BranchesViewProps> = ({ userProfile }) => {
 
       if (error) {
         // Handle table or column errors
-        if (error.code === '42P01' || error.message.includes("does not exist") || error.message.includes('schema cache') || error.message.includes('Could not find')) {
+        if (error.code === '42P01' || error.code === 'PGRST205' || error.message.includes("does not exist") || error.message.includes('schema cache') || error.message.includes('Could not find')) {
           setTableError("Table Missing");
+          toast.error("Branches table missing. Please run the SQL script.");
         } else if (error.code === 'PGRST204' || error.message.includes("column")) {
           setTableError("Schema Mismatch (Columns Missing)");
+          toast.error("Database schema mismatch. Please check your tables.");
         } else {
           console.error('Fetch error:', error);
-          alert(`Error fetching branches: ${error.message}`);
+          toast.error(`Error fetching branches: ${error.message}`);
         }
       } else {
         setTableError(null);
         setBranches(data || []);
+        if (isLoading) toast.success("Branches synced successfully!");
       }
     } catch (err) {
       console.error('System error:', err);
@@ -198,9 +202,10 @@ create policy "Allow all actions for now" on branches for all using (true) with 
           </div>
           <button 
             onClick={fetchBranches} 
-            className="mt-8 px-10 py-3.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 active:scale-95"
+            disabled={isLoading}
+            className="mt-8 px-10 py-3.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 active:scale-95 disabled:opacity-50"
           >
-            I've run the SQL, Sync Now
+            {isLoading ? "Syncing..." : "I've run the SQL, Sync Now"}
           </button>
         </div>
       </div>

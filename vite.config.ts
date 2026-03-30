@@ -39,6 +39,9 @@ export default defineConfig(({ mode }) => {
                 purpose: 'maskable'
               }
             ]
+          },
+          workbox: {
+            maximumFileSizeToCacheInBytes: 4000000,
           }
         })
       ],
@@ -52,7 +55,7 @@ export default defineConfig(({ mode }) => {
         }
       },
       build: {
-        chunkSizeWarningLimit: 2000,
+        chunkSizeWarningLimit: 3000,
       }
     };
 });

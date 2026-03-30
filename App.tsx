@@ -21,6 +21,9 @@ import CellMeetingView from './views/CellMeetingView';
 import WhatsAppSchedulerView from './views/WhatsAppSchedulerView';
 import MemberProfileView from './views/MemberProfileView';
 import ChildrenMinistryView from './views/ChildrenMinistryView';
+import TeensMinistryView from './views/TeensMinistryView';
+import YouthChildrenDashboardView from './views/YouthChildrenDashboardView';
+import FollowUpVisitationView from './views/FollowUpVisitationView';
 import PlaceholderView from './views/PlaceholderView';
 import Auth from './components/Auth';
 import RecurringTasksView from './views/RecurringTasksView';
@@ -319,7 +322,7 @@ const App: React.FC = () => {
           if (!['System Administrator', 'Head Pastor', 'Follow-up & Visitation', 'Evangelism Ministry', 'General Office'].includes(role || '')) {
             return <SecurityDenied module={activeItem} />;
           }
-          return <MinistryModuleView ministryName="Follow-up & Visitation" userProfile={profile} />;
+          return <FollowUpVisitationView />;
         
         case 'WhatsApp Hub':
           if (!canAccess(role, 'LEVEL_3')) return <SecurityDenied module={activeItem} />;
@@ -345,24 +348,30 @@ const App: React.FC = () => {
           );
 
         // Dynamic Ministry Modules
-        case 'Media Ministry':
-        case 'Music Ministry':
-        case 'Ushering Ministry':
-        case 'Protocol Ministry':
-        case 'Prayer Ministry':
-        case 'Evangelism':
-        case 'Evangelism Ministry':
+        case 'Youth & Children Ministry':
+          return <YouthChildrenDashboardView userProfile={profile} />;
+
         case 'Children Ministry':
         case 'Children\'s Ministry':
           return <ChildrenMinistryView userProfile={profile} />;
 
         case 'Teens Ministry':
-        case 'Young Adult Ministry':
-        case 'Follow-up & Visitation':
-          const normalizedMinistryName = ['Teens Ministry', 'Young Adult Ministry'].includes(activeItem) 
-            ? 'Children Ministry' 
-            : activeItem;
-          return <MinistryModuleView ministryName={normalizedMinistryName} userProfile={profile} />;
+          return <TeensMinistryView userProfile={profile} />;
+
+        case 'Media Ministry':
+        case 'Media Department':
+        case 'Music Ministry':
+        case 'Music Department':
+        case 'Ushering Ministry':
+        case 'Ushering Department':
+        case 'Protocol Ministry':
+        case 'Protocol Department':
+        case 'Prayer Ministry':
+        case 'Prayer Department':
+        case 'Evangelism':
+        case 'Evangelism Ministry':
+        case 'Evangelism Department':
+          return <MinistryModuleView ministryName={activeItem} userProfile={profile} />;
 
         default:
           return <PlaceholderView title={activeItem} />;
