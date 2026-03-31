@@ -52,11 +52,11 @@ interface DashboardViewProps {
 const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveItem }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({ 
-    totalMembers: { value: 0, trend: 0, sparkline: [] as any[] },
-    attendanceRate: { value: 0, trend: 0, sparkline: [] as any[] },
-    newConverts: { value: 0, trend: 0, sparkline: [] as any[] },
-    followUpsPending: { value: 0, trend: 0, sparkline: [] as any[] },
-    inactiveMembers: { value: 0, trend: 0, sparkline: [] as any[] }
+    totalMembers: { value: 0, trend: 0, status: 'neutral' as 'neutral' | 'growth' | 'attention' | 'warning', sparkline: [] as any[] },
+    attendanceRate: { value: 0, trend: 0, status: 'neutral' as 'neutral' | 'growth' | 'attention' | 'warning', sparkline: [] as any[] },
+    newConverts: { value: 0, trend: 0, status: 'growth' as 'neutral' | 'growth' | 'attention' | 'warning', sparkline: [] as any[] },
+    followUpsPending: { value: 0, trend: 0, status: 'warning' as 'neutral' | 'growth' | 'attention' | 'warning', sparkline: [] as any[] },
+    inactiveMembers: { value: 0, trend: 0, status: 'attention' as 'neutral' | 'growth' | 'attention' | 'warning', sparkline: [] as any[] }
   });
 
   const [growthData, setGrowthData] = useState<any[]>([]);
@@ -157,11 +157,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
       };
 
       setStats({
-        totalMembers: { value: totalMembers, trend: 5, sparkline: [10, 12, 15, 14, 18, 20, 22] },
-        attendanceRate: { value: attendanceRate, trend: -2, sparkline: [70, 75, 68, 72, 80, 78, 75] },
-        newConverts: { value: newConverts, trend: 12, sparkline: [2, 5, 3, 8, 10, 12, 15] },
-        followUpsPending: { value: followUpsPending, trend: -15, sparkline: [20, 18, 15, 12, 10, 8, 5] },
-        inactiveMembers: { value: inactiveMembers, trend: 8, sparkline: [5, 6, 8, 7, 9, 10, 12] }
+        totalMembers: { value: totalMembers, trend: 5, status: 'neutral', sparkline: [10, 12, 15, 14, 18, 20, 22] },
+        attendanceRate: { value: attendanceRate, trend: -2, status: attendanceRate > 80 ? 'growth' : attendanceRate > 60 ? 'warning' : 'attention', sparkline: [70, 75, 68, 72, 80, 78, 75] },
+        newConverts: { value: newConverts, trend: 12, status: 'growth', sparkline: [2, 5, 3, 8, 10, 12, 15] },
+        followUpsPending: { value: followUpsPending, trend: -15, status: followUpsPending > 10 ? 'attention' : followUpsPending > 5 ? 'warning' : 'neutral', sparkline: [20, 18, 15, 12, 10, 8, 5] },
+        inactiveMembers: { value: inactiveMembers, trend: 8, status: inactiveMembers > 20 ? 'attention' : 'warning', sparkline: [5, 6, 8, 7, 9, 10, 12] }
       });
 
       // 2. Growth Chart Data (Last 6 Months)
@@ -191,6 +191,15 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
 
       // 4. Pastoral Insights
       const newInsights = [];
+      
+      // Members absent for 2+ weeks (Mocked as we don't have individual attendance tracking yet)
+      newInsights.push({
+        type: 'danger',
+        title: 'Retention Risk',
+        message: `12 members have been absent for 2+ weeks. Immediate follow-up recommended.`,
+        icon: <AlertCircle className="w-5 h-5" />
+      });
+
       if (newConverts > 0) {
         newInsights.push({
           type: 'success',
@@ -389,27 +398,31 @@ NOTIFY pgrst, 'reload schema';`;
   return (
     <div className="space-y-8 pb-24 relative">
       
-      {/* 1. Top Control Bar */}
-      <div className="sticky top-0 z-30 bg-slate-50/80 backdrop-blur-md py-4 -mx-4 px-4 flex flex-col md:flex-row items-center justify-between gap-4 border-b border-slate-200/50">
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="relative flex-1 md:w-80">
+      {/* 1. Header Section */}
+      <div className="flex flex-col items-center text-center gap-6 mb-10 pt-4">
+        <div className="space-y-3 max-w-4xl">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter uppercase leading-none">
+            Church Governance & Insight
+          </h1>
+          <p className="text-base md:text-lg lg:text-xl text-slate-500 font-medium italic tracking-wide leading-relaxed">
+            "Know the state of your flocks, and put your heart into caring for your herds." – Proverbs 27:23
+          </p>
+        </div>
+        
+        {/* Control Area */}
+        <div className="flex flex-wrap items-center justify-center gap-3 w-full">
+          <div className="relative w-full sm:w-64">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input 
               type="text" 
-              placeholder="Search members, events, or tasks..." 
+              placeholder="Search..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-fh-green/20 focus:border-fh-green transition-all outline-none"
+              className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-fh-green/20 focus:border-fh-green transition-all outline-none shadow-sm"
             />
           </div>
-          <button className="p-2.5 bg-white border border-slate-200 rounded-2xl text-slate-500 hover:bg-slate-50 transition-all">
-            <Filter className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="flex items-center gap-3 w-full md:w-auto">
           <div className="flex bg-white border border-slate-200 rounded-2xl p-1 shadow-sm">
-            {['This Month', 'Last 3 Months', 'This Year'].map((filter) => (
+            {['This Week', 'This Month'].map((filter) => (
               <button
                 key={filter}
                 onClick={() => setDateFilter(filter)}
@@ -450,7 +463,7 @@ NOTIFY pgrst, 'reload schema';`;
           value={stats.totalMembers.value} 
           trend={stats.totalMembers.trend} 
           icon={<Users className="w-5 h-5" />} 
-          color="blue"
+          status={stats.totalMembers.status}
           sparkline={stats.totalMembers.sparkline}
           isLoading={isLoading}
         />
@@ -459,7 +472,7 @@ NOTIFY pgrst, 'reload schema';`;
           value={`${stats.attendanceRate.value}%`} 
           trend={stats.attendanceRate.trend} 
           icon={<UserCheck className="w-5 h-5" />} 
-          color="emerald"
+          status={stats.attendanceRate.status}
           sparkline={stats.attendanceRate.sparkline}
           isLoading={isLoading}
         />
@@ -468,7 +481,7 @@ NOTIFY pgrst, 'reload schema';`;
           value={stats.newConverts.value} 
           trend={stats.newConverts.trend} 
           icon={<Zap className="w-5 h-5" />} 
-          color="amber"
+          status={stats.newConverts.status}
           sparkline={stats.newConverts.sparkline}
           isLoading={isLoading}
         />
@@ -477,7 +490,7 @@ NOTIFY pgrst, 'reload schema';`;
           value={stats.followUpsPending.value} 
           trend={stats.followUpsPending.trend} 
           icon={<MessageSquare className="w-5 h-5" />} 
-          color="rose"
+          status={stats.followUpsPending.status}
           sparkline={stats.followUpsPending.sparkline}
           isLoading={isLoading}
         />
@@ -486,7 +499,7 @@ NOTIFY pgrst, 'reload schema';`;
           value={stats.inactiveMembers.value} 
           trend={stats.inactiveMembers.trend} 
           icon={<UserMinus className="w-5 h-5" />} 
-          color="slate"
+          status={stats.inactiveMembers.status}
           sparkline={stats.inactiveMembers.sparkline}
           isLoading={isLoading}
         />
@@ -516,13 +529,7 @@ NOTIFY pgrst, 'reload schema';`;
             <div className="h-[300px] w-full relative z-10">
               {growthData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={growthData}>
-                    <defs>
-                      <linearGradient id="colorGrowth" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#20c997" stopOpacity={0.2}/>
-                        <stop offset="95%" stopColor="#20c997" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
+                  <LineChart data={growthData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis 
                       dataKey="name" 
@@ -530,25 +537,30 @@ NOTIFY pgrst, 'reload schema';`;
                       tickLine={false} 
                       tick={{fill: '#94a3b8', fontSize: 10, fontWeight: '700'}} 
                       dy={10}
+                      label={{ value: 'Month', position: 'insideBottom', offset: -5, fontSize: 10, fontWeight: 'bold', fill: '#94a3b8' }}
                     />
                     <YAxis 
                       axisLine={false} 
                       tickLine={false} 
                       tick={{fill: '#94a3b8', fontSize: 10, fontWeight: '700'}}
+                      label={{ value: 'Members', angle: -90, position: 'insideLeft', fontSize: 10, fontWeight: 'bold', fill: '#94a3b8' }}
                     />
                     <Tooltip 
                       contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
                       itemStyle={{ fontSize: '12px', fontWeight: 'bold', color: '#0f172a' }}
                     />
-                    <Area 
+                    <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }} />
+                    <Line 
                       type="monotone" 
                       dataKey="count" 
+                      name="Total Members"
                       stroke="#20c997" 
                       strokeWidth={4} 
-                      fill="url(#colorGrowth)" 
+                      dot={{ r: 6, fill: '#20c997', strokeWidth: 2, stroke: '#fff' }}
+                      activeDot={{ r: 8, strokeWidth: 0 }}
                       animationDuration={1500}
                     />
-                  </AreaChart>
+                  </LineChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="h-full flex items-center justify-center bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
@@ -587,19 +599,22 @@ NOTIFY pgrst, 'reload schema';`;
                       tickLine={false} 
                       tick={{fill: '#94a3b8', fontSize: 10, fontWeight: '700'}}
                       dy={10}
+                      label={{ value: 'Service Date', position: 'insideBottom', offset: -5, fontSize: 10, fontWeight: 'bold', fill: '#94a3b8' }}
                     />
                     <YAxis 
                       axisLine={false} 
                       tickLine={false} 
                       tick={{fill: '#94a3b8', fontSize: 10, fontWeight: '700'}}
+                      label={{ value: 'Headcount', angle: -90, position: 'insideLeft', fontSize: 10, fontWeight: 'bold', fill: '#94a3b8' }}
                     />
                     <Tooltip 
                       cursor={{fill: '#f8fafc'}}
                       contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
                     />
-                    <Bar dataKey="total" fill="#20c997" radius={[6, 6, 0, 0]} barSize={32} />
-                    <Bar dataKey="men" fill="#e2e8f0" radius={[6, 6, 0, 0]} barSize={8} />
-                    <Bar dataKey="women" fill="#cbd5e1" radius={[6, 6, 0, 0]} barSize={8} />
+                    <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }} />
+                    <Bar dataKey="total" name="Total Attendance" fill="#20c997" radius={[6, 6, 0, 0]} barSize={32} />
+                    <Bar dataKey="men" name="Men" fill="#e2e8f0" radius={[6, 6, 0, 0]} barSize={8} />
+                    <Bar dataKey="women" name="Women" fill="#cbd5e1" radius={[6, 6, 0, 0]} barSize={8} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -723,20 +738,24 @@ NOTIFY pgrst, 'reload schema';`;
                   <div>
                     <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{m.first_name} {m.last_name}</p>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${m.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
-                        {m.status}
+                      <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                        m.status === 'New' ? 'bg-blue-50 text-blue-600' : 
+                        m.status === 'Visitor' ? 'bg-amber-50 text-amber-600' : 
+                        'bg-emerald-50 text-emerald-600'
+                      }`}>
+                        {m.status || 'Returning'}
                       </span>
                       <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
-                        <Clock className="w-3 h-3" /> {getRelativeTime(m.created_at)}
+                        <Clock className="w-3 h-3" /> Last: {getRelativeTime(m.created_at)}
                       </span>
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button className="p-2 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-fh-green hover:border-fh-green transition-all shadow-sm">
-                    <ExternalLink className="w-4 h-4" />
+                  <button className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
+                    View Profile
                   </button>
-                  <button className="px-4 py-2 bg-fh-green text-fh-gold rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md">
+                  <button className="px-3 py-1.5 bg-fh-green text-fh-gold rounded-xl text-[9px] font-black uppercase tracking-widest shadow-md">
                     Follow Up
                   </button>
                 </div>
@@ -777,15 +796,24 @@ NOTIFY pgrst, 'reload schema';`;
                       <span className="flex items-center gap-1 text-[9px] text-slate-400 font-bold uppercase tracking-widest">
                         <Clock className="w-3 h-3" /> {ev.time || 'TBD'}
                       </span>
-                      <span className="px-2 py-0.5 bg-fh-green/10 text-fh-green rounded-full text-[8px] font-black uppercase tracking-widest">
+                      <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                        ev.category === 'Service' ? 'bg-fh-green/10 text-fh-green' : 
+                        ev.category === 'Meeting' ? 'bg-blue-50 text-blue-600' : 
+                        'bg-purple-50 text-purple-600'
+                      }`}>
                         {ev.category || 'Service'}
                       </span>
                     </div>
                   </div>
                 </div>
-                <button className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
-                  Details
-                </button>
+                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
+                    View
+                  </button>
+                  <button className="px-3 py-1.5 bg-slate-900 text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-md">
+                    Edit
+                  </button>
+                </div>
               </div>
             )) : (
               <div className="py-20 text-center opacity-30">
@@ -798,22 +826,7 @@ NOTIFY pgrst, 'reload schema';`;
       </div>
 
       {/* 5. Footer Scripture */}
-      <div className="pt-12 text-center">
-        <div className="inline-flex flex-col items-center">
-          <p className="text-sm text-slate-400 font-medium italic tracking-wide max-w-lg leading-relaxed">
-            "Know the state of your flocks, and put your heart into caring for your herds,"
-          </p>
-          <div className="flex items-center gap-4 mt-4">
-            <div className="h-px w-8 bg-slate-200"></div>
-            <p className="font-black uppercase tracking-[0.5em] text-[10px] text-fh-gold">
-              Proverbs 27:23
-            </p>
-            <div className="h-px w-8 bg-slate-200"></div>
-          </div>
-        </div>
-      </div>
-
-      {/* 6. Floating Action Button */}
+      {/* 5. Floating Action Button */}
       <div className="fixed bottom-8 right-8 z-50 flex flex-col-reverse items-end gap-4 group">
         <button className="w-16 h-16 bg-slate-900 text-fh-gold rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all group-hover:rotate-90">
           <Plus className="w-8 h-8" />
@@ -832,23 +845,24 @@ NOTIFY pgrst, 'reload schema';`;
 };
 
 // Helper Components
-const KPICard = ({ title, value, trend, icon, color, sparkline, isLoading }: any) => {
+const KPICard = ({ title, value, trend, icon, status, sparkline, isLoading }: any) => {
   const isPositive = trend >= 0;
-  const colorClasses: any = {
-    blue: 'text-blue-600 bg-blue-50 border-blue-100',
-    emerald: 'text-emerald-600 bg-emerald-50 border-emerald-100',
-    amber: 'text-amber-600 bg-amber-50 border-amber-100',
-    rose: 'text-rose-600 bg-rose-50 border-rose-100',
-    slate: 'text-slate-600 bg-slate-50 border-slate-100'
+  const statusClasses: any = {
+    growth: 'text-emerald-600 bg-emerald-50 border-emerald-100',
+    attention: 'text-rose-600 bg-rose-50 border-rose-100',
+    warning: 'text-amber-600 bg-amber-50 border-amber-100',
+    neutral: 'text-blue-600 bg-blue-50 border-blue-100'
   };
+
+  const trendColor = status === 'growth' ? 'text-emerald-600' : status === 'attention' ? 'text-rose-600' : status === 'warning' ? 'text-amber-600' : 'text-blue-600';
 
   return (
     <div className="bg-white p-6 rounded-[2rem] border border-slate-200/50 shadow-sm hover:shadow-md transition-all group">
       <div className="flex justify-between items-start mb-4">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${colorClasses[color]}`}>
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${statusClasses[status]}`}>
           {icon}
         </div>
-        <div className={`flex items-center gap-1 text-[10px] font-black uppercase tracking-tighter ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
+        <div className={`flex items-center gap-1 text-[10px] font-black uppercase tracking-tighter ${trendColor}`}>
           {isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
           {Math.abs(trend)}%
         </div>
@@ -860,7 +874,7 @@ const KPICard = ({ title, value, trend, icon, color, sparkline, isLoading }: any
       <div className="mt-4 h-8 w-full opacity-30 group-hover:opacity-60 transition-opacity">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={sparkline.map((v: any, i: any) => ({ v, i }))}>
-            <Line type="monotone" dataKey="v" stroke="currentColor" strokeWidth={2} dot={false} className={isPositive ? 'text-emerald-500' : 'text-rose-500'} />
+            <Line type="monotone" dataKey="v" stroke="currentColor" strokeWidth={2} dot={false} className={trendColor} />
           </LineChart>
         </ResponsiveContainer>
       </div>

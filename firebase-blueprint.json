@@ -1,0 +1,46 @@
+
+{
+  "entities": {
+    "Member": {
+      "title": "Member",
+      "description": "A church member",
+      "type": "object",
+      "properties": {
+        "first_name": { "type": "string" },
+        "last_name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "branch_id": { "type": "string" },
+        "status": { "type": "string", "enum": ["Active", "Inactive", "Visitor", "Probation"] },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["first_name", "last_name", "branch_id", "status"]
+    },
+    "TitheRecord": {
+      "title": "Tithe Record",
+      "description": "A record of a tithe payment",
+      "type": "object",
+      "properties": {
+        "member_id": { "type": "string" },
+        "amount": { "type": "number" },
+        "payment_date": { "type": "string", "format": "date" },
+        "payment_method": { "type": "string", "enum": ["Cash", "Bank Transfer", "MoMo", "Cheque"] },
+        "service_type": { "type": "string" },
+        "recorded_by": { "type": "string" },
+        "notes": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["member_id", "amount", "payment_date", "payment_method", "recorded_by"]
+    }
+  },
+  "firestore": {
+    "/members/{memberId}": {
+      "schema": "Member",
+      "description": "Collection of church members"
+    },
+    "/tithe_records/{titheId}": {
+      "schema": "TitheRecord",
+      "description": "Collection of tithe payment records"
+    }
+  }
+}

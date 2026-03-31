@@ -24,6 +24,7 @@ import ChildrenMinistryView from './views/ChildrenMinistryView';
 import TeensMinistryView from './views/TeensMinistryView';
 import YouthChildrenDashboardView from './views/YouthChildrenDashboardView';
 import FollowUpVisitationView from './views/FollowUpVisitationView';
+import FounderView from './views/FounderView';
 import PlaceholderView from './views/PlaceholderView';
 import Auth from './components/Auth';
 import RecurringTasksView from './views/RecurringTasksView';
@@ -261,6 +262,12 @@ const App: React.FC = () => {
       switch (activeItem) {
         case 'Dashboard':
           return <DashboardView userProfile={profile} setActiveItem={handleSetActiveItem as any} />;
+        
+        case 'General Overseer':
+          if (!['System Administrator', 'General Overseer', 'Head Pastor', 'General Office'].includes(role || '')) {
+            return <SecurityDenied module={activeItem} />;
+          }
+          return <FounderView userProfile={profile} />;
         
         case 'Members':
           if (!canAccess(role, 'LEVEL_2')) return <SecurityDenied module={activeItem} />;

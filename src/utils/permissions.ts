@@ -3,10 +3,10 @@ import { UserRole } from '../../types';
 export type ClearanceLevel = 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4';
 
 export const CLEARANCE_LEVELS: Record<ClearanceLevel, UserRole[]> = {
-  LEVEL_4: ['System Administrator', 'General Office'],
-  LEVEL_3: ['System Administrator', 'Head Pastor', 'General Admin', 'Church Admin', 'Finance / Treasury', 'General Office'],
-  LEVEL_2: ['System Administrator', 'Head Pastor', 'General Admin', 'Evangelism Ministry', 'Music Ministry', 'Follow-up & Visitation', 'Ministry Head', 'General Office'],
-  LEVEL_1: ['System Administrator', 'Head Pastor', 'General Admin', 'Security & Facilities', 'Assistant', 'General Office'],
+  LEVEL_4: ['System Administrator', 'General Office', 'General Overseer'],
+  LEVEL_3: ['System Administrator', 'Head Pastor', 'General Admin', 'Church Admin', 'Finance / Treasury', 'General Office', 'General Overseer'],
+  LEVEL_2: ['System Administrator', 'Head Pastor', 'General Admin', 'Evangelism Ministry', 'Music Ministry', 'Follow-up & Visitation', 'Ministry Head', 'General Office', 'General Overseer'],
+  LEVEL_1: ['System Administrator', 'Head Pastor', 'General Admin', 'Security & Facilities', 'Assistant', 'General Office', 'General Overseer'],
 };
 
 /**
@@ -29,6 +29,8 @@ export const permissions = {
   canEditEvents: (role: UserRole | undefined) => canAccess(role, 'LEVEL_2'),
   canManageUsers: (role: UserRole | undefined) => canAccess(role, 'LEVEL_3'),
   isLeadership: (role: UserRole | undefined) => canAccess(role, 'LEVEL_3'),
+  isExecutive: (role: UserRole | undefined) => 
+    ['System Administrator', 'General Overseer', 'Head Pastor', 'General Office'].includes(role || ''),
   isFollowUpTeam: (role: UserRole | undefined) => 
     ['System Administrator', 'Head Pastor', 'Follow-up & Visitation', 'Evangelism Ministry', 'General Office'].includes(role || ''),
 };

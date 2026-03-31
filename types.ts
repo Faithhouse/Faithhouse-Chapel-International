@@ -12,6 +12,7 @@ export type UserRole =
   | 'General Office'
   | 'Assistant'
   | 'Ministry Head'
+  | 'General Overseer'
   | 'Church Admin';
 
 export interface UserProfile {
@@ -26,6 +27,7 @@ export interface UserProfile {
 
 export type NavItem = 
   | 'Dashboard'
+  | 'General Overseer'
   | 'Members'
   | 'Attendance'
   | 'Ministers & Pastors'
@@ -78,17 +80,33 @@ export interface Member {
   branches?: Branch;
 }
 
+export interface WhatsAppConfig {
+  id?: number;
+  api_url: string;
+  access_token: string;
+  sender_number: string;
+  provider: string;
+  status: 'Connected' | 'Unlinked' | 'Error';
+  updated_at?: string;
+}
+
 export interface ScheduledMessage {
   id: string;
   title: string;
   message: string;
   scheduled_for: string;
-  target_group: 'All' | 'Visitors' | 'Active Members' | 'Ministry Heads' | 'Absentees';
+  target_group: 'All' | 'Visitors' | 'Active Members' | 'Ministry Heads' | 'Absentees' | 'First Timers' | 'Children Ministry' | 'Teens Ministry' | 'Custom Selection';
+  message_type: 'Text' | 'Image' | 'Announcement' | 'Reminder';
   branch_context?: string;
   event_id?: string;
-  status: 'Pending' | 'Sent' | 'Failed' | 'Draft';
+  status: 'Pending' | 'Sent' | 'Failed' | 'Draft' | 'Scheduled' | 'Queued';
+  sent_count: number;
+  delivered_count: number;
+  read_count: number;
+  failed_count: number;
   created_at?: string;
   created_by?: string;
+  media_url?: string;
 }
 
 export interface VisitationRecord {

@@ -3,7 +3,52 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../supabaseClient';
 import { UserProfile, FinancialRecord, Member, TitheRecord } from '../types';
-import { Users, Plus, Search, Calendar as CalendarIcon, DollarSign, CreditCard, Smartphone, Hash, FileText, CheckCircle2, Trash2, Edit3, Filter, Printer, X } from 'lucide-react';
+import { Users, Plus, Search, Calendar as CalendarIcon, DollarSign, CreditCard, Smartphone, Hash, FileText, CheckCircle2, Trash2, Edit3, Filter, Printer, X, Lock } from 'lucide-react';
+import { db, auth } from '../firebase';
+import { 
+  collection, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  getDocs, 
+  onSnapshot, 
+  query, 
+  orderBy,
+  serverTimestamp
+} from 'firebase/firestore';
+import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from 'firebase/auth';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: any;
+}
+
+const handleFirestoreError = (error: unknown, operationType: OperationType, path: string | null) => {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  toast.error(`Database Error: ${errInfo.error}`);
+  throw new Error(JSON.stringify(errInfo));
+};
 import FinancialReportDocument from '../src/components/FinancialReportDocument';
 
 interface FinanceViewProps {
@@ -22,6 +67,53 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
   const [accessKey, setAccessKey] = useState('');
   const [tableMissing, setTableMissing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setIsAuthReady(true);
+      } else {
+        setIsAuthReady(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleFirebaseLogin = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (error: any) {
+      console.error("Firebase Login Error:", error);
+      if (error.code === 'auth/admin-restricted-operation') {
+        toast.error("Google Login is restricted. Please contact your administrator to enable it in the Firebase Console.");
+      } else {
+        toast.error(`Login Failed: ${error.message}`);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthReady) {
+      const q = query(collection(db, 'tithe_records'), orderBy('payment_date', 'desc'));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const records = snapshot.docs.map(doc => {
+          const data = doc.data();
+          const member = members.find(m => m.id === data.member_id);
+          return {
+            id: doc.id,
+            ...data,
+            members: member
+          };
+        }) as TitheRecord[];
+        setTitheRecords(records);
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'tithe_records');
+      });
+      return () => unsubscribe();
+    }
+  }, [isAuthReady, members]);
   const [searchTerm, setSearchTerm] = useState('');
   const [memberSearch, setMemberSearch] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('All Months');
@@ -172,8 +264,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
 
   const [tableStatus, setTableStatus] = useState<Record<string, boolean>>({
     members: false,
-    financial_records: false,
-    tithe_entries: false
+    financial_records: false
   });
 
   const fetchInitialData = async () => {
@@ -181,7 +272,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
     setLastError('');
     let currentMissing: string[] = [];
     let errorLog: string[] = [];
-    let status = { members: false, financial_records: false, tithe_entries: false };
+    let status = { members: false, financial_records: false };
     
     await new Promise(resolve => setTimeout(resolve, 1500));
 
@@ -192,40 +283,25 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
       else if (finErr.code === '42P01' || finErr.code === 'PGRST205') currentMissing.push('financial_records');
       else errorLog.push(`financial_records: ${finErr.message}`);
 
-      // 2. Check Tithe Records
-      const { error: titheErr } = await supabase.from('tithe_entries').select('id').limit(1);
-      if (!titheErr) status.tithe_entries = true;
-      else if (titheErr.code === '42P01' || titheErr.code === 'PGRST205') currentMissing.push('tithe_entries');
-      else errorLog.push(`tithe_entries: ${titheErr.message}`);
-
-      // 3. Check Members
+      // 2. Check Members
       const { error: memErr } = await supabase.from('members').select('id').limit(1);
       if (!memErr) status.members = true;
       else if (memErr.code === '42P01' || memErr.code === 'PGRST205') currentMissing.push('members');
       else errorLog.push(`members: ${memErr.message}`);
 
-      // 4. Check Relationship (PGRST200)
-      const { error: relErr } = await supabase.from('tithe_entries').select('*, members(id)').limit(1);
-      let relationshipBroken = false;
-      if (relErr && relErr.code === 'PGRST200') {
-        relationshipBroken = true;
-        errorLog.push('PGRST200: Missing relationship between tithe_entries and members');
-      }
-
       setTableStatus(status);
-      const isMissing = !status.members || !status.financial_records || !status.tithe_entries || relationshipBroken;
+      const isMissing = !status.members || !status.financial_records;
       setTableMissing(isMissing);
       setMissingTables(currentMissing);
 
       if (isMissing) {
-        setLastError(errorLog.length > 0 ? errorLog.join(' | ') : 'Some tables or relationships are still missing from the schema cache.');
+        setLastError(errorLog.length > 0 ? errorLog.join(' | ') : 'Some tables are still missing from the schema cache.');
         return;
       }
 
       // Fetch full data if everything is okay
-      const [finRes, titheRes, memRes] = await Promise.all([
+      const [finRes, memRes] = await Promise.all([
         supabase.from('financial_records').select('*').order('service_date', { ascending: false }),
-        supabase.from('tithe_entries').select('*, members(*)').order('payment_date', { ascending: false }),
         supabase.from('members').select('*').order('first_name')
       ]);
 
@@ -234,37 +310,22 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
         errorLog.push(`financial_records: ${finRes.error.message}`);
       }
       
-      if (titheRes.error) {
-        console.error('Tithe Records Fetch Error:', titheRes.error);
-        
-        // Fallback fetch without join if the join fails (common schema cache issue)
-        if (titheRes.error.code === 'PGRST200' || titheRes.status === 400) {
-          const { data: fallbackData, error: fallbackErr } = await supabase
-            .from('tithe_entries')
-            .select('*')
-            .order('payment_date', { ascending: false });
-          
-          if (!fallbackErr) {
-            // Manual join: enrich tithe records with member data from the members state
-            const enrichedData = (fallbackData || []).map(tithe => {
-              const member = memRes.data?.find(m => m.id === tithe.member_id);
-              return {
-                ...tithe,
-                members: member || undefined
-              };
-            });
-            
-            setTitheRecords(enrichedData);
-            // If fallback worked, we don't treat it as a blocking error, but we log it
-            console.warn('Tithe fetch fallback successful (with manual member join)');
-          } else {
-            errorLog.push(`tithe_entries: ${titheRes.error.message}`);
-          }
-        } else {
-          errorLog.push(`tithe_entries: ${titheRes.error.message}`);
+      if (isAuthReady) {
+        try {
+          const titheSnap = await getDocs(query(collection(db, 'tithe_records'), orderBy('payment_date', 'desc')));
+          const tithes = titheSnap.docs.map(doc => {
+            const data = doc.data();
+            const member = memRes.data?.find(m => m.id === data.member_id);
+            return {
+              id: doc.id,
+              ...data,
+              members: member
+            };
+          }) as TitheRecord[];
+          setTitheRecords(tithes);
+        } catch (err) {
+          handleFirestoreError(err, OperationType.LIST, 'tithe_records');
         }
-      } else {
-        setTitheRecords(titheRes.data || []);
       }
 
       if (memRes.error) {
@@ -346,25 +407,18 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
     
     setIsSubmitting(true);
     try {
+      const payload = {
+        ...titheFormData,
+        recorded_by: auth.currentUser?.uid || 'system',
+        created_at: serverTimestamp(),
+      };
+
       if (isEditingTithe && editingTitheId) {
-        const { error } = await supabase
-          .from('tithe_entries')
-          .update({
-            ...titheFormData,
-            recorded_by: userProfile?.id
-          })
-          .eq('id', editingTitheId);
-        
-        if (error) throw error;
-        toast.success("Tithe updated successfully.");
+        await updateDoc(doc(db, 'tithe_records', editingTitheId), payload);
+        toast.success('Tithe record updated successfully');
       } else {
-        const { error } = await supabase.from('tithe_entries').insert([{
-          ...titheFormData,
-          recorded_by: userProfile?.id
-        }]);
-        
-        if (error) throw error;
-        toast.success("Tithe recorded successfully.");
+        await addDoc(collection(db, 'tithe_records'), payload);
+        toast.success('Tithe record finalized successfully');
       }
       
       setIsTitheModalOpen(false);
@@ -378,14 +432,8 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
         service_type: 'Prophetic Word Service',
         notes: ''
       });
-      fetchInitialData();
-    } catch (err: any) {
-      if (err.code === 'PGRST205' || err.message?.includes('schema cache') || err.message?.includes('not found') || err.message?.includes('Could not find')) {
-        setTableMissing(true);
-        setIsTitheModalOpen(false);
-      } else {
-        toast.error("Error: " + err.message);
-      }
+    } catch (error) {
+      handleFirestoreError(error, isEditingTithe ? OperationType.UPDATE : OperationType.CREATE, 'tithe_records');
     } finally {
       setIsSubmitting(false);
     }
@@ -410,18 +458,12 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
     
     setIsSubmitting(true);
     try {
-      const { error } = await supabase
-        .from('tithe_entries')
-        .delete()
-        .eq('id', titheToDelete);
-      
-      if (error) throw error;
+      await deleteDoc(doc(db, 'tithe_records', titheToDelete));
+      toast.success('Tithe record deleted successfully');
       setIsDeleteConfirmOpen(false);
       setTitheToDelete(null);
-      toast.success("Tithe record deleted successfully.");
-      fetchInitialData();
-    } catch (err: any) {
-      toast.error("Error deleting record: " + err.message);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `tithe_records/${titheToDelete}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -676,7 +718,26 @@ NOTIFY pgrst, 'reload schema';`;
         </button>
       </div>
 
-      {activeTab === 'Ledger' ? (
+      {!isAuthReady && (
+        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[3.5rem] border border-slate-100 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="w-20 h-20 bg-fh-gold/10 rounded-[2.5rem] flex items-center justify-center mb-6">
+            <Lock className="w-10 h-10 text-fh-gold" />
+          </div>
+          <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-2">Firebase Connection Required</h3>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest max-w-xs text-center mb-8">
+            To access tithe records and financial insights, please connect your account to the secure database.
+          </p>
+          <button 
+            onClick={handleFirebaseLogin}
+            className="px-10 py-5 bg-fh-green text-fh-gold rounded-[1.75rem] font-black uppercase text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all flex items-center gap-3"
+          >
+            <Smartphone className="w-4 h-4" />
+            Connect via Google
+          </button>
+        </div>
+      )}
+
+      {isAuthReady && activeTab === 'Ledger' ? (
         <>
           {/* 2. Visual KPI Summary (Matches Dashboard Colors) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -812,7 +873,80 @@ NOTIFY pgrst, 'reload schema';`;
           </div>
 
           <div className="space-y-12">
-            {Object.keys(groupedTithes).length > 0 ? Object.entries(groupedTithes).map(([month, tithes]) => (
+            {selectedMonth !== 'All Months' ? (
+              <div className="cms-card bg-white rounded-[3.5rem] overflow-hidden border-none shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="p-10 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
+                   <div className="space-y-1">
+                     <h3 className="text-sm font-black text-fh-green uppercase tracking-widest leading-none">Tithe Reference Session</h3>
+                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{selectedMonth}</p>
+                   </div>
+                   <div className="flex items-center gap-4">
+                     <span className="px-5 py-1.5 bg-white border border-slate-200 rounded-full text-[9px] font-black text-fh-green uppercase shadow-sm flex items-center gap-2">
+                       <CheckCircle2 className="w-3 h-3 text-fh-gold" />
+                       Official Record
+                     </span>
+                   </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] border-b border-slate-100">
+                      <tr>
+                        <th className="px-10 py-6">Member Name</th>
+                        <th className="px-10 py-6">Payment Date</th>
+                        <th className="px-10 py-6">Amount</th>
+                        <th className="px-10 py-6">Method</th>
+                        <th className="px-10 py-6">Service</th>
+                        <th className="px-10 py-6 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {filteredTithes.length > 0 ? filteredTithes.map(tithe => (
+                        <tr key={tithe.id} className="hover:bg-slate-50 transition-all group text-xs">
+                          <td className="px-10 py-6">
+                            <div className="flex items-center gap-4">
+                              <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
+                                <Users className="w-4 h-4 text-slate-400" />
+                              </div>
+                              <p className="font-black text-slate-800 uppercase tracking-tight">
+                                {tithe.members ? `${tithe.members.first_name} ${tithe.members.last_name}` : `Member ID: ${tithe.member_id.substring(0, 8)}...`}
+                              </p>
+                            </div>
+                          </td>
+                          <td className="px-10 py-6">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                              {new Date(tithe.payment_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                            </p>
+                          </td>
+                          <td className="px-10 py-6">
+                            <p className="text-sm font-black text-fh-green">{formatGHS(tithe.amount)}</p>
+                          </td>
+                          <td className="px-10 py-6">
+                            <span className="px-3 py-1 bg-slate-100 text-slate-600 text-[8px] font-black uppercase rounded-lg border border-slate-200">
+                              {tithe.payment_method}
+                            </span>
+                          </td>
+                          <td className="px-10 py-6">
+                            <p className="text-[10px] font-black text-slate-600 uppercase">{tithe.service_type}</p>
+                          </td>
+                          <td className="px-10 py-6 text-right">
+                            <div className="flex justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                              <button onClick={() => handleEditTithe(tithe)} className="p-2 text-slate-400 hover:text-fh-gold transition-colors"><Edit3 className="w-4 h-4" /></button>
+                              <button onClick={() => { setTitheToDelete(tithe.id); setIsDeleteConfirmOpen(true); }} className="p-2 text-slate-400 hover:text-rose-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      )) : (
+                        <tr>
+                          <td colSpan={6} className="px-10 py-20 text-center text-slate-300 font-black uppercase tracking-[0.5em] text-[10px]">
+                            No records found for this period
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : Object.keys(groupedTithes).length > 0 ? Object.entries(groupedTithes).map(([month, tithes]) => (
               <div key={month} className="space-y-6">
                 <div className="flex items-center gap-6">
                   <div className="h-px flex-1 bg-slate-100"></div>
