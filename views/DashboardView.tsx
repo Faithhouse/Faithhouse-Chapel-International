@@ -15,7 +15,7 @@ import {
   Line
 } from 'recharts';
 import { supabase } from '../supabaseClient';
-import { UserProfile, NavItem } from '../types';
+import { UserProfile, NavItem, Member } from '../types';
 import { permissions } from '../src/utils/permissions';
 import { toast } from 'sonner';
 import { 
@@ -40,7 +40,10 @@ import {
   Activity,
   Zap,
   CheckCircle2,
-  ExternalLink
+  ExternalLink,
+  DollarSign,
+  Gift,
+  Heart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -64,6 +67,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
   const [recentMembers, setRecentMembers] = useState<any[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
   const [todayTasks, setTodayTasks] = useState<any[]>([]);
+  const [upcomingBirthdays, setUpcomingBirthdays] = useState<Member[]>([]);
+  const [upcomingAnniversaries, setUpcomingAnniversaries] = useState<Member[]>([]);
+  const [financialTrends, setFinancialTrends] = useState<any[]>([]);
   const [insights, setInsights] = useState<any[]>([]);
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -125,6 +131,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
 
       const { data: tasks, error: tErr } = await supabase.from('task_instances').select('*').eq('due_date', todayStr).order('status', { ascending: false });
       if (tErr && tErr.code !== '42P01' && tErr.code !== 'PGRST205') throw tErr;
+
+      const { data: finance, error: finErr } = await supabase.from('financial_records').select('*').order('service_date', { ascending: true });
+      if (finErr && finErr.code !== '42P01' && finErr.code !== 'PGRST205') throw finErr;
 
       // Processing Data
       const members = allMembers || [];
@@ -221,6 +230,58 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
       setRecentMembers(members.slice(0, 4));
       setUpcomingEvents(events || []);
       setTodayTasks(tasks || []);
+
+      // 5. Birthdays & Anniversaries (Next 7 Days)
+      const upcomingBdays = members.filter(m => {
+        if (!m.dob) return false;
+        const bday = new Date(m.dob);
+        const today = new Date();
+        const next7Days = new Date();
+        next7Days.setDate(today.getDate() + 7);
+        
+        const bdayThisYear = new Date(today.getFullYear(), bday.getMonth(), bday.getDate());
+        // Handle year wrap around if today is late December
+        if (bdayThisYear < today && bday.getMonth() === 0 && today.getMonth() === 11) {
+          bdayThisYear.setFullYear(today.getFullYear() + 1);
+        }
+        return bdayThisYear >= today && bdayThisYear <= next7Days;
+      }).sort((a, b) => {
+        const dateA = new Date(a.dob!);
+        const dateB = new Date(b.dob!);
+        return dateA.getMonth() - dateB.getMonth() || dateA.getDate() - dateB.getDate();
+      });
+      setUpcomingBirthdays(upcomingBdays);
+
+      const upcomingAnnis = members.filter(m => {
+        if (!m.wedding_anniversary) return false;
+        const anni = new Date(m.wedding_anniversary);
+        const today = new Date();
+        const next7Days = new Date();
+        next7Days.setDate(today.getDate() + 7);
+        
+        const anniThisYear = new Date(today.getFullYear(), anni.getMonth(), anni.getDate());
+        if (anniThisYear < today && anni.getMonth() === 0 && today.getMonth() === 11) {
+          anniThisYear.setFullYear(today.getFullYear() + 1);
+        }
+        return anniThisYear >= today && anniThisYear <= next7Days;
+      }).sort((a, b) => {
+        const dateA = new Date(a.wedding_anniversary!);
+        const dateB = new Date(b.wedding_anniversary!);
+        return dateA.getMonth() - dateB.getMonth() || dateA.getDate() - dateB.getDate();
+      });
+      setUpcomingAnniversaries(upcomingAnnis);
+
+      // 6. Financial Trends
+      if (finance && finance.length > 0) {
+        const finData = finance.slice(-6).map(f => ({
+          name: new Date(f.service_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          tithes: Number(f.tithes || 0),
+          offerings: Number(f.offerings || 0),
+          total: Number(f.tithes || 0) + Number(f.offerings || 0) + Number(f.seed || 0) + Number(f.other_income || 0)
+        }));
+        setFinancialTrends(finData);
+      }
+
       setTableMissing(false);
       if (isLoading) toast.success("Dashboard data synced successfully!");
     } catch (err: any) {
@@ -277,6 +338,7 @@ CREATE TABLE IF NOT EXISTS public.members (
   phone TEXT,
   gender TEXT DEFAULT 'Male',
   dob DATE,
+  wedding_anniversary DATE,
   date_joined DATE,
   status TEXT DEFAULT 'Active',
   ministry TEXT DEFAULT 'N/A',
@@ -326,6 +388,20 @@ CREATE TABLE IF NOT EXISTS public.recurring_task_templates (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS public.events (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  date DATE NOT NULL,
+  time TIME NOT NULL,
+  location TEXT,
+  description TEXT,
+  branch_id UUID REFERENCES public.branches(id) ON DELETE CASCADE,
+  status TEXT DEFAULT 'Upcoming',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  UNIQUE(date, category, branch_id)
+);
+
 CREATE TABLE IF NOT EXISTS public.task_instances (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   template_id UUID REFERENCES public.recurring_task_templates(id) ON DELETE SET NULL,
@@ -340,11 +416,26 @@ CREATE TABLE IF NOT EXISTS public.task_instances (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS public.leadership (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  position TEXT NOT NULL,
+  category TEXT NOT NULL,
+  department TEXT,
+  email TEXT,
+  phone TEXT,
+  image_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
 ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.financial_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tithe_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.recurring_task_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.task_instances ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.leadership ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Allow all for staff" ON public.members;
 CREATE POLICY "Allow all for staff" ON public.members FOR ALL USING (true) WITH CHECK (true);
@@ -360,6 +451,12 @@ CREATE POLICY "Allow all for staff" ON public.recurring_task_templates FOR ALL U
 
 DROP POLICY IF EXISTS "Allow all for staff" ON public.task_instances;
 CREATE POLICY "Allow all for staff" ON public.task_instances FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all for staff" ON public.events;
+CREATE POLICY "Allow all for staff" ON public.events FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all for staff" ON public.leadership;
+CREATE POLICY "Allow all for staff" ON public.leadership FOR ALL USING (true) WITH CHECK (true);
 
 -- FORCE SCHEMA CACHE RELOAD
 NOTIFY pgrst, 'reload schema';`;
@@ -562,6 +659,54 @@ NOTIFY pgrst, 'reload schema';`;
             </div>
           </div>
 
+          {/* Financial Trends Chart */}
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200/50 shadow-sm relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+              <DollarSign className="w-32 h-32 text-fh-green" />
+            </div>
+            <div className="flex items-center justify-between mb-8 relative z-10">
+              <div>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Finance</h3>
+                <p className="text-xl font-black text-slate-900 tracking-tighter mt-1">Income Trends</p>
+              </div>
+              <button onClick={() => setActiveItem('Finance')} className="text-[10px] font-black text-fh-green uppercase tracking-widest flex items-center gap-1 hover:gap-2 transition-all">
+                Full Report <ChevronRight className="w-3 h-3" />
+              </button>
+            </div>
+            <div className="h-[300px] w-full relative z-10">
+              {financialTrends.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={financialTrends} id="dashboard-finance-bar">
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis 
+                      dataKey="name" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{fill: '#94a3b8', fontSize: 10, fontWeight: '700'}} 
+                      dy={10}
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{fill: '#94a3b8', fontSize: 10, fontWeight: '700'}}
+                    />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
+                      itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
+                    />
+                    <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }} />
+                    <Bar dataKey="tithes" name="Tithes" fill="#20c997" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="offerings" name="Offerings" fill="#ffd700" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">No Financial Data Available</p>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Attendance Overview Chart */}
           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200/50 shadow-sm">
             <div className="flex items-center justify-between mb-8">
@@ -701,6 +846,74 @@ NOTIFY pgrst, 'reload schema';`;
                    <button onClick={() => setActiveItem('Recurring Tasks')} className="mt-4 text-[9px] font-black text-fh-green uppercase tracking-widest hover:underline">Manage Tasks</button>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Birthday & Anniversary Tracker */}
+          <div className="bg-white rounded-[2.5rem] overflow-hidden border border-slate-200/50 shadow-sm">
+            <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <Gift className="w-4 h-4 text-fh-green" />
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Celebrations</h3>
+              </div>
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Next 7 Days</span>
+            </div>
+            <div className="p-6 space-y-6">
+              {/* Birthdays */}
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-1.5 h-1.5 rounded-full bg-fh-green"></div>
+                  <h4 className="text-[9px] font-black uppercase tracking-widest text-slate-400">Upcoming Birthdays</h4>
+                </div>
+                <div className="space-y-3">
+                  {upcomingBirthdays.length > 0 ? upcomingBirthdays.map((m, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-100 group hover:border-fh-green transition-all">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-[10px] font-black text-slate-900">
+                          {m.first_name[0]}{m.last_name?.[0]}
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black text-slate-800 uppercase tracking-tight">{m.first_name} {m.last_name}</p>
+                          <p className="text-[8px] font-bold text-fh-green uppercase">{new Date(m.dob!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                        </div>
+                      </div>
+                      <button className="p-2 bg-white rounded-lg border border-slate-200 text-slate-400 hover:text-fh-green hover:border-fh-green transition-all opacity-0 group-hover:opacity-100">
+                        <MessageSquare className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )) : (
+                    <p className="text-[9px] text-slate-300 font-bold uppercase text-center py-2">No birthdays this week</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Anniversaries */}
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-1.5 h-1.5 rounded-full bg-amber-400"></div>
+                  <h4 className="text-[9px] font-black uppercase tracking-widest text-slate-400">Wedding Anniversaries</h4>
+                </div>
+                <div className="space-y-3">
+                  {upcomingAnniversaries.length > 0 ? upcomingAnniversaries.map((m, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 rounded-2xl bg-amber-50/30 border border-amber-100 group hover:border-amber-400 transition-all">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-white border border-amber-200 flex items-center justify-center text-[10px] font-black text-slate-900">
+                          <Heart className="w-3 h-3 text-rose-400" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black text-slate-800 uppercase tracking-tight">{m.first_name} {m.last_name}</p>
+                          <p className="text-[8px] font-bold text-amber-600 uppercase">{new Date(m.wedding_anniversary!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                        </div>
+                      </div>
+                      <button className="p-2 bg-white rounded-lg border border-amber-200 text-amber-400 hover:text-amber-600 transition-all opacity-0 group-hover:opacity-100">
+                        <MessageSquare className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )) : (
+                    <p className="text-[9px] text-slate-300 font-bold uppercase text-center py-2">No anniversaries this week</p>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>

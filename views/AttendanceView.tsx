@@ -317,6 +317,8 @@ CREATE TABLE IF NOT EXISTS public.events (
   category TEXT NOT NULL,
   date DATE NOT NULL,
   time TIME NOT NULL,
+  location TEXT,
+  description TEXT,
   branch_id UUID REFERENCES public.branches(id) ON DELETE CASCADE,
   status TEXT DEFAULT 'Upcoming',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
@@ -360,8 +362,8 @@ ALTER TABLE public.attendance_records ENABLE ROW LEVEL SECURITY;
 -- 6. Create Permissive Policies
 DROP POLICY IF EXISTS "Allow all" ON public.branches;
 CREATE POLICY "Allow all" ON public.branches FOR ALL USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Allow all" ON public.events;
-CREATE POLICY "Allow all" ON public.events FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all for staff" ON public.events;
+CREATE POLICY "Allow all for staff" ON public.events FOR ALL USING (true) WITH CHECK (true);
 DROP POLICY IF EXISTS "Allow all" ON public.attendance_events;
 CREATE POLICY "Allow all" ON public.attendance_events FOR ALL USING (true) WITH CHECK (true);
 DROP POLICY IF EXISTS "Allow all" ON public.attendance_records;

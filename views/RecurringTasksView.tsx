@@ -100,6 +100,20 @@ const RecurringTasksView: React.FC<RecurringTasksViewProps> = ({ userProfile }) 
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS public.events (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  date DATE NOT NULL,
+  time TIME NOT NULL,
+  location TEXT,
+  description TEXT,
+  branch_id UUID REFERENCES public.branches(id) ON DELETE CASCADE,
+  status TEXT DEFAULT 'Upcoming',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  UNIQUE(date, category, branch_id)
+);
+
 CREATE TABLE IF NOT EXISTS public.task_instances (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   template_id UUID REFERENCES public.recurring_task_templates(id) ON DELETE SET NULL,
@@ -116,12 +130,16 @@ CREATE TABLE IF NOT EXISTS public.task_instances (
 
 ALTER TABLE public.recurring_task_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.task_instances ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Allow all for staff" ON public.recurring_task_templates;
 CREATE POLICY "Allow all for staff" ON public.recurring_task_templates FOR ALL USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow all for staff" ON public.task_instances;
-CREATE POLICY "Allow all for staff" ON public.task_instances FOR ALL USING (true) WITH CHECK (true);`;
+CREATE POLICY "Allow all for staff" ON public.task_instances FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all for staff" ON public.events;
+CREATE POLICY "Allow all for staff" ON public.events FOR ALL USING (true) WITH CHECK (true);`;
 
     return (
       <div className="max-w-4xl mx-auto py-12 px-4">

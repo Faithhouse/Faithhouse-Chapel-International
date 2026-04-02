@@ -67,6 +67,7 @@ export interface Member {
   phone?: string;
   gender?: string;
   dob?: string;
+  wedding_anniversary?: string;
   date_joined?: string;
   branch_id: string;
   status: 'Active' | 'Inactive' | 'Visitor' | 'Probation';

@@ -62,6 +62,7 @@ const MembersView: React.FC<MembersViewProps> = ({ userProfile, onSelectMember, 
     emergency_contact_phone: '',
     notify_birthday: true,
     notify_events: true,
+    wedding_anniversary: '',
     status: 'Active' as Member['status']
   });
 
@@ -89,6 +90,7 @@ const MembersView: React.FC<MembersViewProps> = ({ userProfile, onSelectMember, 
           emergency_contact_phone: memberToEdit.emergency_contact_phone || '',
           notify_birthday: memberToEdit.notify_birthday ?? true,
           notify_events: memberToEdit.notify_events ?? true,
+          wedding_anniversary: memberToEdit.wedding_anniversary || '',
           status: memberToEdit.status
         });
         setIsModalOpen(true);
@@ -409,7 +411,8 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
     setFormData({
       first_name: '', last_name: '', gender: 'Male', phone: '', email: '', gps_address: '', dob: '',
       date_joined: new Date().toISOString().split('T')[0], branch_id: branches[0]?.id || '', ministry: 'N/A',
-      emergency_contact_name: '', emergency_contact_phone: '', notify_birthday: true, notify_events: true, status
+      emergency_contact_name: '', emergency_contact_phone: '', notify_birthday: true, notify_events: true, 
+      wedding_anniversary: '', status
     });
   };
 
@@ -422,6 +425,7 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
         ...formData,
         email: formData.email.trim() || null,
         dob: formData.dob || null,
+        wedding_anniversary: formData.wedding_anniversary || null,
         date_joined: formData.date_joined || null,
         gps_address: formData.gps_address.trim() || null,
       };
@@ -1029,6 +1033,14 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
                  <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Gender</label><select name="gender" value={formData.gender} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner"><option>Male</option><option>Female</option></select></div>
                  <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Phone Relay</label><input name="phone" value={formData.phone} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
                  <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Email Entry</label><input type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                 <div className="space-y-1">
+                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Date of Birth</label>
+                   <input type="date" name="dob" value={formData.dob} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" />
+                 </div>
+                 <div className="space-y-1">
+                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Wedding Anniversary</label>
+                   <input type="date" name="wedding_anniversary" value={formData.wedding_anniversary} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" />
+                 </div>
                  <div className="space-y-1">
                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Branch Site *</label>
                    <select required name="branch_id" value={formData.branch_id} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner">

@@ -9,7 +9,6 @@ import MembersView from './views/MembersView';
 import AttendanceView from './views/AttendanceView';
 import EventsView from './views/EventsView';
 import FinanceView from './views/FinanceView';
-import MinistersView from './views/MinistersView';
 import BranchesView from './views/BranchesView';
 import MinistriesView from './views/MinistriesView';
 import LeadershipView from './views/LeadershipView';
@@ -360,10 +359,6 @@ const App: React.FC = () => {
           if (!canAccess(role, 'LEVEL_3')) return <SecurityDenied module={activeItem} />;
           return <FinanceView userProfile={profile} />;
         
-        case 'Ministers & Pastors':
-          if (!canAccess(role, 'LEVEL_3')) return <SecurityDenied module={activeItem} />;
-          return <LeadershipView userProfile={profile} initialTab="ministers" />;
-        
         case 'Branches':
           if (!canAccess(role, 'LEVEL_1')) return <SecurityDenied module={activeItem} />;
           return <BranchesView userProfile={profile} />;
@@ -371,7 +366,7 @@ const App: React.FC = () => {
         case 'Leadership Registry':
         case 'Church Leadership':
           if (!canAccess(role, 'LEVEL_2')) return <SecurityDenied module={activeItem} />;
-          return <LeadershipView userProfile={profile} initialTab="registry" />;
+          return <LeadershipView userProfile={profile} />;
         
         case 'Ministries':
           return <MinistriesView userProfile={profile} setActiveItem={handleSetActiveItem as any} />;
