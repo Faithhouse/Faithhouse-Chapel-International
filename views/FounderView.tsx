@@ -39,9 +39,10 @@ import { format } from 'date-fns';
 
 interface FounderViewProps {
   userProfile: UserProfile;
+  setActiveItem: (item: string) => void;
 }
 
-const FounderView: React.FC<FounderViewProps> = ({ userProfile }) => {
+const FounderView: React.FC<FounderViewProps> = ({ userProfile, setActiveItem }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({
     totalMembers: 0,
@@ -126,12 +127,7 @@ const FounderView: React.FC<FounderViewProps> = ({ userProfile }) => {
       }
 
       // 6. Branch Distribution (Mocked for now as we'd need a join or multiple queries)
-      const distData = [
-        { name: 'Main Branch', value: 45 },
-        { name: 'North Region', value: 25 },
-        { name: 'South Region', value: 20 },
-        { name: 'International', value: 10 },
-      ];
+      const distData: any[] = [];
 
       setStats({
         totalMembers: memberCount || 0,
@@ -140,7 +136,7 @@ const FounderView: React.FC<FounderViewProps> = ({ userProfile }) => {
         totalIncome: income,
         totalExpenses: expenses,
         avgAttendance: attendance && attendance.length > 0 ? Math.round(totalAtt / attendance.length) : 0,
-        membershipGrowth: 12.5, // Mocked trend
+        membershipGrowth: 0,
         financialHealth: income > 0 ? Math.round(((income - expenses) / income) * 100) : 0
       });
 
@@ -259,6 +255,7 @@ const FounderView: React.FC<FounderViewProps> = ({ userProfile }) => {
           icon={<Users className="w-6 h-6" />}
           color="emerald"
           isLoading={isLoading}
+          onClick={() => setActiveItem('Members')}
         />
         <ExecutiveCard 
           title="Total Branches" 
@@ -267,6 +264,7 @@ const FounderView: React.FC<FounderViewProps> = ({ userProfile }) => {
           icon={<MapPin className="w-6 h-6" />}
           color="blue"
           isLoading={isLoading}
+          onClick={() => setActiveItem('Branches')}
         />
         <ExecutiveCard 
           title="Net Surplus" 
@@ -275,6 +273,7 @@ const FounderView: React.FC<FounderViewProps> = ({ userProfile }) => {
           icon={<DollarSign className="w-6 h-6" />}
           color="amber"
           isLoading={isLoading}
+          onClick={() => setActiveItem('Finance')}
         />
         <ExecutiveCard 
           title="Avg. Attendance" 
@@ -283,6 +282,7 @@ const FounderView: React.FC<FounderViewProps> = ({ userProfile }) => {
           icon={<UserCheck className="w-6 h-6" />}
           color="purple"
           isLoading={isLoading}
+          onClick={() => setActiveItem('Attendance')}
         />
       </div>
 
@@ -310,7 +310,11 @@ const FounderView: React.FC<FounderViewProps> = ({ userProfile }) => {
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {ministryPerformance.map((min, idx) => (
-              <div key={idx} className="p-6 rounded-3xl bg-slate-50 border border-slate-100 hover:border-fh-gold/30 transition-all group relative overflow-hidden">
+              <div 
+                key={idx} 
+                onClick={() => setActiveItem(min.name)}
+                className="p-6 rounded-3xl bg-slate-50 border border-slate-100 hover:border-fh-gold/30 transition-all group relative overflow-hidden cursor-pointer"
+              >
                 <div className="absolute top-0 right-0 w-24 h-24 bg-fh-gold/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:bg-fh-gold/10 transition-colors"></div>
                 
                 <div className="flex justify-between items-start mb-4 relative z-10">
@@ -375,7 +379,7 @@ const FounderView: React.FC<FounderViewProps> = ({ userProfile }) => {
           </div>
           <div className="h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={financialData}>
+              <AreaChart data={financialData} id="founder-financial-chart">
                 <defs>
                   <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
@@ -403,7 +407,7 @@ const FounderView: React.FC<FounderViewProps> = ({ userProfile }) => {
           <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-8">Membership Distribution by Region</p>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
+              <PieChart id="founder-branch-pie">
                 <Pie
                   data={branchDistribution}
                   cx="50%"
@@ -449,7 +453,7 @@ const FounderView: React.FC<FounderViewProps> = ({ userProfile }) => {
           </div>
           <div className="h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={attendanceTrend}>
+              <BarChart data={attendanceTrend} id="founder-attendance-bar">
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 'bold'}} dy={10} />
                 <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 'bold'}} />
@@ -473,16 +477,19 @@ const FounderView: React.FC<FounderViewProps> = ({ userProfile }) => {
                 label="Ministerial Strength" 
                 value={`${stats.totalMinisters} Ordained Ministers`} 
                 description="Across all functional branches and regions."
+                onClick={() => setActiveItem('Ministers & Pastors')}
               />
               <SummaryItem 
                 label="Financial Efficiency" 
                 value={`${stats.financialHealth}% Retention`} 
                 description="Ratio of net surplus relative to total global income."
+                onClick={() => setActiveItem('Finance')}
               />
               <SummaryItem 
                 label="Expansion Index" 
                 value="Stable Growth" 
                 description="Consistent upward trend in both membership and branch planting."
+                onClick={() => setActiveItem('Branches')}
               />
             </div>
           </div>
@@ -536,7 +543,7 @@ const FounderView: React.FC<FounderViewProps> = ({ userProfile }) => {
   );
 };
 
-const ExecutiveCard = ({ title, value, trend, icon, color, isLoading }: any) => {
+const ExecutiveCard = ({ title, value, trend, icon, color, isLoading, onClick }: any) => {
   const colorMap: any = {
     emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
     blue: 'bg-blue-50 text-blue-600 border-blue-100',
@@ -545,9 +552,12 @@ const ExecutiveCard = ({ title, value, trend, icon, color, isLoading }: any) => 
   };
 
   return (
-    <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200/50 shadow-sm hover:shadow-md transition-all">
+    <div 
+      onClick={onClick}
+      className="bg-white p-8 rounded-[2.5rem] border border-slate-200/50 shadow-sm hover:shadow-md transition-all cursor-pointer group active:scale-95"
+    >
       <div className="flex items-center justify-between mb-6">
-        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${colorMap[color]}`}>
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 ${colorMap[color]}`}>
           {icon}
         </div>
         <div className="flex items-center gap-1 text-[10px] font-black text-emerald-600 uppercase tracking-tighter">
@@ -562,9 +572,12 @@ const ExecutiveCard = ({ title, value, trend, icon, color, isLoading }: any) => 
   );
 };
 
-const SummaryItem = ({ label, value, description }: any) => (
-  <div className="border-l-2 border-fh-gold/20 pl-6 py-1">
-    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-fh-gold/60">{label}</p>
+const SummaryItem = ({ label, value, description, onClick }: any) => (
+  <div 
+    onClick={onClick}
+    className="border-l-2 border-fh-gold/20 pl-6 py-1 cursor-pointer group hover:border-fh-gold transition-all active:translate-x-1"
+  >
+    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-fh-gold/60 group-hover:text-fh-gold transition-colors">{label}</p>
     <p className="text-lg font-black text-white mt-1">{value}</p>
     <p className="text-xs text-white/40 font-medium mt-1">{description}</p>
   </div>

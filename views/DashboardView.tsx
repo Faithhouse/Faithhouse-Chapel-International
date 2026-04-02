@@ -157,11 +157,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
       };
 
       setStats({
-        totalMembers: { value: totalMembers, trend: 5, status: 'neutral', sparkline: [10, 12, 15, 14, 18, 20, 22] },
-        attendanceRate: { value: attendanceRate, trend: -2, status: attendanceRate > 80 ? 'growth' : attendanceRate > 60 ? 'warning' : 'attention', sparkline: [70, 75, 68, 72, 80, 78, 75] },
-        newConverts: { value: newConverts, trend: 12, status: 'growth', sparkline: [2, 5, 3, 8, 10, 12, 15] },
-        followUpsPending: { value: followUpsPending, trend: -15, status: followUpsPending > 10 ? 'attention' : followUpsPending > 5 ? 'warning' : 'neutral', sparkline: [20, 18, 15, 12, 10, 8, 5] },
-        inactiveMembers: { value: inactiveMembers, trend: 8, status: inactiveMembers > 20 ? 'attention' : 'warning', sparkline: [5, 6, 8, 7, 9, 10, 12] }
+        totalMembers: { value: totalMembers, trend: 0, status: 'neutral', sparkline: [] },
+        attendanceRate: { value: attendanceRate, trend: 0, status: attendanceRate > 80 ? 'growth' : attendanceRate > 60 ? 'warning' : 'attention', sparkline: [] },
+        newConverts: { value: newConverts, trend: 0, status: 'growth', sparkline: [] },
+        followUpsPending: { value: followUpsPending, trend: 0, status: followUpsPending > 10 ? 'attention' : followUpsPending > 5 ? 'warning' : 'neutral', sparkline: [] },
+        inactiveMembers: { value: inactiveMembers, trend: 0, status: inactiveMembers > 20 ? 'attention' : 'warning', sparkline: [] }
       });
 
       // 2. Growth Chart Data (Last 6 Months)
@@ -192,14 +192,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
       // 4. Pastoral Insights
       const newInsights = [];
       
-      // Members absent for 2+ weeks (Mocked as we don't have individual attendance tracking yet)
-      newInsights.push({
-        type: 'danger',
-        title: 'Retention Risk',
-        message: `12 members have been absent for 2+ weeks. Immediate follow-up recommended.`,
-        icon: <AlertCircle className="w-5 h-5" />
-      });
-
       if (newConverts > 0) {
         newInsights.push({
           type: 'success',
@@ -529,7 +521,7 @@ NOTIFY pgrst, 'reload schema';`;
             <div className="h-[300px] w-full relative z-10">
               {growthData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={growthData}>
+                  <LineChart data={growthData} id="dashboard-growth-line">
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis 
                       dataKey="name" 
@@ -591,7 +583,7 @@ NOTIFY pgrst, 'reload schema';`;
             <div className="h-[300px] w-full">
               {attendanceData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={attendanceData}>
+                  <BarChart data={attendanceData} id="dashboard-attendance-bar">
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis 
                       dataKey="name" 

@@ -65,21 +65,16 @@ const YouthChildrenDashboardView: React.FC<YouthChildrenDashboardViewProps> = ({
 
       // Simulate some other stats
       setStats({
-        totalChildren: childrenCount || 42,
-        totalTeens: teensCount || 28,
-        attendanceToday: 56,
-        absenteesToday: 14,
-        followUpsPending: 8,
-        growthRate: 15.2
+        totalChildren: childrenCount || 0,
+        totalTeens: teensCount || 0,
+        attendanceToday: 0,
+        absenteesToday: 0,
+        followUpsPending: 0,
+        growthRate: 0
       });
 
       // Simulated chart data
-      setAttendanceData([
-        { name: 'Week 1', children: 38, teens: 22 },
-        { name: 'Week 2', children: 45, teens: 25 },
-        { name: 'Week 3', children: 40, teens: 20 },
-        { name: 'Week 4', children: 52, teens: 28 },
-      ]);
+      setAttendanceData([]);
 
     } catch (error) {
       console.error('Error fetching combined stats:', error);
@@ -347,7 +342,7 @@ NOTIFY pgrst, 'reload schema';`;
           </div>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={attendanceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <BarChart id="youth-attendance-bar" data={attendanceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis 
                   dataKey="name" 

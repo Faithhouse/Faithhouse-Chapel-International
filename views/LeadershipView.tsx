@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { UserProfile } from '../types';
+import MinistersView from './MinistersView';
+import { Users, ShieldCheck, UserPlus, Search, Filter } from 'lucide-react';
 
 interface Leader {
   id: string;
@@ -17,7 +19,8 @@ interface Leader {
 
 const categories = ['Pastor', 'Minister', 'Ministry Head/Deputy', 'Worker'] as const;
 
-const LeadershipView: React.FC<{ userProfile: UserProfile | null }> = ({ userProfile }) => {
+const LeadershipView: React.FC<{ userProfile: UserProfile | null; initialTab?: 'registry' | 'ministers' }> = ({ userProfile, initialTab = 'registry' }) => {
+  const [activeTab, setActiveTab] = useState<'registry' | 'ministers'>(initialTab);
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -105,100 +108,132 @@ const LeadershipView: React.FC<{ userProfile: UserProfile | null }> = ({ userPro
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {error && (
-        <div className="p-6 bg-rose-50 border-2 border-rose-100 rounded-[2rem] flex items-center gap-4 animate-in slide-in-from-top-4">
-          <div className="w-12 h-12 bg-rose-500 text-white rounded-2xl flex items-center justify-center shadow-lg">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-          </div>
-          <div>
-            <h3 className="text-sm font-black text-rose-900 uppercase tracking-tight">System Warning</h3>
-            <p className="text-xs font-bold text-rose-600 uppercase tracking-widest mt-0.5">{error}</p>
-          </div>
-          <button 
-            onClick={() => fetchLeaders()}
-            className="ml-auto px-6 py-2 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-all shadow-md"
-          >
-            Retry Sync
-          </button>
-        </div>
-      )}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="space-y-2">
-          <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Church Leadership</h2>
-          <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.5em]">Governance & Oversight</p>
-        </div>
-        <button 
-          onClick={() => { setEditingLeader({}); setIsModalOpen(true); }}
-          className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-600 transition-all active:scale-95 shadow-xl"
+      {/* Tab Navigation */}
+      <div className="flex items-center gap-4 border-b border-slate-200 pb-4">
+        <button
+          onClick={() => setActiveTab('registry')}
+          className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+            activeTab === 'registry' 
+              ? 'bg-slate-900 text-white shadow-xl' 
+              : 'bg-white text-slate-400 hover:bg-slate-50'
+          }`}
         >
-          Appoint New Leader
+          <ShieldCheck className="w-4 h-4" />
+          Leadership Registry
+        </button>
+        <button
+          onClick={() => setActiveTab('ministers')}
+          className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
+            activeTab === 'ministers' 
+              ? 'bg-slate-900 text-white shadow-xl' 
+              : 'bg-white text-slate-400 hover:bg-slate-50'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          Ministers & Pastors
         </button>
       </div>
 
-      {/* Category Filter */}
-      <div className="flex flex-wrap gap-2">
-        {['All', ...categories].map(cat => (
-          <button
-            key={cat}
-            onClick={() => setActiveCategory(cat)}
-            className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeCategory === cat ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-100 hover:bg-slate-50'}`}
-          >
-            {cat}s
-          </button>
-        ))}
-      </div>
-
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="h-56 bg-white rounded-[2rem] animate-pulse border border-slate-100"></div>
-          ))}
-        </div>
+      {activeTab === 'ministers' ? (
+        <MinistersView userProfile={userProfile} />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {filteredLeaders.map((leader) => (
-            <div key={leader.id} className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-50 hover:shadow-md transition-shadow group relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-slate-50 rounded-bl-[4rem] -mr-12 -mt-12 transition-transform group-hover:scale-110"></div>
-              
-              <div className="relative z-10 flex flex-col items-center text-center">
-                <div className="w-16 h-16 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-xl mb-4 shadow-lg">
-                  {leader.first_name[0]}{leader.last_name[0]}
-                </div>
-                <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight truncate w-full">{leader.first_name} {leader.last_name}</h3>
-                <div className="flex flex-col items-center mt-1">
-                  <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest">{leader.position}</p>
-                  <span className="mt-2 px-2 py-0.5 bg-slate-100 rounded-full text-[7px] font-black text-slate-400 uppercase tracking-wider">{leader.category}</span>
-                </div>
-                
-                <div className="mt-4 pt-4 border-t border-slate-50 w-full space-y-2">
-                  <div className="flex items-center justify-center gap-2 text-slate-400">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                    <span className="text-[10px] font-medium truncate max-w-full">{leader.email}</span>
-                  </div>
-                  <div className="flex items-center justify-center gap-2 text-slate-400">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-                    <span className="text-[10px] font-medium">{leader.phone}</span>
-                  </div>
-                </div>
-
-                <div className="mt-6 flex gap-2">
-                  <button 
-                    onClick={() => { setEditingLeader(leader); setIsModalOpen(true); }}
-                    className="p-2 bg-slate-50 text-slate-400 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(leader.id)}
-                    className="p-2 bg-slate-50 text-slate-400 rounded-lg hover:bg-rose-50 hover:text-rose-600 transition-colors"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                  </button>
-                </div>
+        <>
+          {error && (
+            <div className="p-6 bg-rose-50 border-2 border-rose-100 rounded-[2rem] flex items-center gap-4 animate-in slide-in-from-top-4">
+              <div className="w-12 h-12 bg-rose-500 text-white rounded-2xl flex items-center justify-center shadow-lg">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
               </div>
+              <div>
+                <h3 className="text-sm font-black text-rose-900 uppercase tracking-tight">System Warning</h3>
+                <p className="text-xs font-bold text-rose-600 uppercase tracking-widest mt-0.5">{error}</p>
+              </div>
+              <button 
+                onClick={() => fetchLeaders()}
+                className="ml-auto px-6 py-2 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-all shadow-md"
+              >
+                Retry Sync
+              </button>
             </div>
-          ))}
-        </div>
+          )}
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div className="space-y-2">
+              <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Church Leadership</h2>
+              <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.5em]">Governance & Oversight</p>
+            </div>
+            <button 
+              onClick={() => { setEditingLeader({}); setIsModalOpen(true); }}
+              className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-600 transition-all active:scale-95 shadow-xl"
+            >
+              Appoint New Leader
+            </button>
+          </div>
+
+          {/* Category Filter */}
+          <div className="flex flex-wrap gap-2">
+            {['All', ...categories].map(cat => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeCategory === cat ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-100 hover:bg-slate-50'}`}
+              >
+                {cat}s
+              </button>
+            ))}
+          </div>
+
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-56 bg-white rounded-[2rem] animate-pulse border border-slate-100"></div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {filteredLeaders.map((leader) => (
+                <div key={leader.id} className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-50 hover:shadow-md transition-shadow group relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-slate-50 rounded-bl-[4rem] -mr-12 -mt-12 transition-transform group-hover:scale-110"></div>
+                  
+                  <div className="relative z-10 flex flex-col items-center text-center">
+                    <div className="w-16 h-16 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-xl mb-4 shadow-lg">
+                      {leader.first_name[0]}{leader.last_name[0]}
+                    </div>
+                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight truncate w-full">{leader.first_name} {leader.last_name}</h3>
+                    <div className="flex flex-col items-center mt-1">
+                      <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest">{leader.position}</p>
+                      <span className="mt-2 px-2 py-0.5 bg-slate-100 rounded-full text-[7px] font-black text-slate-400 uppercase tracking-wider">{leader.category}</span>
+                    </div>
+                    
+                    <div className="mt-4 pt-4 border-t border-slate-50 w-full space-y-2">
+                      <div className="flex items-center justify-center gap-2 text-slate-400">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                        <span className="text-[10px] font-medium truncate max-w-full">{leader.email}</span>
+                      </div>
+                      <div className="flex items-center justify-center gap-2 text-slate-400">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                        <span className="text-[10px] font-medium">{leader.phone}</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 flex gap-2">
+                      <button 
+                        onClick={() => { setEditingLeader(leader); setIsModalOpen(true); }}
+                        className="p-2 bg-slate-50 text-slate-400 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(leader.id)}
+                        className="p-2 bg-slate-50 text-slate-400 rounded-lg hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {isModalOpen && (

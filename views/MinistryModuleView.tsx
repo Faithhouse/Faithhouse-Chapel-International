@@ -64,43 +64,17 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
   });
 
   // Music Ministry Specific State
-  const [performanceData] = useState([
-    { name: 'Week 1', mastery: 65, attendance: 80 },
-    { name: 'Week 2', mastery: 70, attendance: 85 },
-    { name: 'Week 3', mastery: 85, attendance: 75 },
-    { name: 'Week 4', mastery: 90, attendance: 95 },
-  ]);
+  const [performanceData] = useState([]);
 
-  const [songList, setSongList] = useState([
-    { id: '1', title: 'Way Maker', artist: 'Sinach', status: 'Mastered', bpm: 68 },
-    { id: '2', title: 'Gratitude', artist: 'Brandon Lake', status: 'In Progress', bpm: 74 },
-    { id: '3', title: 'Agnus Dei', artist: 'Michael W. Smith', status: 'Mastered', bpm: 62 },
-  ]);
+  const [songList, setSongList] = useState([]);
 
-  const [resources] = useState([
-    { id: '1', title: 'Sunday Service Setlist', type: 'PDF', size: '1.2 MB', category: 'Sheet Music' },
-    { id: '2', title: 'Way Maker (Vocal Stems)', type: 'MP3', size: '15 MB', category: 'Audio' },
-    { id: '3', title: 'Microphone Handling 101', type: 'Video', size: '45 MB', category: 'Training' },
-  ]);
+  const [resources] = useState([]);
 
   // Evangelism Specific State
-  const [evangelismData] = useState([
-    { name: 'Jan', souls: 45, outreaches: 2 },
-    { name: 'Feb', souls: 52, outreaches: 3 },
-    { name: 'Mar', souls: 38, outreaches: 1 },
-    { name: 'Apr', souls: 65, outreaches: 4 },
-  ]);
+  const [evangelismData] = useState([]);
 
   // Media Specific State
-  const [mediaEngagement] = useState([
-    { name: 'Sun', viewers: 1200, engagement: 85 },
-    { name: 'Mon', viewers: 450, engagement: 40 },
-    { name: 'Tue', viewers: 380, engagement: 35 },
-    { name: 'Wed', viewers: 950, engagement: 75 },
-    { name: 'Thu', viewers: 400, engagement: 30 },
-    { name: 'Fri', viewers: 350, engagement: 25 },
-    { name: 'Sat', viewers: 300, engagement: 20 },
-  ]);
+  const [mediaEngagement] = useState([]);
 
   useEffect(() => {
     fetchPersonnel();
@@ -208,6 +182,8 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
       
       // Determine which field to update based on ministry name
       let fieldToUpdate = 'children_count';
+      if (ministryName.toLowerCase().includes('teens')) fieldToUpdate = 'teen_count';
+      if (ministryName.toLowerCase().includes('youth')) fieldToUpdate = 'young_adult_count';
       
       // Update the event itself
       const updatePayload: any = { total_attendance: total };
@@ -223,22 +199,28 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
       // SYNC LOGIC: Find main service event for the same date and update its count
       const { data: mainEvents } = await supabase
         .from('attendance_events')
-        .select('id, men_count, women_count, children_count')
+        .select('id, men_count, women_count, children_count, teen_count, young_adult_count')
         .eq('event_date', activeDeptEvent.event_date)
         .in('event_type', ['Prophetic Word Service', 'Help from above service', 'Special services', 'Conferences']);
 
       if (mainEvents && mainEvents.length > 0) {
         for (const mainEvent of mainEvents) {
-          const syncPayload: any = {};
-          syncPayload[fieldToUpdate] = total;
+          const updatedCounts = {
+            men_count: mainEvent.men_count || 0,
+            women_count: mainEvent.women_count || 0,
+            children_count: mainEvent.children_count || 0,
+            teen_count: mainEvent.teen_count || 0,
+            young_adult_count: mainEvent.young_adult_count || 0,
+            [fieldToUpdate]: total
+          };
           
-          // Recalculate total for main event
-          const newTotal = (mainEvent.men_count || 0) + 
-                           (mainEvent.women_count || 0) + 
-                           total;
+          const newTotal = Object.values(updatedCounts).reduce((a, b) => a + b, 0);
           
-          syncPayload.total_attendance = newTotal;
-
+          const syncPayload: any = {
+            ...updatedCounts,
+            total_attendance: newTotal
+          };
+          
           const { error: syncError } = await supabase
             .from('attendance_events')
             .update(syncPayload)
@@ -826,7 +808,7 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
           </div>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={evangelismData}>
+              <BarChart data={evangelismData} id="ministry-evangelism-bar">
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 900, fill: '#94a3b8'}} />
                 <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 900, fill: '#94a3b8'}} />
@@ -1160,7 +1142,7 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
             </div>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData.length > 0 ? chartData : [
+                <BarChart id="ministry-attendance-bar" data={chartData.length > 0 ? chartData : [
                   { name: 'Week 1', count: 0 },
                   { name: 'Week 2', count: 0 },
                   { name: 'Week 3', count: 0 },

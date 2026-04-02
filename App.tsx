@@ -175,7 +175,12 @@ const App: React.FC = () => {
   if (loading) {
     const logoUrl = "https://lh3.googleusercontent.com/d/1la57sO6NOuNEZaqa9zDxuxRnWPBavkjH";
     return (
-      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-6 text-center">
+      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-6 text-center overflow-hidden relative">
+        {/* Background Decorative Elements */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+          <div className="absolute -top-24 -left-24 w-96 h-96 bg-blue-600/10 rounded-full blur-[120px]" />
+          <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-fh-gold/5 rounded-full blur-[120px]" />
+        </div>
         {error && (
           <div className="mb-8 p-6 bg-rose-500/10 border border-rose-500/20 rounded-3xl max-w-sm animate-in fade-in zoom-in-95">
             <p className="text-rose-400 text-xs font-black uppercase tracking-widest mb-4">{error}</p>
@@ -187,28 +192,38 @@ const App: React.FC = () => {
             </button>
           </div>
         )}
-        <div className="relative mb-8">
+        <div className="relative mb-12">
           <motion.div 
             animate={{ rotate: 360 }}
-            transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-            className="w-32 h-32 border border-white/5 rounded-full"
+            transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+            className="w-48 h-48 border border-white/5 rounded-full"
           />
           <motion.div 
             animate={{ rotate: -360 }}
-            transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
-            className="absolute inset-4 border border-blue-500/10 rounded-full"
+            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+            className="absolute inset-6 border border-blue-500/10 rounded-full"
+          />
+          <motion.div 
+            animate={{ rotate: 360 }}
+            transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+            className="absolute inset-12 border border-fh-gold/5 rounded-full"
           />
           <div className="absolute inset-0 flex items-center justify-center">
             <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
+              initial={{ opacity: 0, scale: 0.5 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 1 }}
-              className="bg-white p-2 rounded-2xl shadow-2xl"
+              transition={{ 
+                type: "spring",
+                stiffness: 260,
+                damping: 20,
+                delay: 0.2
+              }}
+              className="bg-white p-4 rounded-[2.5rem] shadow-[0_0_50px_rgba(255,255,255,0.1)]"
             >
               <img 
                 src={logoUrl} 
                 alt="FaithHouse Logo" 
-                className="w-16 h-16 object-contain"
+                className="w-20 h-20 object-contain"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=F&background=007bff&color=fff&bold=true';
                 }}
@@ -229,24 +244,24 @@ const App: React.FC = () => {
             </p>
           </motion.div>
 
-          <div className="pt-8 space-y-2">
-            <p className="text-white/40 font-light uppercase tracking-[0.8em] text-[10px]">Synchronizing Database</p>
-            <div className="w-48 h-0.5 bg-white/5 mx-auto rounded-full overflow-hidden">
-              <motion.div 
-                animate={{ x: [-200, 200] }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                className="w-1/2 h-full bg-blue-500/40"
+          <div className="mt-8 flex justify-center gap-1">
+            {[0, 1, 2].map((i) => (
+              <motion.div
+                key={i}
+                animate={{ 
+                  scale: [1, 1.5, 1],
+                  opacity: [0.3, 1, 0.3]
+                }}
+                transition={{ 
+                  duration: 1.5, 
+                  repeat: Infinity, 
+                  delay: i * 0.2 
+                }}
+                className="w-1.5 h-1.5 bg-blue-500 rounded-full"
               />
-            </div>
+            ))}
           </div>
         </div>
-        
-        <button 
-          onClick={() => setLoading(false)}
-          className="mt-20 px-8 py-3 border border-white/5 rounded-full text-[9px] font-black text-white/20 uppercase tracking-[0.3em] hover:text-white/60 hover:border-white/10 transition-all"
-        >
-          Skip Loading
-        </button>
       </div>
     );
   }
@@ -267,7 +282,7 @@ const App: React.FC = () => {
           if (!['System Administrator', 'General Overseer', 'Head Pastor', 'General Office'].includes(role || '')) {
             return <SecurityDenied module={activeItem} />;
           }
-          return <FounderView userProfile={profile} />;
+          return <FounderView userProfile={profile!} setActiveItem={handleSetActiveItem as any} />;
         
         case 'Members':
           if (!canAccess(role, 'LEVEL_2')) return <SecurityDenied module={activeItem} />;
@@ -310,15 +325,16 @@ const App: React.FC = () => {
         
         case 'Ministers & Pastors':
           if (!canAccess(role, 'LEVEL_3')) return <SecurityDenied module={activeItem} />;
-          return <MinistersView userProfile={profile} />;
+          return <LeadershipView userProfile={profile} initialTab="ministers" />;
         
         case 'Branches':
           if (!canAccess(role, 'LEVEL_1')) return <SecurityDenied module={activeItem} />;
           return <BranchesView userProfile={profile} />;
         
+        case 'Leadership Registry':
         case 'Church Leadership':
           if (!canAccess(role, 'LEVEL_2')) return <SecurityDenied module={activeItem} />;
-          return <LeadershipView userProfile={profile} />;
+          return <LeadershipView userProfile={profile} initialTab="registry" />;
         
         case 'Ministries':
           return <MinistriesView userProfile={profile} setActiveItem={handleSetActiveItem as any} />;
