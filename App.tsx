@@ -45,6 +45,16 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
 
+  const MOCK_PROFILE: UserProfile = {
+    id: 'bypass-admin',
+    email: 'admin@faithhouse.church',
+    first_name: 'System',
+    last_name: 'Administrator',
+    role: 'System Administrator',
+    status: 'Active',
+    created_at: new Date().toISOString()
+  };
+
   const handleSetActiveItem = (item: string) => {
     if (item === activeItem) return;
     setHistory(prev => [...prev, item]);
@@ -61,18 +71,14 @@ const App: React.FC = () => {
   };
   
   useEffect(() => {
-    // Check for simulated session first
-    const simulatedUserId = localStorage.getItem('fci_simulated_user_id');
-    if (simulatedUserId) {
-      fetchProfile(simulatedUserId);
-      return;
-    }
-
     // Check active Supabase session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         fetchProfile(session.user.id);
       } else {
+        // BYPASS: Set mock profile if no session
+        console.log("Login Bypass Active: Setting mock administrator profile.");
+        setProfile(MOCK_PROFILE);
         setLoading(false);
       }
     });
@@ -86,8 +92,9 @@ const App: React.FC = () => {
       
       if (session?.user) {
         fetchProfile(session.user.id);
-      } else if (!localStorage.getItem('fci_simulated_user_id')) {
-        setProfile(null);
+      } else {
+        // If logged out, we still bypass back to mock for now
+        setProfile(MOCK_PROFILE);
         setLoading(false);
       }
     });
@@ -106,12 +113,6 @@ const App: React.FC = () => {
 
       if (error) {
         if (error.code === 'PGRST116') { // Record not found
-          // If it's a simulated ID, we can't auto-repair via Supabase Auth
-          if (userId.startsWith('github_')) {
-            setLoading(false);
-            return;
-          }
-
           console.warn("Profile missing for active session. Attempting auto-repair...");
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
@@ -121,7 +122,8 @@ const App: React.FC = () => {
                 email: user.email,
                 first_name: user.user_metadata?.first_name || 'New',
                 last_name: user.user_metadata?.last_name || 'User',
-                role: 'General Admin'
+                role: 'General Admin',
+                status: 'Active'
               }
             ]).select().single();
             
@@ -134,12 +136,14 @@ const App: React.FC = () => {
         throw error;
       }
       
-      // If successful, persist if it's a simulated ID
-      if (userId.startsWith('github_')) {
-        localStorage.setItem('fci_simulated_user_id', userId);
-      }
-      
       if (data) {
+        // Check for active status
+        if (data.status !== 'Active') {
+          setProfile(data);
+          setLoading(false);
+          return;
+        }
+
         // God Level Access for Prince Monovis and Admin Email
         const fullName = `${data.first_name || ''} ${data.last_name || ''}`.trim();
         const email = data.email?.toLowerCase() || '';
@@ -261,6 +265,39 @@ const App: React.FC = () => {
               />
             ))}
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (profile && profile.status !== 'Active') {
+    return (
+      <div className="min-h-screen bg-[#050505] text-white flex items-center justify-center p-6 font-sans">
+        <div className="max-w-md w-full bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[3rem] p-12 text-center shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-rose-500"></div>
+          <div className="w-20 h-20 bg-rose-500/10 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-8 animate-pulse">
+            <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-black uppercase tracking-tighter mb-4">Security Lockout</h2>
+          <p className="text-white/40 text-xs mb-8 leading-relaxed">
+            Your access to the Faithhouse Chapel Internal System has been suspended. 
+            This may be due to administrative review or security protocols.
+          </p>
+          <div className="bg-rose-500/5 border border-rose-500/10 p-6 rounded-2xl mb-8">
+            <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest">Account Status: {profile.status}</p>
+          </div>
+          <button 
+            onClick={async () => {
+              await supabase.auth.signOut();
+              localStorage.removeItem('fci_simulated_user_id');
+              window.location.reload();
+            }}
+            className="w-full bg-white text-black py-4 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-rose-500 hover:text-white transition-all"
+          >
+            Terminate Session
+          </button>
         </div>
       </div>
     );

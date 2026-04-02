@@ -61,8 +61,12 @@ const WhatsAppSchedulerView: React.FC<WhatsAppSchedulerViewProps> = ({ userProfi
   const [branches, setBranches] = useState<Branch[]>([]);
   const [attendanceEvents, setAttendanceEvents] = useState<AttendanceEvent[]>([]);
   const [config, setConfig] = useState<WhatsAppConfig | null>(null);
+  const [automations, setAutomations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDispatchModalOpen, setIsDispatchModalOpen] = useState(false);
+  const [isAutomationModalOpen, setIsAutomationModalOpen] = useState(false);
+  const [selectedAutomation, setSelectedAutomation] = useState<any>(null);
+  const [tableMissing, setTableMissing] = useState(false);
   const [dispatchStep, setDispatchStep] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [ledgerSearchQuery, setLedgerSearchQuery] = useState('');
@@ -91,19 +95,27 @@ const WhatsAppSchedulerView: React.FC<WhatsAppSchedulerViewProps> = ({ userProfi
 
   const fetchData = async () => {
     setIsLoading(true);
+    setTableMissing(false);
     try {
-      const [sRes, mRes, bRes, eRes, cRes] = await Promise.all([
+      const [sRes, mRes, bRes, eRes, cRes, aRes] = await Promise.all([
         supabase.from('whatsapp_schedules').select('*').order('created_at', { ascending: false }),
         supabase.from('members').select('*').order('first_name'),
         supabase.from('branches').select('*').order('name'),
         supabase.from('attendance_events').select('*').order('event_date', { ascending: false }),
-        supabase.from('whatsapp_config').select('*').single()
+        supabase.from('whatsapp_config').select('*').single(),
+        supabase.from('whatsapp_automations').select('*').order('type')
       ]);
+
+      if (aRes.error && (aRes.error.code === '42P01' || aRes.error.code === 'PGRST205')) {
+        setTableMissing(true);
+      }
 
       setSchedules(sRes.data || []);
       setMembers(mRes.data || []);
       setBranches(bRes.data || []);
       setAttendanceEvents(eRes.data || []);
+      setAutomations(aRes.data || []);
+      
       if (cRes.data) {
         setConfig(cRes.data);
         setGatewayForm({
@@ -230,6 +242,32 @@ const WhatsAppSchedulerView: React.FC<WhatsAppSchedulerViewProps> = ({ userProfi
     }
   };
 
+  const handleUpdateAutomation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAutomation) return;
+
+    try {
+      const { error } = await supabase
+        .from('whatsapp_automations')
+        .update({
+          is_active: selectedAutomation.is_active,
+          message_template: selectedAutomation.message_template,
+          trigger_delay_days: selectedAutomation.trigger_delay_days,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedAutomation.id);
+
+      if (error) throw error;
+
+      toast.success(`${selectedAutomation.title} updated successfully`);
+      setIsAutomationModalOpen(false);
+      fetchData();
+    } catch (error) {
+      console.error('Error updating automation:', error);
+      toast.error('Failed to update automation');
+    }
+  };
+
   const chartData = [
     { name: 'Sent', value: stats.sent, color: '#10b981' },
     { name: 'Delivered', value: stats.delivered, color: '#3b82f6' },
@@ -241,6 +279,47 @@ const WhatsAppSchedulerView: React.FC<WhatsAppSchedulerViewProps> = ({ userProfi
     return (
       <div className="flex items-center justify-center h-96">
         <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (tableMissing) {
+    const repairSQL = `-- WHATSAPP AUTOMATIONS SCHEMA REPAIR
+CREATE TABLE IF NOT EXISTS public.whatsapp_automations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  type TEXT UNIQUE NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  is_active BOOLEAN DEFAULT false,
+  message_template TEXT NOT NULL,
+  trigger_delay_days INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Seed initial data if empty
+INSERT INTO public.whatsapp_automations (type, title, description, message_template, trigger_delay_days)
+VALUES 
+('first_timer', 'First Timer Welcome', 'Automated outreach for new visitors', 'Shalom {{Name}}! 🕊️ It was a blessing having you at our service. We hope to see you again soon!', 1),
+('absentee', 'Absentee Follow-up', 'Pastoral care for missed services', 'Shalom {{Name}}! 🕊️ We missed you at our recent service. We hope all is well. God bless you!', 3),
+('birthday', 'Birthday Messages', 'Member engagement for birthdays', 'Happy Birthday {{Name}}! 🎂 May God continue to bless and keep you in this new year of your life!', 0),
+('engagement', 'Member Engagement', 'General engagement and announcements', 'Shalom {{Name}}! 🕊️ Just checking in to see how your week is going. Stay blessed!', 7)
+ON CONFLICT (type) DO NOTHING;
+
+ALTER TABLE public.whatsapp_automations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all" ON public.whatsapp_automations FOR ALL USING (true) WITH CHECK (true);`;
+
+    return (
+      <div className="max-w-4xl mx-auto py-12 px-4 animate-in zoom-in-95">
+        <div className="bg-white p-12 rounded-[4rem] shadow-2xl text-center border-b-[16px] border-emerald-500">
+          <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner">
+             <Zap className="w-10 h-10" />
+          </div>
+          <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-4">Automation Engine Reset</h2>
+          <p className="text-slate-500 mb-10 text-[11px] font-bold uppercase tracking-widest max-w-lg mx-auto">The WhatsApp automation system is not ready. Run the script to authorize.</p>
+          <pre className="bg-slate-950 text-emerald-400 p-8 rounded-[2rem] text-[10px] font-mono text-left h-48 overflow-y-auto mb-10 shadow-2xl border border-white/5 scrollbar-hide">{repairSQL}</pre>
+          <button onClick={fetchData} className="px-16 py-5 bg-emerald-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-xl border-b-4 border-black active:scale-95">Verify Protocols</button>
+        </div>
       </div>
     );
   }
@@ -566,54 +645,49 @@ const WhatsAppSchedulerView: React.FC<WhatsAppSchedulerViewProps> = ({ userProfi
           </div>
 
           {/* Automation Features */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm group hover:border-emerald-500 transition-all">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="p-3 bg-emerald-50 text-emerald-500 rounded-2xl group-hover:rotate-12 transition-transform">
-                  <Zap className="w-6 h-6" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {automations.map((automation) => (
+              <div key={automation.id} className={`bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm group hover:border-${automation.type === 'first_timer' ? 'emerald' : automation.type === 'absentee' ? 'blue' : automation.type === 'birthday' ? 'rose' : 'violet'}-500 transition-all`}>
+                <div className="flex items-center gap-4 mb-6">
+                  <div className={`p-3 rounded-2xl group-hover:rotate-12 transition-transform ${
+                    automation.type === 'first_timer' ? 'bg-emerald-50 text-emerald-500' : 
+                    automation.type === 'absentee' ? 'bg-blue-50 text-blue-500' : 
+                    automation.type === 'birthday' ? 'bg-rose-50 text-rose-500' : 
+                    'bg-violet-50 text-violet-500'
+                  }`}>
+                    {automation.type === 'first_timer' ? <Zap className="w-6 h-6" /> : 
+                     automation.type === 'absentee' ? <Users className="w-6 h-6" /> : 
+                     automation.type === 'birthday' ? <Sparkles className="w-6 h-6" /> : 
+                     <MessageSquare className="w-6 h-6" />}
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight leading-none mb-1">{automation.title}</h4>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{automation.description}</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight">First Timer Welcome</h4>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Automated Outreach</p>
+                <div className="flex items-center justify-between">
+                  <span className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${
+                    automation.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'
+                  }`}>
+                    {automation.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                  <button 
+                    onClick={() => {
+                      setSelectedAutomation(automation);
+                      setIsAutomationModalOpen(true);
+                    }}
+                    className={`text-[10px] font-black uppercase tracking-widest hover:underline ${
+                      automation.type === 'first_timer' ? 'text-emerald-500' : 
+                      automation.type === 'absentee' ? 'text-blue-500' : 
+                      automation.type === 'birthday' ? 'text-rose-500' : 
+                      'text-violet-500'
+                    }`}
+                  >
+                    Configure
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[8px] font-black rounded-lg uppercase tracking-widest">Active</span>
-                <button className="text-[10px] font-black text-emerald-500 uppercase tracking-widest hover:underline">Configure</button>
-              </div>
-            </div>
-
-            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm group hover:border-blue-500 transition-all">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="p-3 bg-blue-50 text-blue-500 rounded-2xl group-hover:rotate-12 transition-transform">
-                  <Users className="w-6 h-6" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight">Absentee Follow-up</h4>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Pastoral Care</p>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[8px] font-black rounded-lg uppercase tracking-widest">Active</span>
-                <button className="text-[10px] font-black text-blue-500 uppercase tracking-widest hover:underline">Configure</button>
-              </div>
-            </div>
-
-            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm group hover:border-rose-500 transition-all">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="p-3 bg-rose-50 text-rose-500 rounded-2xl group-hover:rotate-12 transition-transform">
-                  <Sparkles className="w-6 h-6" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight">Birthday Messages</h4>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Member Engagement</p>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="px-3 py-1 bg-rose-50 text-rose-600 text-[8px] font-black rounded-lg uppercase tracking-widest">Active</span>
-                <button className="text-[10px] font-black text-rose-500 uppercase tracking-widest hover:underline">Configure</button>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       )}
@@ -989,6 +1063,108 @@ const WhatsAppSchedulerView: React.FC<WhatsAppSchedulerViewProps> = ({ userProfi
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      )}
+      {/* Automation Configuration Modal */}
+      {isAutomationModalOpen && selectedAutomation && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md animate-in fade-in" onClick={() => setIsAutomationModalOpen(false)} />
+          <div className="relative bg-white w-full max-w-2xl rounded-[4rem] shadow-2xl overflow-hidden animate-in zoom-in-95 border-b-[16px] border-emerald-500">
+             <div className="p-12 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+               <div className="flex items-center gap-6">
+                 <div className={`w-16 h-16 rounded-[2rem] flex items-center justify-center shadow-xl ${
+                    selectedAutomation.type === 'first_timer' ? 'bg-emerald-500 text-white' : 
+                    selectedAutomation.type === 'absentee' ? 'bg-blue-500 text-white' : 
+                    selectedAutomation.type === 'birthday' ? 'bg-rose-500 text-white' : 
+                    'bg-violet-500 text-white'
+                 }`}>
+                    {selectedAutomation.type === 'first_timer' ? <Zap className="w-8 h-8" /> : 
+                     selectedAutomation.type === 'absentee' ? <Users className="w-8 h-8" /> : 
+                     selectedAutomation.type === 'birthday' ? <Sparkles className="w-8 h-8" /> : 
+                     <MessageSquare className="w-8 h-8" />}
+                 </div>
+                 <div>
+                    <h3 className="text-3xl font-black text-slate-900 uppercase leading-none tracking-tighter">{selectedAutomation.title}</h3>
+                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">Automation Configuration</p>
+                 </div>
+               </div>
+               <button onClick={() => setIsAutomationModalOpen(false)} className="p-5 hover:bg-slate-100 rounded-full transition-all text-slate-400 active:scale-90"><XCircle className="w-6 h-6" /></button>
+            </div>
+
+            <form onSubmit={handleUpdateAutomation} className="p-12 space-y-8">
+               <div className="flex items-center justify-between bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                 <div>
+                   <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight">Automation Status</h4>
+                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Enable or disable this trigger</p>
+                 </div>
+                 <button 
+                   type="button"
+                   onClick={() => setSelectedAutomation({ ...selectedAutomation, is_active: !selectedAutomation.is_active })}
+                   className={`w-16 h-8 rounded-full transition-all relative ${selectedAutomation.is_active ? 'bg-emerald-500' : 'bg-slate-200'}`}
+                 >
+                   <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all ${selectedAutomation.is_active ? 'left-9' : 'left-1'}`} />
+                 </button>
+               </div>
+
+               <div className="space-y-2">
+                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Trigger Delay (Days)</label>
+                 <div className="flex items-center gap-4">
+                   <input 
+                     type="number" 
+                     min="0"
+                     value={selectedAutomation.trigger_delay_days}
+                     onChange={(e) => setSelectedAutomation({ ...selectedAutomation, trigger_delay_days: parseInt(e.target.value) })}
+                     className="w-32 px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-800 outline-none"
+                   />
+                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Days after trigger event</p>
+                 </div>
+               </div>
+
+               <div className="space-y-2">
+                 <div className="flex items-center justify-between px-4">
+                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Message Template</label>
+                   <button 
+                    type="button"
+                    onClick={async () => {
+                      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+                      const model = await ai.models.generateContent({
+                        model: "gemini-3-flash-preview",
+                        contents: `Generate a warm, professional church WhatsApp message for: ${selectedAutomation.title}. 
+                        Context: ${selectedAutomation.description}. 
+                        Tone: Encouraging. 
+                        Include placeholders like {{Name}}.`
+                      });
+
+                      toast.promise(Promise.resolve(model), {
+                        loading: 'AI is drafting your template...',
+                        success: (res) => {
+                          setSelectedAutomation({ ...selectedAutomation, message_template: res.text || '' });
+                          return 'Template generated!';
+                        },
+                        error: 'Failed to generate template'
+                      });
+                    }}
+                    className="text-[9px] font-black text-emerald-500 uppercase tracking-widest hover:underline flex items-center gap-1"
+                   >
+                     <Sparkles className="w-3 h-3" />
+                     AI Rewrite
+                   </button>
+                 </div>
+                 <textarea 
+                   rows={5}
+                   value={selectedAutomation.message_template}
+                   onChange={(e) => setSelectedAutomation({ ...selectedAutomation, message_template: e.target.value })}
+                   placeholder="Draft your automated message..."
+                   className="w-full p-6 bg-slate-50 border border-slate-200 rounded-[2rem] font-medium text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/5 transition-all resize-none"
+                 />
+                 <p className="text-[8px] text-slate-400 font-bold uppercase tracking-[0.2em] px-4">Use {"{{Name}}"} to personalize messages automatically.</p>
+               </div>
+
+               <button type="submit" className="w-full py-6 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-xl hover:bg-slate-800 active:scale-95 transition-all border-b-4 border-black">
+                 Save Configuration
+               </button>
+            </form>
           </div>
         </div>
       )}

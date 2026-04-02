@@ -59,7 +59,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
   const [records, setRecords] = useState<FinancialRecord[]>([]);
   const [titheRecords, setTitheRecords] = useState<TitheRecord[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
-  const [activeTab, setActiveTab] = useState<'Ledger' | 'Tithers'>('Ledger');
+  const [activeTab, setActiveTab] = useState<'Statements' | 'Tithers'>('Statements');
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isTitheModalOpen, setIsTitheModalOpen] = useState(false);
@@ -117,6 +117,10 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [memberSearch, setMemberSearch] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('All Months');
+  const [isEditingRecord, setIsEditingRecord] = useState(false);
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
+  const [recordToDelete, setRecordToDelete] = useState<string | null>(null);
+  const [isDeleteRecordConfirmOpen, setIsDeleteRecordConfirmOpen] = useState(false);
   const [isEditingTithe, setIsEditingTithe] = useState(false);
   const [editingTitheId, setEditingTitheId] = useState<string | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -368,6 +372,45 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
     setIsPinModalOpen(true);
   };
 
+  const handleEditRecord = (record: FinancialRecord) => {
+    setFormData({
+      service_date: record.service_date,
+      service_type: record.service_type,
+      tithes: record.tithes,
+      offerings: record.offerings,
+      seed: record.seed,
+      expenses: record.expenses,
+      other_income: record.other_income,
+      bank_balance: record.bank_balance,
+      momo_balance: record.momo_balance,
+      witness1_name: record.witness1_name,
+      witness2_name: record.witness2_name,
+      notes: record.notes,
+      status: record.status
+    });
+    setEditingRecordId(record.id);
+    setIsEditingRecord(true);
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteRecord = async () => {
+    if (!recordToDelete) return;
+    
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase.from('financial_records').delete().eq('id', recordToDelete);
+      if (error) throw error;
+      toast.success('Financial record deleted successfully');
+      setIsDeleteRecordConfirmOpen(false);
+      setRecordToDelete(null);
+      fetchInitialData();
+    } catch (error: any) {
+      toast.error(`Failed to delete record: ${error.message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleAuthorizedSubmit = async () => {
     if (accessKey !== '2024') return toast.error("Authorization Revoked: Invalid Master Access Key.");
     
@@ -380,13 +423,21 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
         status: 'Posted'
       };
 
-      const { error } = await supabase.from('financial_records').insert([payload]);
-      if (error) throw error;
+      if (isEditingRecord && editingRecordId) {
+        const { error } = await supabase.from('financial_records').update(payload).eq('id', editingRecordId);
+        if (error) throw error;
+        toast.success("Update Successful: Financial record has been updated.");
+      } else {
+        const { error } = await supabase.from('financial_records').insert([payload]);
+        if (error) throw error;
+        toast.success("Posting Successful: Service revenue has been recorded.");
+      }
       
-      toast.success("Posting Successful: Service revenue has been recorded.");
       setIsModalOpen(false);
       setIsPinModalOpen(false);
       setAccessKey('');
+      setIsEditingRecord(false);
+      setEditingRecordId(null);
       fetchInitialData();
     } catch (err: any) {
       if (err.message?.includes('schema cache') || err.message?.includes('not found') || err.message?.includes('Could not find')) {
@@ -681,7 +732,24 @@ NOTIFY pgrst, 'reload schema';`;
             Print Audit
           </button>
           <button onClick={() => {
-            if (activeTab === 'Ledger') {
+            if (activeTab === 'Statements') {
+              setFormData({
+                service_date: new Date().toISOString().split('T')[0],
+                service_type: 'Prophetic Word Service',
+                tithes: 0,
+                offerings: 0,
+                seed: 0,
+                expenses: 0,
+                other_income: 0,
+                bank_balance: 0,
+                momo_balance: 0,
+                witness1_name: '',
+                witness2_name: '',
+                notes: '',
+                status: 'Posted'
+              });
+              setIsEditingRecord(false);
+              setEditingRecordId(null);
               setIsModalOpen(true);
             } else {
               setIsEditingTithe(false);
@@ -697,7 +765,7 @@ NOTIFY pgrst, 'reload schema';`;
               setIsTitheModalOpen(true);
             }
           }} className="px-10 py-5 bg-fh-green text-fh-gold rounded-[1.75rem] font-black uppercase text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30">
-            {activeTab === 'Ledger' ? '+ Provision Entry' : '+ Record Tithe'}
+            {activeTab === 'Statements' ? '+ Provision Entry' : '+ Record Tithe'}
           </button>
         </div>
       </div>
@@ -705,10 +773,10 @@ NOTIFY pgrst, 'reload schema';`;
       {/* Tab Switcher */}
       <div className="flex bg-slate-100 p-1 rounded-2xl w-fit no-print">
         <button 
-          onClick={() => setActiveTab('Ledger')}
-          className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'Ledger' ? 'bg-white text-fh-green shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+          onClick={() => setActiveTab('Statements')}
+          className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'Statements' ? 'bg-white text-fh-green shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
         >
-          Financial Ledger
+          Financial Statements
         </button>
         <button 
           onClick={() => setActiveTab('Tithers')}
@@ -737,7 +805,7 @@ NOTIFY pgrst, 'reload schema';`;
         </div>
       )}
 
-      {isAuthReady && activeTab === 'Ledger' ? (
+      {isAuthReady && activeTab === 'Statements' ? (
         <>
           {/* 2. Visual KPI Summary (Matches Dashboard Colors) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -814,13 +882,18 @@ NOTIFY pgrst, 'reload schema';`;
       {/* 3. Transaction History */}
       <div className="cms-card cms-card-emerald bg-white rounded-[3.5rem] overflow-hidden border-none shadow-sm">
           <div className="p-10 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
-             <h3 className="text-sm font-black text-fh-green uppercase tracking-widest leading-none">Financial Ledger Repository</h3>
+             <h3 className="text-sm font-black text-fh-green uppercase tracking-widest leading-none">Financial Statements Repository</h3>
              <span className="px-5 py-1.5 bg-white border border-slate-200 rounded-full text-[9px] font-black text-fh-green uppercase shadow-sm">Verified Audit Trail Active</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] border-b border-slate-100">
-                <tr><th className="px-10 py-6">Timeline / Service</th><th className="px-10 py-6">Revenue Summary</th><th className="px-10 py-6">Security Verification</th><th className="px-10 py-6 text-right">Status</th></tr>
+                <tr>
+                  <th className="px-10 py-6">Timeline / Service</th>
+                  <th className="px-10 py-6">Revenue Summary</th>
+                  <th className="px-10 py-6">Security Verification</th>
+                  <th className="px-10 py-6 text-right">Actions</th>
+                </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {isLoading ? (
@@ -845,12 +918,31 @@ NOTIFY pgrst, 'reload schema';`;
                         </div>
                       </td>
                       <td className="px-10 py-6 text-right">
-                        <span className="px-4 py-1.5 bg-emerald-50 text-cms-emerald text-[8px] font-black uppercase tracking-[0.2em] rounded-lg border border-emerald-100">Recorded</span>
+                        <div className="flex justify-end items-center gap-2">
+                          <button 
+                            onClick={() => handleEditRecord(rec)}
+                            className="p-2 text-slate-400 hover:text-fh-gold transition-colors"
+                            title="Edit Record"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => {
+                              setRecordToDelete(rec.id);
+                              setIsDeleteRecordConfirmOpen(true);
+                            }}
+                            className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
+                            title="Delete Record"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                          <span className="px-4 py-1.5 bg-emerald-50 text-cms-emerald text-[8px] font-black uppercase tracking-[0.2em] rounded-lg border border-emerald-100 ml-2">Recorded</span>
+                        </div>
                       </td>
                     </tr>
                   ))
                 ) : (
-                  <tr><td colSpan={4} className="px-10 py-32 text-center text-slate-300 italic text-[10px] font-black uppercase tracking-[0.5em]">The Ledger is empty</td></tr>
+                  <tr><td colSpan={4} className="px-10 py-32 text-center text-slate-300 italic text-[10px] font-black uppercase tracking-[0.5em]">The Statements Repository is empty</td></tr>
                 )}
               </tbody>
             </table>
@@ -1178,7 +1270,9 @@ NOTIFY pgrst, 'reload schema';`;
                     <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                  </div>
                  <div>
-                    <h3 className="text-3xl font-black text-fh-green uppercase leading-none tracking-tighter">Financial Statement</h3>
+                    <h3 className="text-3xl font-black text-fh-green uppercase leading-none tracking-tighter">
+                      {isEditingRecord ? 'Edit Statement' : 'Financial Statement'}
+                    </h3>
                     <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">Always make sure the data is correct</p>
                  </div>
                </div>
@@ -1275,7 +1369,7 @@ NOTIFY pgrst, 'reload schema';`;
               </div>
 
               <button type="submit" className="w-full py-6 bg-fh-green text-fh-gold rounded-[2.5rem] font-black uppercase text-xs tracking-[0.4em] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30">
-                 Finalize Record Entry
+                 {isEditingRecord ? 'Update Statement' : 'Finalize Record Entry'}
               </button>
             </form>
           </div>
@@ -1439,7 +1533,7 @@ NOTIFY pgrst, 'reload schema';`;
               </div>
               <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter mb-2">Confirm Deletion</h3>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed mb-8">
-                Are you sure you want to permanently remove this tithe record? This action is irreversible and will affect the financial ledger.
+                Are you sure you want to permanently remove this tithe record? This action is irreversible and will affect the financial statements.
               </p>
               <div className="flex gap-4">
                 <button 
@@ -1457,6 +1551,40 @@ NOTIFY pgrst, 'reload schema';`;
                   className="flex-1 py-4 bg-rose-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-600 transition-all shadow-lg shadow-rose-500/20 disabled:opacity-50"
                 >
                   {isSubmitting ? 'Deleting...' : 'Delete Record'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isDeleteRecordConfirmOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-10 text-center">
+              <div className="w-20 h-20 bg-rose-50 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
+                <Trash2 className="w-10 h-10 text-rose-500" />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter mb-2">Confirm Deletion</h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed mb-8">
+                Are you sure you want to permanently remove this financial statement? This action is irreversible and will affect the global balance.
+              </p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => {
+                    setIsDeleteRecordConfirmOpen(false);
+                    setRecordToDelete(null);
+                  }}
+                  className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleDeleteRecord}
+                  disabled={isSubmitting}
+                  className="flex-1 py-4 bg-rose-50 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-600 transition-all shadow-lg shadow-rose-500/20 disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Deleting...' : 'Delete Statement'}
                 </button>
               </div>
             </div>

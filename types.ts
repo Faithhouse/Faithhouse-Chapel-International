@@ -21,6 +21,7 @@ export interface UserProfile {
   last_name: string;
   email: string;
   role: UserRole;
+  status: 'Active' | 'Inactive' | 'Pending';
   branch_id?: string;
   created_at?: string;
 }

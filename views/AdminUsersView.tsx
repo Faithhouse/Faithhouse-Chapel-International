@@ -44,7 +44,8 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({ userProfile }) => {
     password: '',
     first_name: '',
     last_name: '',
-    role: 'General Admin' as UserRole
+    role: 'General Admin' as UserRole,
+    status: 'Active' as 'Active' | 'Inactive' | 'Pending'
   });
 
   const isExistingInDirectory = users.some(u => u.email.toLowerCase() === formData.email.toLowerCase());
@@ -131,7 +132,8 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({ userProfile }) => {
           email: formData.email.toLowerCase(), 
           first_name: formData.first_name, 
           last_name: formData.last_name, 
-          role: formData.role 
+          role: formData.role,
+          status: formData.status
         }
       ], { onConflict: 'email' });
 
@@ -160,7 +162,8 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({ userProfile }) => {
         email: formData.email.toLowerCase(), 
         first_name: formData.first_name, 
         last_name: formData.last_name, 
-        role: formData.role 
+        role: formData.role,
+        status: formData.status
       }
     ], { onConflict: 'email' });
     
@@ -187,7 +190,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({ userProfile }) => {
     setIsAuthConflict(false);
     setErrorMessage(null);
     setEditingUserId(null);
-    setFormData({ email: '', password: '', first_name: '', last_name: '', role: 'General Admin' });
+    setFormData({ email: '', password: '', first_name: '', last_name: '', role: 'General Admin', status: 'Active' });
     fetchUsers();
   };
 
@@ -222,6 +225,7 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({ userProfile }) => {
       first_name: user.first_name,
       last_name: user.last_name,
       role: user.role,
+      status: user.status || 'Active',
       password: '' // Don't show password for editing
     });
     setErrorMessage(null);
@@ -242,18 +246,35 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({ userProfile }) => {
   };
 
   if (tableMissing) {
-    const repairSQL = `-- MASTER PROFILES DATABASE REPAIR SCRIPT
+    const repairSQL = `-- ROBUST AUTH INFRASTRUCTURE REPAIR
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
   first_name TEXT,
   last_name TEXT,
   role TEXT DEFAULT 'General Admin',
+  status TEXT DEFAULT 'Active', -- Active, Inactive, Pending
+  is_mfa_enabled BOOLEAN DEFAULT false,
+  last_login TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.system_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_type TEXT NOT NULL,
+  user_email TEXT,
+  status TEXT,
+  details TEXT,
+  metadata JSONB,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
+
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Allow all for staff" ON public.profiles;
-CREATE POLICY "Allow all for staff" ON public.profiles FOR ALL USING (true) WITH CHECK (true);`;
+ALTER TABLE public.system_logs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow all" ON public.profiles FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON public.system_logs FOR ALL USING (true) WITH CHECK (true);`;
 
     return (
       <div className="max-w-4xl mx-auto py-12 px-4 animate-in zoom-in-95 duration-500">
@@ -308,11 +329,11 @@ CREATE POLICY "Allow all for staff" ON public.profiles FOR ALL USING (true) WITH
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="bg-slate-50/50 text-[9px] font-black uppercase text-slate-400 tracking-[0.2em] border-b border-slate-100">
-                  <tr><th className="px-10 py-6">User Identity</th><th className="px-10 py-6">Clearance</th><th className="px-10 py-6 text-right">Actions</th></tr>
+                  <tr><th className="px-10 py-6">User Identity</th><th className="px-10 py-6">Clearance</th><th className="px-10 py-6">Status</th><th className="px-10 py-6 text-right">Actions</th></tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {isLoading ? (
-                    <tr><td colSpan={3} className="px-10 py-24 text-center animate-pulse text-slate-300 font-black uppercase tracking-widest">Accessing user database...</td></tr>
+                    <tr><td colSpan={4} className="px-10 py-24 text-center animate-pulse text-slate-300 font-black uppercase tracking-widest">Accessing user database...</td></tr>
                   ) : users.length > 0 ? users.map(u => {
                     const badge = getLevelBadge(u.role);
                     return (
@@ -335,6 +356,15 @@ CREATE POLICY "Allow all for staff" ON public.profiles FOR ALL USING (true) WITH
                               {badge.text}
                             </span>
                           </div>
+                        </td>
+                        <td className="px-10 py-6">
+                          <span className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${
+                            u.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 
+                            u.status === 'Inactive' ? 'bg-rose-50 text-rose-600' : 
+                            'bg-amber-50 text-amber-600'
+                          }`}>
+                            {u.status || 'Active'}
+                          </span>
                         </td>
                         <td className="px-10 py-6 text-right">
                            <div className="flex justify-end gap-2">
@@ -458,6 +488,15 @@ CREATE POLICY "Allow all for staff" ON public.profiles FOR ALL USING (true) WITH
                 <select value={formData.role} onChange={(e) => setFormData({...formData, role: e.target.value as UserRole})} className="w-full px-7 py-5 bg-slate-100 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner appearance-none cursor-pointer outline-none focus:ring-4 focus:ring-fh-gold/5 transition-all">
                   {ministryDirectory.map(m => <option key={m.role} value={m.role}>{m.label}</option>)}
                   <option value="Assistant">Office Assistant</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Security Access Status</label>
+                <select value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value as any})} className="w-full px-7 py-5 bg-slate-100 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner appearance-none cursor-pointer outline-none focus:ring-4 focus:ring-fh-gold/5 transition-all">
+                  <option value="Active">Active Clearance</option>
+                  <option value="Inactive">Suspended / Inactive</option>
+                  <option value="Pending">Pending Review</option>
                 </select>
               </div>
 
