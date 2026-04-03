@@ -21,6 +21,8 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
   openingBalance,
   reportType = 'Monthly'
 }) => {
+  const logoUrl = "https://lh3.googleusercontent.com/d/1la57sO6NOuNEZaqa9zDxuxRnWPBavkjH";
+  
   // Calculations
   const totalTithes = records.reduce((sum, r) => sum + (r.tithes || 0), 0);
   const totalOfferings = records.reduce((sum, r) => sum + (r.offerings || 0), 0);
@@ -34,166 +36,355 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
     return `GH₵${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
+  const styles = `
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Playfair+Display:wght@700;900&display=swap');
+    
+    @media print {
+      body { background: white !important; margin: 0; padding: 0; }
+      .no-print { display: none !important; }
+      @page { margin: 1cm; size: A4; }
+      .document-container { box-shadow: none !important; border: none !important; width: 100% !important; max-width: none !important; padding: 0 !important; }
+    }
+    .document-container { 
+      background: white; 
+      color: black; 
+      padding: 60px; 
+      max-width: 210mm; 
+      margin: 20px auto; 
+      font-family: 'Inter', sans-serif; 
+      min-height: 297mm; 
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+      border: 1px solid #e2e8f0;
+      position: relative;
+      overflow: hidden;
+    }
+    .bg-pattern {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-image: radial-gradient(#e2e8f0 0.5px, transparent 0.5px);
+      background-size: 20px 20px;
+      opacity: 0.2;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .watermark {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-45deg);
+      font-size: 120px;
+      font-weight: 900;
+      color: rgba(0, 77, 64, 0.015);
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.4em;
+    }
+    .header-accent {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 10px;
+      background: linear-gradient(to right, #004d40, #d4af37, #004d40, #d4af37, #004d40);
+    }
+    .official-stamp {
+      position: absolute;
+      top: 45px;
+      right: -45px;
+      background: #004d40;
+      color: white;
+      padding: 10px 70px;
+      transform: rotate(45deg);
+      font-size: 9pt;
+      font-weight: 900;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+      z-index: 10;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 30px; position: relative; z-index: 1; background: white; }
+    th, td { border: 1px solid #e2e8f0; padding: 14px 18px; text-align: left; font-size: 9pt; }
+    th { background-color: #f8fafc; font-weight: 900; text-transform: uppercase; color: #004d40; font-size: 7.5pt; letter-spacing: 0.15em; }
+    .text-right { text-align: right; }
+    .font-bold { font-weight: 700; }
+    .uppercase { text-transform: uppercase; }
+    .text-center { text-align: center; }
+    .section-title { 
+      font-size: 12pt; 
+      font-weight: 900; 
+      margin-top: 40px; 
+      margin-bottom: 20px; 
+      color: #004d40;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      font-family: 'Playfair Display', serif;
+    }
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 2px;
+      background: linear-gradient(to right, #e2e8f0, transparent);
+    }
+    .bento-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(2, auto);
+      gap: 15px;
+      margin-bottom: 40px;
+    }
+    .bento-item {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 20px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+      position: relative;
+      overflow: hidden;
+    }
+    .bento-item::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: #e2e8f0;
+    }
+    .bento-item.primary::before { background: #004d40; }
+    .bento-item.success::before { background: #10b981; }
+    .bento-item.danger::before { background: #ef4444; }
+    .bento-item.warning::before { background: #f59e0b; }
+    
+    .summary-item-label { font-size: 7pt; font-weight: 900; color: #64748b; text-transform: uppercase; letter-spacing: 0.2em; margin-bottom: 8px; }
+    .summary-item-value { font-size: 14pt; font-weight: 900; color: #0f172a; letter-spacing: -0.02em; }
+    .side-by-side { display: flex; gap: 35px; width: 100%; }
+    .side-by-side > div { flex: 1; }
+    .signature-box { 
+      text-align: center; 
+      border-top: 2px solid #0f172a; 
+      padding-top: 15px; 
+      width: 220px; 
+      margin: 0 auto;
+    }
+    .qr-placeholder {
+      width: 90px;
+      height: 90px;
+      border: 1px solid #e2e8f0;
+      padding: 8px;
+      background: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+    .qr-grid {
+      display: grid;
+      grid-template-cols: repeat(5, 1fr);
+      gap: 2px;
+      width: 100%;
+      height: 100%;
+    }
+    .qr-dot { background: #004d40; border-radius: 1px; }
+  `;
+
+  const QRPlaceholder = () => (
+    <div className="qr-placeholder">
+      <div className="qr-grid">
+        {Array.from({ length: 25 }).map((_, i) => (
+          <div key={i} className="qr-dot" style={{ opacity: Math.random() > 0.3 ? 1 : 0.05 }} />
+        ))}
+      </div>
+      <p className="text-[6pt] font-black uppercase tracking-tighter text-slate-400">Verify Doc</p>
+    </div>
+  );
+
   if (reportType === 'Audit') {
     return (
-      <div className="bg-white text-black p-12 max-w-[210mm] mx-auto font-sans min-h-screen print:p-0">
-        <style dangerouslySetInnerHTML={{ __html: `
-          @media print {
-            body { background: white !important; }
-            .no-print { display: none !important; }
-            @page { margin: 1.5cm; size: A4; }
-          }
-          table { border-collapse: collapse; width: 100%; margin-bottom: 15px; }
-          th, td { border: 1px solid #000; padding: 6px 10px; text-align: left; font-size: 10pt; }
-          th { background-color: #f0f0f0; font-weight: bold; text-transform: uppercase; }
-          .text-right { text-align: right; }
-          .font-bold { font-weight: bold; }
-          .uppercase { text-transform: uppercase; }
-          .text-center { text-align: center; }
-          .section-title { font-size: 11pt; font-weight: 800; margin-top: 20px; margin-bottom: 8px; border-bottom: 1px solid #000; padding-bottom: 2px; }
-        `}} />
+      <div className="document-container">
+        <style dangerouslySetInnerHTML={{ __html: styles }} />
+        <div className="bg-pattern" />
+        <div className="watermark">CONFIDENTIAL AUDIT</div>
+        <div className="header-accent" />
+        <div className="official-stamp">Authorized</div>
 
         {/* 1. HEADER */}
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold uppercase mb-1">{organizationName}</h1>
-          <p className="text-lg font-bold uppercase mb-1">Treasury & Audit Department</p>
-          <p className="text-lg font-bold uppercase underline">FINANCIAL AUDIT REPORT</p>
-          <div className="mt-4 text-md">
-            <p><span className="font-bold">Report Date:</span> {dateGenerated}</p>
-            <p><span className="font-bold">Reporting Period:</span> {reportPeriod}</p>
+        <div className="flex justify-between items-start mb-16 relative z-10">
+          <div className="flex items-center gap-8">
+            <img src={logoUrl} alt="Logo" className="w-24 h-24 object-contain" referrerPolicy="no-referrer" />
+            <div>
+              <h1 className="text-3xl font-black text-fh-green tracking-tighter uppercase leading-none">{organizationName}</h1>
+              <p className="text-[11px] text-slate-400 font-black uppercase tracking-[0.6em] mt-3">Treasury & Audit Department</p>
+              <div className="flex items-center gap-3 mt-4">
+                <span className="px-3 py-1 bg-fh-green text-white text-[8pt] font-black uppercase tracking-widest rounded-full">Official Audit</span>
+                <span className="px-3 py-1 bg-fh-gold/20 text-fh-green text-[8pt] font-black uppercase tracking-widest rounded-full border border-fh-gold/30">v2.4.0</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-6">
+            <QRPlaceholder />
+            <div className="text-right">
+              <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight font-serif">Financial Audit</h2>
+              <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em] mt-2">ID: AUD-{new Date().getFullYear()}-{Math.floor(Math.random() * 9000) + 1000}</p>
+            </div>
           </div>
         </div>
 
-        {/* 2. EXECUTIVE SUMMARY */}
-        <h2 className="section-title uppercase">EXECUTIVE SUMMARY</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th className="text-right">Amount (GH₵)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Gross Revenue</td>
-              <td className="text-right">{formatGHS(totalIncome)}</td>
-            </tr>
-            <tr>
-              <td>Total Expenditure</td>
-              <td className="text-right">{formatGHS(totalExpense)}</td>
-            </tr>
-            <tr className="font-bold">
-              <td>Net Liquidity</td>
-              <td className="text-right">{formatGHS(netMonthlyBalance)}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div className="grid grid-cols-2 gap-16 mb-12 pb-8 border-b-2 border-slate-100 relative z-10">
+          <div className="space-y-3">
+            <p className="text-slate-400 uppercase text-[8pt] font-black tracking-widest">Reporting Period</p>
+            <p className="text-xl font-black text-slate-900 font-serif">{reportPeriod}</p>
+          </div>
+          <div className="text-right space-y-3">
+            <p className="text-slate-400 uppercase text-[8pt] font-black tracking-widest">Date of Issue</p>
+            <p className="text-xl font-black text-slate-900 font-serif">{dateGenerated}</p>
+          </div>
+        </div>
+
+        {/* 2. BENTO SUMMARY */}
+        <h2 className="section-title uppercase relative z-10">Executive Summary</h2>
+        <div className="bento-grid relative z-10">
+          <div className="bento-item primary">
+            <p className="summary-item-label">Gross Revenue</p>
+            <p className="summary-item-value">{formatGHS(totalIncome)}</p>
+          </div>
+          <div className="bento-item danger">
+            <p className="summary-item-label">Expenditure</p>
+            <p className="summary-item-value text-red-600">{formatGHS(totalExpense)}</p>
+          </div>
+          <div className="bento-item col-span-2 row-span-1 bg-fh-green text-white border-none shadow-xl">
+            <div className="flex flex-col h-full justify-between">
+              <p className="summary-item-label text-white/60">Net Liquidity Position</p>
+              <p className="summary-item-value text-white text-3xl">{formatGHS(netMonthlyBalance)}</p>
+            </div>
+          </div>
+          <div className="bento-item success">
+            <p className="summary-item-label">Tithes</p>
+            <p className="summary-item-value text-emerald-600">{formatGHS(totalTithes)}</p>
+          </div>
+          <div className="bento-item warning">
+            <p className="summary-item-label">Offerings</p>
+            <p className="summary-item-value text-fh-gold">{formatGHS(totalOfferings)}</p>
+          </div>
+          <div className="bento-item">
+            <p className="summary-item-label">Seeds</p>
+            <p className="summary-item-value">{formatGHS(totalSeeds)}</p>
+          </div>
+          <div className="bento-item">
+            <p className="summary-item-label">Other</p>
+            <p className="summary-item-value">{formatGHS(totalOtherIncome)}</p>
+          </div>
+        </div>
 
         {/* 3. REVENUE BREAKDOWN */}
-        <h2 className="section-title uppercase">REVENUE BREAKDOWN</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Category</th>
-              <th className="text-right">Amount (GH₵)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Tithes</td>
-              <td className="text-right">{formatGHS(totalTithes)}</td>
-            </tr>
-            <tr>
-              <td>Offerings</td>
-              <td className="text-right">{formatGHS(totalOfferings)}</td>
-            </tr>
-            <tr>
-              <td>Seeds & Pledges</td>
-              <td className="text-right">{formatGHS(totalSeeds)}</td>
-            </tr>
-            <tr>
-              <td>Other Income</td>
-              <td className="text-right">{formatGHS(totalOtherIncome)}</td>
-            </tr>
-            <tr className="font-bold bg-gray-100">
-              <td>Total Revenue</td>
-              <td className="text-right">{formatGHS(totalIncome)}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        {/* 4. EXPENDITURE SUMMARY */}
-        <h2 className="section-title uppercase">EXPENDITURE SUMMARY</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Category</th>
-              <th className="text-right">Amount (GH₵)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr className="font-bold">
-              <td>Total Expenses</td>
-              <td className="text-right">{formatGHS(totalExpense)}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div className="grid grid-cols-2 gap-12">
+          <div>
+            <h2 className="section-title uppercase">Revenue Breakdown</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th className="text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>Tithes</td><td className="text-right font-bold">{formatGHS(totalTithes)}</td></tr>
+                <tr><td>Offerings</td><td className="text-right font-bold">{formatGHS(totalOfferings)}</td></tr>
+                <tr><td>Seeds & Pledges</td><td className="text-right font-bold">{formatGHS(totalSeeds)}</td></tr>
+                <tr><td>Other Income</td><td className="text-right font-bold">{formatGHS(totalOtherIncome)}</td></tr>
+                <tr className="bg-slate-50"><td className="font-black text-fh-green">TOTAL REVENUE</td><td className="text-right font-black text-fh-green">{formatGHS(totalIncome)}</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <h2 className="section-title uppercase">Expenditure Summary</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th className="text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>General Operations</td><td className="text-right font-bold">{formatGHS(totalExpense)}</td></tr>
+                <tr className="bg-red-50"><td className="font-black text-red-600">TOTAL EXPENSE</td><td className="text-right font-black text-red-600">{formatGHS(totalExpense)}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
 
         {/* 5. DETAILED TRANSACTIONS */}
-        <h2 className="section-title uppercase">DETAILED TRANSACTIONS</h2>
+        <h2 className="section-title uppercase">Detailed Transaction Log</h2>
         {records.length > 0 ? (
           <table>
             <thead>
               <tr>
                 <th>Date</th>
                 <th>Description</th>
-                <th>Service</th>
-                <th className="text-right">Income (GH₵)</th>
-                <th className="text-right">Expense (GH₵)</th>
-                <th>Witnesses</th>
+                <th>Service Type</th>
+                <th className="text-right">Income</th>
+                <th className="text-right">Expense</th>
+                <th>Verification</th>
               </tr>
             </thead>
             <tbody>
               {records.map((rec, i) => (
-                <tr key={i}>
-                  <td>{new Date(rec.service_date).toLocaleDateString('en-GB')}</td>
-                  <td>{rec.notes || 'N/A'}</td>
-                  <td>{rec.service_type}</td>
-                  <td className="text-right">{formatGHS(rec.total_income || 0).replace('GH₵', '')}</td>
-                  <td className="text-right">{formatGHS(rec.expenses || 0).replace('GH₵', '')}</td>
-                  <td className="text-[8pt]">{rec.witness1_name} / {rec.witness2_name}</td>
+                <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                  <td className="whitespace-nowrap">{new Date(rec.service_date).toLocaleDateString('en-GB')}</td>
+                  <td className="font-medium">{rec.notes || 'N/A'}</td>
+                  <td className="text-[8pt] text-slate-500 uppercase font-bold">{rec.service_type}</td>
+                  <td className="text-right font-bold text-emerald-600">{rec.total_income > 0 ? formatGHS(rec.total_income).replace('GH₵', '') : '-'}</td>
+                  <td className="text-right font-bold text-red-600">{rec.expenses > 0 ? formatGHS(rec.expenses).replace('GH₵', '') : '-'}</td>
+                  <td className="text-[7pt] text-slate-400 italic">{rec.witness1_name} / {rec.witness2_name}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         ) : (
-          <p className="italic text-sm my-4">No transactions recorded for this period.</p>
+          <div className="p-8 text-center border-2 border-dashed border-slate-100 rounded-2xl text-slate-400 text-sm font-bold uppercase tracking-widest">No transactions recorded for this period.</div>
         )}
 
         {/* 6. AUDIT STATUS */}
-        <div className="mt-8 border border-black p-4">
-          <p className="mb-2"><span className="font-bold uppercase">Audit Status:</span> Verified</p>
-          <p><span className="font-bold uppercase">Notes:</span> All records have been reconciled with dual witness verification protocols.</p>
+        <div className="mt-12 bg-slate-900 text-white p-8 rounded-2xl flex items-center justify-between shadow-xl">
+          <div>
+            <p className="text-[8pt] font-black uppercase tracking-[0.4em] text-fh-gold mb-2">Audit Status</p>
+            <p className="text-lg font-black tracking-tight">VERIFIED & RECONCILED</p>
+          </div>
+          <div className="text-right max-w-xs">
+            <p className="text-[9pt] text-slate-400 italic leading-relaxed">All records have been reconciled with dual witness verification protocols and bank statement matching.</p>
+          </div>
         </div>
 
         {/* 7. SIGNATURES */}
-        <div className="mt-16 grid grid-cols-3 gap-8">
-          <div className="text-center">
-            <div className="border-b border-black mb-2"></div>
-            <p className="font-bold uppercase text-[9pt]">Treasurer</p>
+        <div className="mt-24 grid grid-cols-3 gap-16">
+          <div className="signature-box">
+            <p className="font-black uppercase text-[8pt] tracking-widest text-slate-900">Treasurer</p>
+            <p className="text-[7pt] text-slate-400 uppercase mt-1">Faithhouse Chapel</p>
           </div>
-          <div className="text-center">
-            <div className="border-b border-black mb-2"></div>
-            <p className="font-bold uppercase text-[9pt]">Auditor</p>
+          <div className="signature-box">
+            <p className="font-black uppercase text-[8pt] tracking-widest text-slate-900">Internal Auditor</p>
+            <p className="text-[7pt] text-slate-400 uppercase mt-1">Audit Committee</p>
           </div>
-          <div className="text-center">
-            <div className="border-b border-black mb-2"></div>
-            <p className="font-bold uppercase text-[9pt]">Head Pastor</p>
+          <div className="signature-box">
+            <p className="font-black uppercase text-[8pt] tracking-widest text-slate-900">Head Pastor</p>
+            <p className="text-[7pt] text-slate-400 uppercase mt-1">Authorization</p>
           </div>
         </div>
 
-        <div className="mt-12 text-[8pt] text-gray-500 text-center">
-          Generated on {dateGenerated} | Faithhouse Chapel International
+        <div className="mt-20 pt-10 border-t border-slate-100 text-[8pt] text-slate-400 text-center font-black uppercase tracking-[0.3em]">
+          Faithhouse Chapel International • {organizationName} • Official Financial Document
         </div>
       </div>
     );
@@ -207,70 +398,77 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
   const rows = Array.from({ length: rowCount });
 
   return (
-    <div className="bg-white text-black p-8 max-w-[210mm] mx-auto font-sans min-h-screen print:p-0">
-      <style dangerouslySetInnerHTML={{ __html: `
-        @media print {
-          body { background: white !important; }
-          .no-print { display: none !important; }
-          @page { margin: 1.5cm; size: A4; }
-        }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #333; padding: 4px 8px; text-align: left; font-size: 9pt; }
-        th { background-color: #f3f4f6; font-weight: bold; text-transform: uppercase; }
-        .text-right { text-align: right; }
-        .font-bold { font-weight: bold; }
-        .uppercase { text-transform: uppercase; }
-        .text-center { text-align: center; }
-        .summary-row { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 20px; border-bottom: 2px solid black; padding-bottom: 10px; }
-        .summary-item { font-size: 10pt; font-weight: 600; }
-        .side-by-side { display: flex; gap: 0; width: 100%; }
-        .side-by-side > div { flex: 1; }
-      `}} />
+    <div className="document-container">
+      <style dangerouslySetInnerHTML={{ __html: styles }} />
+      <div className="watermark">MONTHLY REPORT</div>
+      <div className="header-accent" />
+      <div className="official-stamp">Monthly</div>
 
       {/* 1. TITLE SECTION */}
-      <div className="text-center mb-6">
-        <h1 className="text-xl font-bold uppercase mb-1">MONTHLY FINANCIAL REPORT</h1>
-        <p className="text-md font-semibold uppercase">{reportPeriod}</p>
-        <p className="text-md uppercase">{organizationName}</p>
+      <div className="flex justify-between items-center mb-12">
+        <img src={logoUrl} alt="Logo" className="w-16 h-16 object-contain" referrerPolicy="no-referrer" />
+        <div className="text-center">
+          <h1 className="text-2xl font-black text-fh-green tracking-tighter uppercase leading-none font-serif">Monthly Financial Report</h1>
+          <p className="text-[11px] text-slate-400 font-black uppercase tracking-[0.5em] mt-3">{reportPeriod}</p>
+        </div>
+        <div className="flex flex-col items-end gap-3">
+          <QRPlaceholder />
+          <div className="text-right">
+            <p className="text-[9pt] font-black uppercase text-slate-900 tracking-tight">{organizationName}</p>
+            <p className="text-[7pt] text-slate-400 uppercase tracking-widest mt-1">Official Statement</p>
+          </div>
+        </div>
       </div>
 
       {/* 2. SUMMARY SECTION */}
-      <div className="summary-row">
-        <div className="summary-item">Account Balance (Last Month) .......... {formatGHS(openingBalance)}</div>
-        <div className="summary-item">Total Income .......... {formatGHS(totalIncome)}</div>
-        <div className="summary-item">Total Expense .......... {formatGHS(totalExpense)}</div>
-        <div className="summary-item">Net Monthly Balance .......... {formatGHS(netMonthlyBalance)}</div>
+      <div className="summary-card">
+        <div>
+          <p className="summary-item-label">Opening Balance</p>
+          <p className="summary-item-value">{formatGHS(openingBalance)}</p>
+        </div>
+        <div>
+          <p className="summary-item-label">Total Income</p>
+          <p className="summary-item-value text-emerald-600">{formatGHS(totalIncome)}</p>
+        </div>
+        <div>
+          <p className="summary-item-label">Total Expense</p>
+          <p className="summary-item-value text-red-600">{formatGHS(totalExpense)}</p>
+        </div>
+        <div className="bg-fh-green text-white p-4 rounded-xl shadow-xl flex flex-col justify-center">
+          <p className="summary-item-label text-white/60">Net Balance</p>
+          <p className="summary-item-value text-white text-lg">{formatGHS(netMonthlyBalance)}</p>
+        </div>
       </div>
 
       {/* 3. MAIN TABLE (SIDE-BY-SIDE) */}
       <div className="side-by-side">
         {/* LEFT SIDE: INCOME */}
-        <div className="border-r border-black">
-          <h3 className="text-center font-bold bg-gray-100 border border-black p-1 text-sm uppercase">INCOME</h3>
-          <table>
+        <div>
+          <h3 className="text-center font-black bg-emerald-600 text-white p-3 text-[8pt] uppercase tracking-[0.2em] rounded-t-2xl">Income Streams</h3>
+          <table className="border-t-0">
             <thead>
               <tr>
-                <th style={{ width: '30px' }}>No.</th>
-                <th style={{ width: '70px' }}>Date</th>
-                <th>Item</th>
-                <th className="text-right" style={{ width: '90px' }}>Amount (GH₵)</th>
+                <th style={{ width: '30px' }}>#</th>
+                <th>Date</th>
+                <th>Source</th>
+                <th className="text-right">Amount</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((_, i) => {
                 const rec = incomeEntries[i];
                 return (
-                  <tr key={`inc-${i}`} style={{ height: '28px' }}>
-                    <td className="text-center">{rec ? i + 1 : ''}</td>
-                    <td>{rec ? new Date(rec.service_date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' }) : ''}</td>
-                    <td className="truncate max-w-[120px]">{rec ? rec.service_type : ''}</td>
-                    <td className="text-right">{rec ? formatGHS(rec.total_income || 0).replace('GH₵', '') : ''}</td>
+                  <tr key={`inc-${i}`} style={{ height: '36px' }} className={i % 2 === 0 ? 'bg-white' : 'bg-emerald-50/20'}>
+                    <td className="text-center text-slate-400 text-[7pt]">{rec ? i + 1 : ''}</td>
+                    <td className="text-[8pt] whitespace-nowrap">{rec ? new Date(rec.service_date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' }) : ''}</td>
+                    <td className="truncate max-w-[100px] font-bold text-slate-700">{rec ? rec.service_type : ''}</td>
+                    <td className="text-right font-black text-emerald-600">{rec ? formatGHS(rec.total_income || 0).replace('GH₵', '') : ''}</td>
                   </tr>
                 );
               })}
-              <tr className="font-bold bg-gray-50">
-                <td colSpan={3} className="text-right uppercase">Total Income</td>
-                <td className="text-right">{formatGHS(totalIncome).replace('GH₵', '')}</td>
+              <tr className="font-black bg-emerald-50 border-t-2 border-emerald-200">
+                <td colSpan={3} className="text-right uppercase text-emerald-700 text-[8pt] tracking-widest">Total Income</td>
+                <td className="text-right text-emerald-700">{formatGHS(totalIncome).replace('GH₵', '')}</td>
               </tr>
             </tbody>
           </table>
@@ -278,31 +476,31 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
 
         {/* RIGHT SIDE: EXPENSE */}
         <div>
-          <h3 className="text-center font-bold bg-gray-100 border border-black p-1 text-sm uppercase">EXPENSE</h3>
-          <table>
+          <h3 className="text-center font-black bg-red-600 text-white p-3 text-[8pt] uppercase tracking-[0.2em] rounded-t-2xl">Expenditure</h3>
+          <table className="border-t-0">
             <thead>
               <tr>
-                <th style={{ width: '30px' }}>No.</th>
-                <th style={{ width: '70px' }}>Date</th>
+                <th style={{ width: '30px' }}>#</th>
+                <th>Date</th>
                 <th>Item</th>
-                <th className="text-right" style={{ width: '90px' }}>Amount (GH₵)</th>
+                <th className="text-right">Amount</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((_, i) => {
                 const rec = expenseEntries[i];
                 return (
-                  <tr key={`exp-${i}`} style={{ height: '28px' }}>
-                    <td className="text-center">{rec ? i + 1 : ''}</td>
-                    <td>{rec ? new Date(rec.service_date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' }) : ''}</td>
-                    <td className="truncate max-w-[120px]">{rec ? rec.notes || 'General Expense' : ''}</td>
-                    <td className="text-right">{rec ? formatGHS(rec.expenses || 0).replace('GH₵', '') : ''}</td>
+                  <tr key={`exp-${i}`} style={{ height: '36px' }} className={i % 2 === 0 ? 'bg-white' : 'bg-red-50/20'}>
+                    <td className="text-center text-slate-400 text-[7pt]">{rec ? i + 1 : ''}</td>
+                    <td className="text-[8pt] whitespace-nowrap">{rec ? new Date(rec.service_date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' }) : ''}</td>
+                    <td className="truncate max-w-[100px] font-bold text-slate-700">{rec ? rec.notes || 'General' : ''}</td>
+                    <td className="text-right font-black text-red-600">{rec ? formatGHS(rec.expenses || 0).replace('GH₵', '') : ''}</td>
                   </tr>
                 );
               })}
-              <tr className="font-bold bg-gray-50">
-                <td colSpan={3} className="text-right uppercase">Total Expense</td>
-                <td className="text-right">{formatGHS(totalExpense).replace('GH₵', '')}</td>
+              <tr className="font-black bg-red-50 border-t-2 border-red-200">
+                <td colSpan={3} className="text-right uppercase text-red-700 text-[8pt] tracking-widest">Total Expense</td>
+                <td className="text-right text-red-700">{formatGHS(totalExpense).replace('GH₵', '')}</td>
               </tr>
             </tbody>
           </table>
@@ -310,21 +508,19 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
       </div>
 
       {/* FOOTER / SIGN-OFF */}
-      <div className="mt-12 grid grid-cols-2 gap-20">
-        <div className="border-t border-black pt-2 text-center">
-          <p className="font-bold uppercase text-xs">Prepared By: Treasury Department</p>
-          <div className="mt-8 border-b border-dotted border-black w-40 mx-auto"></div>
-          <p className="text-[8pt] mt-1 italic">Signature & Date</p>
+      <div className="mt-24 grid grid-cols-2 gap-32">
+        <div className="signature-box">
+          <p className="font-black uppercase text-[8pt] tracking-widest text-slate-900">Prepared By</p>
+          <p className="text-[7pt] text-slate-400 uppercase mt-1">Treasury Department</p>
         </div>
-        <div className="border-t border-black pt-2 text-center">
-          <p className="font-bold uppercase text-xs">Approved By: Head Pastor / Audit</p>
-          <div className="mt-8 border-b border-dotted border-black w-40 mx-auto"></div>
-          <p className="text-[8pt] mt-1 italic">Signature & Date</p>
+        <div className="signature-box">
+          <p className="font-black uppercase text-[8pt] tracking-widest text-slate-900">Approved By</p>
+          <p className="text-[7pt] text-slate-400 uppercase mt-1">Head Pastor / Audit</p>
         </div>
       </div>
       
-      <div className="mt-8 text-[8pt] text-gray-500 text-center">
-        Generated on {dateGenerated} | Faithhouse Chapel International
+      <div className="mt-20 pt-10 border-t border-slate-100 text-[8pt] text-slate-400 text-center font-black uppercase tracking-[0.3em]">
+        Generated on {dateGenerated} • Faithhouse Chapel International • Confidential Document
       </div>
     </div>
   );
