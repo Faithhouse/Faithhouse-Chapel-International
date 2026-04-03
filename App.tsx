@@ -442,35 +442,43 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 font-sans">
-      <Sidebar 
-        activeItem={activeItem} 
-        setActiveItem={(item) => {
-          handleSetActiveItem(item);
-          setIsSidebarOpen(false);
-        }}
-        isOpen={isSidebarOpen}
-        toggleSidebar={toggleSidebar}
-        userProfile={profile}
-        handleLogout={handleLogout}
-      />
-
-      <div className="flex-1 flex flex-col lg:pl-64 transition-all duration-300">
-        <Header 
-          toggleSidebar={toggleSidebar} 
-          userProfile={profile} 
-          activeItem={activeItem as string}
-          onBack={handleBack}
-          hasHistory={history.length > 1}
+    <div className="min-h-screen flex flex-col bg-slate-50 font-sans print:bg-white">
+      <div className="print:hidden">
+        <Sidebar 
+          activeItem={activeItem} 
+          setActiveItem={(item) => {
+            handleSetActiveItem(item);
+            setIsSidebarOpen(false);
+          }}
+          isOpen={isSidebarOpen}
+          toggleSidebar={toggleSidebar}
+          userProfile={profile}
+          handleLogout={handleLogout}
         />
-        <main className="flex-1 p-4 md:p-8">
-          <div className="max-w-7xl mx-auto">
+      </div>
+
+      <div className="flex-1 flex flex-col lg:pl-64 transition-all duration-300 print:pl-0">
+        <div className="print:hidden">
+          <Header 
+            toggleSidebar={toggleSidebar} 
+            userProfile={profile} 
+            activeItem={activeItem as string}
+            onBack={handleBack}
+            hasHistory={history.length > 1}
+          />
+        </div>
+        <main className="flex-1 p-4 md:p-8 print:p-0">
+          <div className="max-w-7xl mx-auto print:max-w-none">
             {renderContent()}
           </div>
         </main>
-        <Footer />
+        <div className="print:hidden">
+          <Footer />
+        </div>
       </div>
-      <DavidChatbot />
+      <div className="print:hidden">
+        <DavidChatbot />
+      </div>
       <Toaster position="top-right" richColors />
     </div>
   );

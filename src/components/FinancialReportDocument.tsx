@@ -229,12 +229,10 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
               <p className="text-[11px] text-slate-400 font-black uppercase tracking-[0.6em] mt-3">Treasury & Audit Department</p>
               <div className="flex items-center gap-3 mt-4">
                 <span className="px-3 py-1 bg-fh-green text-white text-[8pt] font-black uppercase tracking-widest rounded-full">Official Audit</span>
-                <span className="px-3 py-1 bg-fh-gold/20 text-fh-green text-[8pt] font-black uppercase tracking-widest rounded-full border border-fh-gold/30">v2.4.0</span>
               </div>
             </div>
           </div>
           <div className="flex flex-col items-end gap-6">
-            <QRPlaceholder />
             <div className="text-right">
               <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight font-serif">Financial Audit</h2>
               <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em] mt-2">ID: AUD-{new Date().getFullYear()}-{Math.floor(Math.random() * 9000) + 1000}</p>
@@ -383,8 +381,9 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
           </div>
         </div>
 
-        <div className="mt-20 pt-10 border-t border-slate-100 text-[8pt] text-slate-400 text-center font-black uppercase tracking-[0.3em]">
-          Faithhouse Chapel International • {organizationName} • Official Financial Document
+        <div className="mt-20 pt-10 border-t border-slate-100 flex justify-between items-center text-[8pt] text-slate-400 font-black uppercase tracking-[0.3em]">
+          <p>Faithhouse Chapel International • {organizationName}</p>
+          <QRPlaceholder />
         </div>
       </div>
     );
@@ -405,17 +404,21 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
       <div className="official-stamp">Monthly</div>
 
       {/* 1. TITLE SECTION */}
-      <div className="flex justify-between items-center mb-12">
-        <img src={logoUrl} alt="Logo" className="w-16 h-16 object-contain" referrerPolicy="no-referrer" />
-        <div className="text-center">
-          <h1 className="text-2xl font-black text-fh-green tracking-tighter uppercase leading-none font-serif">Monthly Financial Report</h1>
-          <p className="text-[11px] text-slate-400 font-black uppercase tracking-[0.5em] mt-3">{reportPeriod}</p>
+      <div className="flex justify-between items-start mb-16 relative z-10">
+        <div className="flex items-center gap-8">
+          <img src={logoUrl} alt="Logo" className="w-24 h-24 object-contain" referrerPolicy="no-referrer" />
+          <div>
+            <h1 className="text-3xl font-black text-fh-green tracking-tighter uppercase leading-none">{organizationName}</h1>
+            <p className="text-[11px] text-slate-400 font-black uppercase tracking-[0.6em] mt-3">Treasury Department</p>
+            <div className="flex items-center gap-3 mt-4">
+              <span className="px-3 py-1 bg-fh-green text-white text-[8pt] font-black uppercase tracking-widest rounded-full">Monthly Statement</span>
+            </div>
+          </div>
         </div>
-        <div className="flex flex-col items-end gap-3">
-          <QRPlaceholder />
+        <div className="flex flex-col items-end gap-6">
           <div className="text-right">
-            <p className="text-[9pt] font-black uppercase text-slate-900 tracking-tight">{organizationName}</p>
-            <p className="text-[7pt] text-slate-400 uppercase tracking-widest mt-1">Official Statement</p>
+            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight font-serif">Financial Report</h2>
+            <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em] mt-2">{reportPeriod}</p>
           </div>
         </div>
       </div>
@@ -519,8 +522,9 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
         </div>
       </div>
       
-      <div className="mt-20 pt-10 border-t border-slate-100 text-[8pt] text-slate-400 text-center font-black uppercase tracking-[0.3em]">
-        Generated on {dateGenerated} • Faithhouse Chapel International • Confidential Document
+      <div className="mt-20 pt-10 border-t border-slate-100 flex justify-between items-center text-[8pt] text-slate-400 font-black uppercase tracking-[0.3em]">
+        <p>Generated on {dateGenerated} • Faithhouse Chapel International</p>
+        <QRPlaceholder />
       </div>
     </div>
   );
