@@ -178,7 +178,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
             <button 
               className="flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all bg-white/10 text-white shadow-lg"
             >
-              Authorized Personnel Login
+              Login
             </button>
           </div>
 
