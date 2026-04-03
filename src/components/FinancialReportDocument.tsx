@@ -240,7 +240,6 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
         <div className="official-stamp">Authorized</div>
         {reportType === 'Audit' && (
           <div className="absolute top-[105px] right-[25px] text-right z-10">
-            <p className="text-[9px] font-black text-fh-green uppercase tracking-[0.4em]">Financial Audit</p>
           </div>
         )}
 
@@ -426,10 +425,11 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
       <style dangerouslySetInnerHTML={{ __html: styles }} />
       <div className="watermark">MONTHLY REPORT</div>
       <div className="header-accent" />
-      <div className="official-stamp">Monthly</div>
+      <div className="official-stamp">Monthly
+         <p className="text-[9px] font-black text-fh-white uppercase tracking-[0.4em]">Financial Report</p>
+      </div>
       {reportType === 'Monthly' && (
         <div className="absolute top-[105px] right-[25px] text-right z-10">
-          <p className="text-[9px] font-black text-fh-green uppercase tracking-[0.4em]">Financial Report</p>
         </div>
       )}
 
