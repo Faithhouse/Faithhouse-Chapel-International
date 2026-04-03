@@ -60,6 +60,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [memberSearch, setMemberSearch] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('All Months');
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [isEditingRecord, setIsEditingRecord] = useState(false);
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [recordToDelete, setRecordToDelete] = useState<string | null>(null);
@@ -126,22 +127,31 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
   const [isPrintMode, setIsPrintMode] = useState(false);
   const [selectedReportType, setSelectedReportType] = useState<'Monthly' | 'Audit'>('Monthly');
 
+  const availableYears = useMemo(() => {
+    const years = new Set<string>();
+    titheRecords.forEach(t => years.add(new Date(t.payment_date).getFullYear().toString()));
+    records.forEach(r => years.add(new Date(r.service_date).getFullYear().toString()));
+    years.add(new Date().getFullYear().toString());
+    return Array.from(years).sort((a, b) => b.localeCompare(a));
+  }, [titheRecords, records]);
+
   const availableMonths = useMemo(() => {
     const months = new Set<string>();
     titheRecords.forEach(t => {
       const date = new Date(t.payment_date);
-      months.add(date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }));
+      if (date.getFullYear().toString() === selectedYear) {
+        months.add(date.toLocaleDateString('en-GB', { month: 'long' }));
+      }
     });
     records.forEach(r => {
       const date = new Date(r.service_date);
-      months.add(date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }));
+      if (date.getFullYear().toString() === selectedYear) {
+        months.add(date.toLocaleDateString('en-GB', { month: 'long' }));
+      }
     });
-    return ['All Months', ...Array.from(months).sort((a, b) => {
-      const dateA = new Date(a);
-      const dateB = new Date(b);
-      return dateB.getTime() - dateA.getTime();
-    })];
-  }, [titheRecords, records]);
+    const monthsOrder = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    return ['All Months', ...Array.from(months).sort((a, b) => monthsOrder.indexOf(a) - monthsOrder.indexOf(b))];
+  }, [titheRecords, records, selectedYear]);
 
   const processedRecords = useMemo(() => {
     const base = records.map(rec => {
@@ -153,15 +163,15 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
       const total_income = tithes + (Number(rec.offerings) || 0) + (Number(rec.seed) || 0) + (Number(rec.other_income) || 0);
       
       return { ...rec, tithes, total_income };
-    });
+    }).filter(r => new Date(r.service_date).getFullYear().toString() === selectedYear);
 
     if (selectedMonth === 'All Months') return base;
 
     return base.filter(r => {
-      const recMonth = new Date(r.service_date).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+      const recMonth = new Date(r.service_date).toLocaleDateString('en-GB', { month: 'long' });
       return recMonth === selectedMonth;
     });
-  }, [records, titheRecords, selectedMonth]);
+  }, [records, titheRecords, selectedMonth, selectedYear]);
 
   const sum = (key: keyof FinancialRecord) => processedRecords.reduce((a, r) => a + (Number(r[key]) || 0), 0);
   const totalRevenue = sum('tithes') + sum('offerings') + sum('seed') + sum('other_income');
@@ -174,13 +184,14 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
         : `member id: ${t.member_id}`.toLowerCase();
       
       const matchesSearch = memberName.includes(searchTerm.toLowerCase());
+      const matchesYear = new Date(t.payment_date).getFullYear().toString() === selectedYear;
       
-      if (selectedMonth === 'All Months') return matchesSearch;
+      if (selectedMonth === 'All Months') return matchesSearch && matchesYear;
       
-      const titheMonth = new Date(t.payment_date).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-      return matchesSearch && titheMonth === selectedMonth;
+      const titheMonth = new Date(t.payment_date).toLocaleDateString('en-GB', { month: 'long' });
+      return matchesSearch && matchesYear && titheMonth === selectedMonth;
     });
-  }, [titheRecords, searchTerm, selectedMonth]);
+  }, [titheRecords, searchTerm, selectedMonth, selectedYear]);
 
   const groupedTithes = useMemo(() => {
     return filteredTithes.reduce((acc, tithe) => {
@@ -198,9 +209,9 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
     if (selectedMonth === 'All Months') return 0;
     
     try {
-      const [monthName, yearStr] = selectedMonth.split(' ');
-      const monthIndex = new Date(`${monthName} 1, ${yearStr}`).getMonth();
-      const year = parseInt(yearStr);
+      const monthsOrder = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      const monthIndex = monthsOrder.indexOf(selectedMonth);
+      const year = parseInt(selectedYear);
       const startDate = new Date(year, monthIndex, 1);
       
       return records
@@ -217,7 +228,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
     } catch (e) {
       return 0;
     }
-  }, [records, titheRecords, selectedMonth]);
+  }, [records, titheRecords, selectedMonth, selectedYear]);
 
   const [tableStatus, setTableStatus] = useState<Record<string, boolean>>({
     members: false,
@@ -649,7 +660,7 @@ NOTIFY pgrst, 'reload schema';`;
         </div>
         <FinancialReportDocument 
           organizationName="Faithhouse Chapel International (Wonders Cathedral)"
-          reportPeriod={selectedMonth === 'All Months' ? 'Full Year 2024' : selectedMonth}
+          reportPeriod={selectedMonth === 'All Months' ? `Full Year ${selectedYear}` : `${selectedMonth} ${selectedYear}`}
           dateGenerated={new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
           records={processedRecords}
           openingBalance={openingBalance}
@@ -666,17 +677,34 @@ NOTIFY pgrst, 'reload schema';`;
       <div className="grid grid-cols-1 lg:grid-cols-3 items-center gap-6 py-4 no-print">
         {/* Left: Filters */}
         <div className="flex items-center gap-4 order-2 lg:order-1">
-          <div className="relative flex-1 lg:flex-none">
-            <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <select 
-              className="w-full lg:w-auto pl-12 pr-10 py-4 bg-white border border-slate-200 rounded-[1.75rem] font-black uppercase text-[10px] tracking-widest outline-none focus:ring-2 ring-fh-green/20 transition-all shadow-sm"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-            >
-              {availableMonths.map(m => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
+          <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+            <div className="relative">
+              <select 
+                className="w-full lg:w-auto pl-6 pr-10 py-4 bg-white border border-slate-200 rounded-[1.75rem] font-black uppercase text-[10px] tracking-widest outline-none focus:ring-2 ring-fh-green/20 transition-all shadow-sm appearance-none"
+                value={selectedYear}
+                onChange={(e) => {
+                  setSelectedYear(e.target.value);
+                  setSelectedMonth('All Months');
+                }}
+              >
+                {availableYears.map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+            </div>
+            <div className="relative">
+              <select 
+                className="w-full lg:w-auto pl-6 pr-10 py-4 bg-white border border-slate-200 rounded-[1.75rem] font-black uppercase text-[10px] tracking-widest outline-none focus:ring-2 ring-fh-green/20 transition-all shadow-sm appearance-none"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+              >
+                {availableMonths.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+            </div>
           </div>
         </div>
 

@@ -58,6 +58,14 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
       position: relative;
       overflow: hidden;
     }
+    @media (max-width: 768px) {
+      .document-container { padding: 20px; box-shadow: none; border: none; }
+      .bento-grid { grid-template-columns: 1fr; }
+      .side-by-side { flex-direction: column; }
+      .header-flex { flex-direction: column; align-items: center; text-align: center; gap: 20px; }
+      .header-flex-right { align-items: center; text-align: center; }
+      .official-stamp { display: none; }
+    }
     .bg-pattern {
       position: absolute;
       top: 0;
@@ -107,7 +115,11 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
       box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
       z-index: 10;
       border: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
+    .official-stamp span { font-size: 6pt; letter-spacing: 0.1em; opacity: 0.8; margin-top: 2px; }
     table { border-collapse: collapse; width: 100%; margin-bottom: 30px; position: relative; z-index: 1; background: white; }
     th, td { border: 1px solid #e2e8f0; padding: 14px 18px; text-align: left; font-size: 9pt; }
     th { background-color: #f8fafc; font-weight: 900; text-transform: uppercase; color: #004d40; font-size: 7.5pt; letter-spacing: 0.15em; }
@@ -218,22 +230,26 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
         <div className="bg-pattern" />
         <div className="watermark">CONFIDENTIAL AUDIT</div>
         <div className="header-accent" />
-        <div className="official-stamp">Authorized</div>
+        <div className="official-stamp">
+          Authorized
+          {reportType === 'Audit' && <span>Financial Audit</span>}
+        </div>
 
         {/* 1. HEADER */}
-        <div className="flex justify-between items-start mb-16 relative z-10">
-          <div className="flex items-center gap-8">
+        <div className="flex justify-between items-start mb-16 relative z-10 header-flex">
+          <div className="flex items-center gap-8 header-flex">
             <img src={logoUrl} alt="Logo" className="w-24 h-24 object-contain" referrerPolicy="no-referrer" />
             <div>
-              <h1 className="text-3xl font-black text-fh-green tracking-tighter uppercase leading-none">{organizationName}</h1>
+              <h1 className="text-3xl font-black text-fh-green tracking-tighter uppercase leading-none">Faithhouse Chapel International</h1>
+              <p className="text-sm font-bold text-slate-500 mt-1">(Wonders Cathedral)</p>
               <p className="text-[11px] text-slate-400 font-black uppercase tracking-[0.6em] mt-3">Treasury & Audit Department</p>
               <div className="flex items-center gap-3 mt-4">
                 <span className="px-3 py-1 bg-fh-green text-white text-[8pt] font-black uppercase tracking-widest rounded-full">Official Audit</span>
               </div>
             </div>
           </div>
-          <div className="flex flex-col items-end gap-6">
-            <div className="text-right">
+          <div className="flex flex-col items-end gap-6 header-flex-right">
+            <div className="text-right header-flex-right">
               <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight font-serif">Financial Audit</h2>
               <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em] mt-2">ID: AUD-{new Date().getFullYear()}-{Math.floor(Math.random() * 9000) + 1000}</p>
             </div>
@@ -287,7 +303,7 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
         </div>
 
         {/* 3. REVENUE BREAKDOWN */}
-        <div className="grid grid-cols-2 gap-12">
+        <div className="side-by-side relative z-10 mb-12">
           <div>
             <h2 className="section-title uppercase">Revenue Breakdown</h2>
             <table>
@@ -401,22 +417,26 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
       <style dangerouslySetInnerHTML={{ __html: styles }} />
       <div className="watermark">MONTHLY REPORT</div>
       <div className="header-accent" />
-      <div className="official-stamp">Monthly</div>
+      <div className="official-stamp">
+        Monthly
+        {reportType === 'Monthly' && <span>Financial Report</span>}
+      </div>
 
       {/* 1. TITLE SECTION */}
-      <div className="flex justify-between items-start mb-16 relative z-10">
-        <div className="flex items-center gap-8">
+      <div className="flex justify-between items-start mb-16 relative z-10 header-flex">
+        <div className="flex items-center gap-8 header-flex">
           <img src={logoUrl} alt="Logo" className="w-24 h-24 object-contain" referrerPolicy="no-referrer" />
           <div>
-            <h1 className="text-3xl font-black text-fh-green tracking-tighter uppercase leading-none">{organizationName}</h1>
+            <h1 className="text-3xl font-black text-fh-green tracking-tighter uppercase leading-none">Faithhouse Chapel International</h1>
+            <p className="text-sm font-bold text-slate-500 mt-1">(Wonders Cathedral)</p>
             <p className="text-[11px] text-slate-400 font-black uppercase tracking-[0.6em] mt-3">Treasury Department</p>
             <div className="flex items-center gap-3 mt-4">
               <span className="px-3 py-1 bg-fh-green text-white text-[8pt] font-black uppercase tracking-widest rounded-full">Monthly Statement</span>
             </div>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-6">
-          <div className="text-right">
+        <div className="flex flex-col items-end gap-6 header-flex-right">
+          <div className="text-right header-flex-right">
             <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight font-serif">Financial Report</h2>
             <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em] mt-2">{reportPeriod}</p>
           </div>
