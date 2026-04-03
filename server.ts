@@ -2,6 +2,9 @@
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import { createClient } from "@supabase/supabase-js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -9,123 +12,266 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = 3000;
 
-// API Route for OAuth URL
-app.get('/api/auth/github/url', (req, res) => {
-  const clientId = process.env.GITHUB_CLIENT_ID;
-  if (!clientId) {
-    return res.status(500).json({ error: 'GITHUB_CLIENT_ID not configured' });
-  }
+app.use(express.json());
 
-  const redirectUri = `${process.env.APP_URL}/auth/callback`;
-  
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    scope: 'read:user user:email',
-    response_type: 'code'
+// Supabase Configuration for Backend
+const SUPABASE_URL = process.env.SUPABASE_URL || "https://bhujaqeledtkmwhoqfcd.supabase.co";
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_publishable_CT9Y87U7ZbdTOsKDzWg37g_RqcAHbgv"; // Fallback to anon if service role not found, but service role is preferred for admin tasks
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+const JWT_SECRET = process.env.JWT_SECRET || "faithhouse-super-secret-key-2024";
+
+// Default Superuser Configuration
+const DEFAULT_ADMIN = {
+  email: 'systemadmin@faithhouse.com',
+  password: 'FHCIone_@2024',
+  role: 'System Administrator'
+};
+
+// Middleware to verify JWT
+const authenticateToken = (req: any, res: any, next: any) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) return res.status(401).json({ error: 'Access denied. No token provided.' });
+
+  jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+    if (err) return res.status(403).json({ error: 'Invalid or expired token.' });
+    req.user = user;
+    next();
   });
+};
 
-  res.json({ url: `https://github.com/login/oauth/authorize?${params.toString()}` });
-});
-
-// OAuth Callback Handler
-app.get(['/auth/callback', '/auth/callback/'], async (req, res) => {
-  const { code } = req.query;
-  
-  if (!code) {
-    return res.status(400).send('No code provided');
+// Middleware for God-Level Access
+const authorizeGodLevel = (req: any, res: any, next: any) => {
+  const godRoles = ['System Administrator', 'General Overseer', 'General Administrator'];
+  if (!godRoles.includes(req.user.role)) {
+    return res.status(403).json({ error: 'Insufficient permissions. God-level access required.' });
   }
+  next();
+};
+
+// Auth Routes
+app.post('/api/auth/login', async (req, res) => {
+  const { email, password } = req.body;
 
   try {
-    const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({
-        client_id: process.env.GITHUB_CLIENT_ID,
-        client_secret: process.env.GITHUB_CLIENT_SECRET,
-        code
-      })
-    });
+    // Check for default superuser if DB is empty or it's the specific email
+    let user;
+    const { data: dbUser, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('email', email.toLowerCase())
+      .single();
 
-    const tokenData: any = await tokenResponse.json();
-    const accessToken = tokenData.access_token;
-
-    if (!accessToken) {
-      throw new Error('Failed to obtain access token from GitHub');
+    if (error && error.code !== 'PGRST116') {
+      console.error('Login DB Error:', error);
     }
 
-    const userResponse = await fetch('https://api.github.com/user', {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'User-Agent': 'Faithhouse-CMS'
+    if (!dbUser && email.toLowerCase() === DEFAULT_ADMIN.email.toLowerCase()) {
+      // If default admin doesn't exist in DB yet, check against hardcoded credentials
+      if (password === DEFAULT_ADMIN.password) {
+        // Create the user in DB on first successful login
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const { data: newUser, error: createError } = await supabase
+          .from('profiles')
+          .insert([{
+            email: DEFAULT_ADMIN.email,
+            password_hash: hashedPassword,
+            role: DEFAULT_ADMIN.role,
+            first_name: 'System',
+            last_name: 'Administrator',
+            must_change_password: true,
+            status: 'Active'
+          }])
+          .select()
+          .single();
+        
+        if (createError) {
+          // If insert fails (maybe table doesn't have the fields yet), still allow login but warn
+          console.error('Failed to persist default admin:', createError);
+          user = { ...DEFAULT_ADMIN, id: 'system-admin-temp', must_change_password: true };
+        } else {
+          user = newUser;
+        }
+      } else {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+    } else if (dbUser) {
+      // Verify password
+      const validPassword = await bcrypt.compare(password, dbUser.password_hash || '');
+      if (!validPassword) {
+        // Handle lockout logic here if needed
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+      user = dbUser;
+    } else {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Generate JWT
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        must_change_password: user.must_change_password
       }
     });
-    const userData: any = await userResponse.json();
 
-    const emailsResponse = await fetch('https://api.github.com/user/emails', {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'User-Agent': 'Faithhouse-CMS'
+    // Audit Log
+    await supabase.from('system_logs').insert([{
+      event_type: 'LOGIN_SUCCESS',
+      user_email: email,
+      details: `User logged in successfully. Role: ${user.role}`
+    }]);
+
+  } catch (err: any) {
+    console.error('Login Error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/auth/me', authenticateToken, async (req: any, res) => {
+  try {
+    // Handle temporary system admin session if DB is not yet ready
+    if (req.user.id === 'system-admin-temp' || req.user.email === DEFAULT_ADMIN.email) {
+      const { data: user, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('email', DEFAULT_ADMIN.email)
+        .single();
+      
+      if (!error && user) {
+        return res.json(user);
       }
-    });
-    const emailsData: any = await emailsResponse.json();
-    const primaryEmail = emailsData.find((e: any) => e.primary)?.email || userData.email;
 
-    res.send(`
-      <html>
-        <body style="background: #050505; color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden;">
-          <div style="text-align: center; padding: 40px; border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; background: rgba(255,255,255,0.02); backdrop-filter: blur(20px);">
-            <div style="width: 64px; height: 64px; background: #CC923E; border-radius: 20px; margin: 0 auto 24px; display: flex; align-items: center; justify-content: center;">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#09420B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-            </div>
-            <h2 style="font-weight: 900; text-transform: uppercase; letter-spacing: 0.2em; margin: 0 0 8px; font-size: 18px;">Authorization Successful</h2>
-            <p style="opacity: 0.5; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; margin: 0 0 24px;">Synchronizing ${userData.login} with Faithhouse Database...</p>
-            <div style="width: 100px; height: 2px; background: rgba(255,255,255,0.1); margin: 0 auto; position: relative; overflow: hidden;">
-              <div style="position: absolute; top: 0; left: 0; height: 100%; background: #CC923E; width: 50%; animation: slide 1.5s infinite ease-in-out;"></div>
-            </div>
-          </div>
-          <style>
-            @keyframes slide {
-              0% { transform: translateX(-100%); }
-              100% { transform: translateX(200%); }
-            }
-          </style>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({ 
-                type: 'OAUTH_AUTH_SUCCESS', 
-                provider: 'github',
-                user: ${JSON.stringify({
-                  email: primaryEmail,
-                  name: userData.name || userData.login,
-                  avatar: userData.avatar_url,
-                  github_id: userData.id
-                })}
-              }, '*');
-              setTimeout(() => window.close(), 1500);
-            } else {
-              window.location.href = '/';
-            }
-          </script>
-        </body>
-      </html>
-    `);
-  } catch (error: any) {
-    console.error('GitHub OAuth Error:', error);
-    res.status(500).send(`
-      <html>
-        <body style="background: #050505; color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
-          <div style="text-align: center;">
-            <h2 style="color: #f86c6b;">Authentication Failed</h2>
-            <p style="opacity: 0.5;">${error.message}</p>
-            <button onclick="window.close()" style="background: white; color: black; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; margin-top: 20px;">Close Window</button>
-          </div>
-        </body>
-      </html>
-    `);
+      // Fallback to hardcoded admin if DB fetch fails
+      return res.json({
+        id: 'system-admin-temp',
+        email: DEFAULT_ADMIN.email,
+        role: DEFAULT_ADMIN.role,
+        first_name: 'System',
+        last_name: 'Administrator',
+        must_change_password: true,
+        status: 'Active'
+      });
+    }
+
+    const { data: user, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', req.user.id)
+      .single();
+
+    if (error) throw error;
+    res.json(user);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/auth/change-password', authenticateToken, async (req: any, res) => {
+  const { newPassword } = req.body;
+  try {
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ 
+        password_hash: hashedPassword, 
+        must_change_password: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', req.user.id);
+
+    if (error) throw error;
+    res.json({ message: 'Password updated successfully' });
+
+    // Audit Log
+    await supabase.from('system_logs').insert([{
+      event_type: 'PASSWORD_CHANGE',
+      user_email: req.user.email,
+      details: 'User changed their password.'
+    }]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin Routes
+app.get('/api/admin/users', authenticateToken, authorizeGodLevel, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/users', authenticateToken, authorizeGodLevel, async (req: any, res) => {
+  const { email, password, first_name, last_name, role } = req.body;
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const { data, error } = await supabase
+      .from('profiles')
+      .insert([{
+        email: email.toLowerCase(),
+        password_hash: hashedPassword,
+        first_name,
+        last_name,
+        role,
+        must_change_password: true,
+        status: 'Active'
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+
+    // Audit Log
+    await supabase.from('system_logs').insert([{
+      event_type: 'USER_CREATED',
+      user_email: req.user.email,
+      details: `Created new user: ${email} with role: ${role}`
+    }]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/admin/users/:id', authenticateToken, authorizeGodLevel, async (req: any, res) => {
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', req.params.id);
+
+    if (error) throw error;
+    res.json({ message: 'User deleted successfully' });
+
+    // Audit Log
+    await supabase.from('system_logs').insert([{
+      event_type: 'USER_DELETED',
+      user_email: req.user.email,
+      details: `Deleted user ID: ${req.params.id}`
+    }]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -147,7 +293,33 @@ async function setupVite() {
   }
 
   if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
-    app.listen(PORT, "0.0.0.0", () => {
+    // Purge all users except the current user
+app.post("/api/admin/purge-users", authenticateToken, authorizeGodLevel, async (req, res) => {
+  try {
+    const { error } = await supabase
+      .from("profiles")
+      .delete()
+      .neq("id", (req as any).user.id);
+
+    if (error) throw error;
+
+    // Log the purge event
+    await supabase.from("system_logs").insert([
+      {
+        user_id: (req as any).user.id,
+        action: "PURGE_USERS",
+        details: "All users except the current administrator were purged from the directory.",
+        timestamp: new Date().toISOString(),
+      },
+    ]);
+
+    res.json({ message: "Directory purged successfully" });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server running on http://localhost:${PORT}`);
     });
   }

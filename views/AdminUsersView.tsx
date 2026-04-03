@@ -17,17 +17,7 @@ interface DirectoryTemplate {
   desc: string;
 }
 
-const ministryDirectory: DirectoryTemplate[] = [
-  { label: 'System Administrator', email: 'sysadmin@faithhouse.church', role: 'System Administrator', level: 'Level 4', genesisKey: 'FHCI_Root_Access!2026', desc: 'Global Infrastructure & Root Access' },
-  { label: 'Head Pastor', email: 'headpastor@faithhouse.church', role: 'Head Pastor', level: 'Level 3', genesisKey: 'FHCI_Pastor_Master!2026', desc: 'Full System Oversight' },
-  { label: 'Finance / Treasury', email: 'finance@faithhouse.church', role: 'Finance / Treasury', level: 'Level 3', genesisKey: 'FHCI_Admin!2026', desc: 'Fiscal & Financial Records' },
-  { label: 'Evangelism Ministry', email: 'evangelism@faithhouse.church', role: 'Evangelism Ministry', level: 'Level 2', genesisKey: 'FHCI_Go_Harvest!2026', desc: 'Outreach & Souls Tracking' },
-  { label: 'Follow-up & Visitation', email: 'care@faithhouse.church', role: 'Follow-up & Visitation', level: 'Level 2', genesisKey: 'FHCI_Care_Reach!2026', desc: 'Congregant Retention' },
-  { label: 'Music Ministry', email: 'music@faithhouse.church', role: 'Music Ministry', level: 'Level 2', genesisKey: 'FHCI_Sound_Worship!2026', desc: 'Logistics & Rehearsals' },
-  { label: 'Security & Facilities', email: 'ops@faithhouse.church', role: 'Security & Facilities', level: 'Level 1', genesisKey: 'FHCI_Ops_Secure!2026', desc: 'Asset & Safety Logs' },
-  { label: 'General Admin', email: 'admin@faithhouse.church', role: 'General Admin', level: 'Level 3', genesisKey: 'FHCI_System_Admin!2026', desc: 'System Master Management' },
-  { label: 'General Office', email: 'office@faithhouse.church', role: 'General Office', level: 'Level 4', genesisKey: 'FHCI_Office_GodMode!2026', desc: 'Administrative God Mode Access' },
-];
+const ministryDirectory: DirectoryTemplate[] = [];
 
 const AdminUsersView: React.FC<AdminUsersViewProps> = ({ userProfile }) => {
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -58,25 +48,27 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({ userProfile }) => {
     setIsLoading(true);
     setTableMissing(false);
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('role', { ascending: true });
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('/api/admin/users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
 
-      if (error) {
-        if (error.code === '42P01' || error.message.includes('not found') || (error as any).status === 404 || error.message.includes('schema cache') || error.message.includes('Could not find')) {
+      if (!response.ok) {
+        const error = await response.json();
+        if (error.error?.includes('not found') || error.error?.includes('42P01')) {
           setTableMissing(true);
-          toast.error("Profiles table missing. Please run the SQL script.");
           return;
         }
-        throw error;
+        throw new Error(error.error || 'Failed to fetch users');
       }
+
+      const data = await response.json();
       setUsers(data || []);
       setTableMissing(false);
       if (isLoading) toast.success("Profiles synced successfully!");
     } catch (err: any) {
       console.error('Directory access failed:', err);
-      if (err.message?.includes('schema cache')) setTableMissing(true);
+      setErrorMessage(err.message);
     } finally {
       setIsLoading(false);
     }
@@ -89,29 +81,25 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({ userProfile }) => {
     setIsAuthConflict(false);
 
     try {
-      if (isExistingInDirectory) {
-        await syncProfileRecord(editingUserId || undefined);
-        closeAndReset();
-        alert(`Metadata Updated: ${formData.email} has been resynchronized.`);
-        return;
-      }
-
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: { data: { first_name: formData.first_name, last_name: formData.last_name } }
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          role: formData.role
+        })
       });
-      
-      if (authError) {
-        if (authError.status === 422 || authError.message.includes('already registered')) {
-          setIsAuthConflict(true);
-          throw new Error("IDENTITY CONFLICT (422): This email already exists in the system. Use 'Force Sync' to establish the database record.");
-        }
-        throw authError;
-      }
 
-      if (authData.user) {
-        await syncProfileRecord(authData.user.id);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create user');
       }
 
       closeAndReset();
@@ -197,8 +185,17 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({ userProfile }) => {
   const removeUser = async (id: string, email: string) => {
     if (!confirm(`Confirm Removal: Remove [${email}] from directory?`)) return;
     try {
-      const { error } = await supabase.from('profiles').delete().eq('id', id);
-      if (error) throw error;
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`/api/admin/users/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete user');
+      }
+
       fetchUsers();
     } catch (err: any) {
       alert(`Removal Failed: ${err.message}`);
@@ -233,6 +230,30 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({ userProfile }) => {
     setIsModalOpen(true);
   };
 
+  const purgeDirectory = async () => {
+    if (!confirm("CRITICAL ACTION: This will remove ALL accounts except your own. This cannot be undone. Proceed?")) return;
+    setIsLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('/api/admin/purge-users', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to purge directory');
+      }
+
+      toast.success("Directory purged successfully.");
+      fetchUsers();
+    } catch (err: any) {
+      alert(`Purge Failed: ${err.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const getLevelBadge = (role: UserRole) => {
     if (role === 'System Administrator' || role === 'General Office') return { text: 'ROOT LEVEL 4', color: 'bg-slate-950 text-fh-gold ring-1 ring-fh-gold/50' };
     if (['Head Pastor', 'Finance / Treasury', 'General Admin'].includes(role)) return { text: 'LEVEL 3', color: 'bg-fh-green text-fh-gold' };
@@ -248,12 +269,14 @@ const AdminUsersView: React.FC<AdminUsersViewProps> = ({ userProfile }) => {
   if (tableMissing) {
     const repairSQL = `-- ROBUST AUTH INFRASTRUCTURE REPAIR
 CREATE TABLE IF NOT EXISTS public.profiles (
-  id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email TEXT UNIQUE NOT NULL,
+  password_hash TEXT,
   first_name TEXT,
   last_name TEXT,
   role TEXT DEFAULT 'General Admin',
   status TEXT DEFAULT 'Active', -- Active, Inactive, Pending
+  must_change_password BOOLEAN DEFAULT true,
   is_mfa_enabled BOOLEAN DEFAULT false,
   last_login TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
@@ -307,17 +330,20 @@ CREATE POLICY "Allow all" ON public.system_logs FOR ALL USING (true) WITH CHECK 
 
   return (
     <div className="space-y-12 animate-in fade-in duration-700 pb-24">
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 py-2">
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-fh-gold/10 rounded-full mb-2">
-             <span className="w-1.5 h-1.5 rounded-full bg-fh-gold animate-pulse"></span>
-             <span className="text-[10px] font-black text-fh-gold uppercase tracking-[0.2em]">Security System Active</span>
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 py-2">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-fh-gold/10 rounded-full mb-2">
+               <span className="w-1.5 h-1.5 rounded-full bg-fh-gold animate-pulse"></span>
+               <span className="text-[10px] font-black text-fh-gold uppercase tracking-[0.2em]">Security System Active</span>
+            </div>
+            <h2 className="text-4xl font-black text-fh-green tracking-tighter uppercase leading-none">Security Hierarchy</h2>
+            <p className="text-slate-400 font-bold text-xs uppercase tracking-[0.4em]">Administrative User Directory</p>
           </div>
-          <h2 className="text-4xl font-black text-fh-green tracking-tighter uppercase leading-none">Security Hierarchy</h2>
-          <p className="text-slate-400 font-bold text-xs uppercase tracking-[0.4em]">Administrative User Directory</p>
+          <div className="flex gap-4">
+            <button onClick={purgeDirectory} className="px-10 py-5 bg-rose-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30">Purge Directory</button>
+            <button onClick={() => { setErrorMessage(null); setIsAuthConflict(false); setIsModalOpen(true); }} className="px-10 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30">Register Manual Access</button>
+          </div>
         </div>
-        <button onClick={() => { setErrorMessage(null); setIsAuthConflict(false); setIsModalOpen(true); }} className="px-10 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30">Register Manual Access</button>
-      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-8">
@@ -486,8 +512,14 @@ CREATE POLICY "Allow all" ON public.system_logs FOR ALL USING (true) WITH CHECK 
               <div className="space-y-2">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Security Role Assignment</label>
                 <select value={formData.role} onChange={(e) => setFormData({...formData, role: e.target.value as UserRole})} className="w-full px-7 py-5 bg-slate-100 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner appearance-none cursor-pointer outline-none focus:ring-4 focus:ring-fh-gold/5 transition-all">
-                  {ministryDirectory.map(m => <option key={m.role} value={m.role}>{m.label}</option>)}
-                  <option value="Assistant">Office Assistant</option>
+                  <option value="System Administrator">System Administrator</option>
+                  <option value="General Overseer">General Overseer</option>
+                  <option value="General Administrator">General Administrator</option>
+                  <option value="Content Manager">Content Manager</option>
+                  <option value="Finance Officer">Finance Officer</option>
+                  <option value="Media Team">Media Team</option>
+                  <option value="Ministry Leader">Ministry Leader</option>
+                  <option value="Member/User">Member/User</option>
                 </select>
               </div>
 

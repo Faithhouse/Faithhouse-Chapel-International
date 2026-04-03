@@ -28,7 +28,7 @@ import PlaceholderView from './views/PlaceholderView';
 import Auth from './components/Auth';
 import RecurringTasksView from './views/RecurringTasksView';
 import DavidChatbot from './components/DavidChatbot';
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
 import { NavItem, UserProfile } from './types';
 import { canAccess } from './src/utils/permissions';
 import { supabase } from './supabaseClient';
@@ -70,70 +70,37 @@ const App: React.FC = () => {
   };
   
   useEffect(() => {
-    // Check active Supabase session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      } else {
-        // BYPASS: Set mock profile if no session
-        console.log("Login Bypass Active: Setting mock administrator profile.");
-        setProfile(MOCK_PROFILE);
-        setLoading(false);
-      }
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setIsRecoveryMode(true);
-        handleSetActiveItem('Settings');
-      }
-      
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      } else {
-        // If logged out, we still bypass back to mock for now
-        setProfile(MOCK_PROFILE);
-        setLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      fetchProfile();
+    } else {
+      setLoading(false);
+    }
   }, []);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async () => {
+    setLoading(true);
     setError(null);
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (error) {
-        if (error.code === 'PGRST116') { // Record not found
-          console.warn("Profile missing for active session. Attempting auto-repair...");
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            const { data: newProfile, error: createError } = await supabase.from('profiles').upsert([
-              {
-                id: user.id,
-                email: user.email,
-                first_name: user.user_metadata?.first_name || 'New',
-                last_name: user.user_metadata?.last_name || 'User',
-                role: 'General Admin',
-                status: 'Active'
-              }
-            ]).select().single();
-            
-            if (!createError && newProfile) {
-              setProfile(newProfile);
-              return;
-            }
-          }
-        }
-        throw error;
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        setProfile(null);
+        setLoading(false);
+        return;
       }
+
+      const response = await fetch('/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        localStorage.removeItem('auth_token');
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      const data = await response.json();
       
       if (data) {
         // Check for active status
@@ -143,34 +110,34 @@ const App: React.FC = () => {
           return;
         }
 
-        // God Level Access for Prince Monovis and Admin Email
-        const fullName = `${data.first_name || ''} ${data.last_name || ''}`.trim();
+        // God Level Access for Authorized Emails
         const email = data.email?.toLowerCase() || '';
-        if (fullName.toLowerCase().includes('prince monovis') || 
-            email === 'admin@faithhouse.church' || 
-            email === 'sysadmin@faithhouse.church') {
+        if (email === 'fcbhahbtwog@gmail.com' || email === 'systemadmin@faithhouse.com') {
           data.role = 'System Administrator';
+        }
+
+        // Force password change if required
+        if (data.must_change_password) {
+          setActiveItem('Settings');
+          toast.warning("Security Protocol: Please change your password to continue.");
         }
       }
       
       setProfile(data);
     } catch (err: any) {
-      console.error("Error fetching profile:", err);
-      const errorMessage = err.message === 'Failed to fetch' || err.name === 'TypeError' 
-        ? "Network Error: Unable to connect to the database. Please check your internet connection."
-        : err.message || "An unexpected error occurred while fetching user profile.";
-      setError(errorMessage);
+      console.error('Profile fetch failed:', err);
+      setError(err.message);
+      localStorage.removeItem('auth_token');
+      setProfile(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogout = async () => {
-    setLoading(true);
-    localStorage.removeItem('fci_simulated_user_id');
-    await supabase.auth.signOut();
+  const handleLogout = () => {
+    localStorage.removeItem('auth_token');
     setProfile(null);
-    setLoading(false);
+    setActiveItem('Dashboard');
   };
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
@@ -303,7 +270,12 @@ const App: React.FC = () => {
   }
 
   if (!profile) {
-    return <Auth onAuthSuccess={(userId) => fetchProfile(userId)} />;
+    return <Auth onAuthSuccess={(userData) => {
+      setProfile(userData);
+      setLoading(false);
+      // Still fetch to ensure full profile data (including fields not in login response)
+      fetchProfile();
+    }} />;
   }
 
   const renderContent = () => {

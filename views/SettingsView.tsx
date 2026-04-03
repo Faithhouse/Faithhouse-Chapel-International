@@ -76,11 +76,20 @@ const SettingsView: React.FC<SettingsViewProps> = ({ userProfile, initialTab }) 
 
     setIsUpdatingPassword(true);
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: passwordData.newPassword
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ newPassword: passwordData.newPassword })
       });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update password');
+      }
 
       setPasswordSuccess("Password updated successfully.");
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });

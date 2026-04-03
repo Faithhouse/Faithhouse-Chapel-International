@@ -5,7 +5,7 @@ import { supabase } from '../supabaseClient';
 import { Mail, Lock, User, ShieldCheck, ArrowRight, Loader2, Github } from 'lucide-react';
 
 interface AuthProps {
-  onAuthSuccess: (userId: string) => void;
+  onAuthSuccess: (user: any) => void;
 }
 
 const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
@@ -118,31 +118,20 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
     setError(null);
 
     try {
-      if (isLogin) {
-        const { data, error: loginError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (loginError) throw loginError;
-        if (data.user) onAuthSuccess(data.user.id);
-      } else {
-        const { data, error: signupError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              first_name: firstName,
-              last_name: lastName,
-              role: 'General Admin', // Default role
-            },
-          },
-        });
-        if (signupError) throw signupError;
-        if (data.user) {
-          alert('Registration successful! Please check your email for verification.');
-          setIsLogin(true);
-        }
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Authentication failed');
       }
+
+      const data = await response.json();
+      localStorage.setItem('auth_token', data.token);
+      onAuthSuccess(data.user);
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred');
     } finally {
@@ -187,16 +176,9 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
         <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-10 shadow-3xl">
           <div className="flex bg-black/40 p-1.5 rounded-2xl mb-10 border border-white/5">
             <button 
-              onClick={() => setIsLogin(true)}
-              className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isLogin ? 'bg-white/10 text-white shadow-lg' : 'text-white/30 hover:text-white/60'}`}
+              className="flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all bg-white/10 text-white shadow-lg"
             >
-              Authentication
-            </button>
-            <button 
-              onClick={() => setIsLogin(false)}
-              className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${!isLogin ? 'bg-white/10 text-white shadow-lg' : 'text-white/30 hover:text-white/60'}`}
-            >
-              Registration
+              Authorized Personnel Login
             </button>
           </div>
 
@@ -292,7 +274,7 @@ const Auth: React.FC<AuthProps> = ({ onAuthSuccess }) => {
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <>
-                  {isLogin ? 'Initialize Session' : 'Create Identity'}
+                  Login
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
