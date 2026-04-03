@@ -237,7 +237,9 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
         <div className="bg-pattern" />
         <div className="watermark">CONFIDENTIAL AUDIT</div>
         <div className="header-accent" />
-        <div className="official-stamp">Authorized</div>
+        <div className="official-stamp">Authorized
+         <p className="text-[9px] font-black text-fh-white uppercase tracking-[0.4em]">financial audit</p>
+        </div>
         {reportType === 'Audit' && (
           <div className="absolute top-[105px] right-[25px] text-right z-10">
           </div>
