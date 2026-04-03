@@ -230,10 +230,12 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
         <div className="bg-pattern" />
         <div className="watermark">CONFIDENTIAL AUDIT</div>
         <div className="header-accent" />
-        <div className="official-stamp">
-          Authorized
-          {reportType === 'Audit' && <span>Financial Audit</span>}
-        </div>
+        <div className="official-stamp">Authorized</div>
+        {reportType === 'Audit' && (
+          <div className="absolute top-[105px] right-[25px] text-right z-10 no-print-flex">
+            <p className="text-[9px] font-black text-fh-green uppercase tracking-[0.4em]">Financial Audit</p>
+          </div>
+        )}
 
         {/* 1. HEADER */}
         <div className="flex justify-between items-start mb-16 relative z-10 header-flex">
@@ -250,7 +252,7 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
           </div>
           <div className="flex flex-col items-end gap-6 header-flex-right">
             <div className="text-right header-flex-right">
-              <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight font-serif">Financial Audit</h2>
+              <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight font-serif">Audit Statement</h2>
               <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em] mt-2">ID: AUD-{new Date().getFullYear()}-{Math.floor(Math.random() * 9000) + 1000}</p>
             </div>
           </div>
@@ -417,10 +419,12 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
       <style dangerouslySetInnerHTML={{ __html: styles }} />
       <div className="watermark">MONTHLY REPORT</div>
       <div className="header-accent" />
-      <div className="official-stamp">
-        Monthly
-        {reportType === 'Monthly' && <span>Financial Report</span>}
-      </div>
+      <div className="official-stamp">Monthly</div>
+      {reportType === 'Monthly' && (
+        <div className="absolute top-[105px] right-[25px] text-right z-10 no-print-flex">
+          <p className="text-[9px] font-black text-fh-green uppercase tracking-[0.4em]">Financial Report</p>
+        </div>
+      )}
 
       {/* 1. TITLE SECTION */}
       <div className="flex justify-between items-start mb-16 relative z-10 header-flex">
@@ -437,7 +441,7 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
         </div>
         <div className="flex flex-col items-end gap-6 header-flex-right">
           <div className="text-right header-flex-right">
-            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight font-serif">Financial Report</h2>
+            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight font-serif">Monthly Report</h2>
             <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em] mt-2">{reportPeriod}</p>
           </div>
         </div>
