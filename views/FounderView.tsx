@@ -32,8 +32,6 @@ import {
   Cell
 } from 'recharts';
 import { supabase } from '../supabaseClient';
-import { db, auth } from '../firebase';
-import { collection, getDocs } from 'firebase/firestore';
 import { UserProfile, Ministry, Member, TitheRecord } from '../types';
 import { format } from 'date-fns';
 
@@ -164,13 +162,17 @@ const FounderView: React.FC<FounderViewProps> = ({ userProfile, setActiveItem })
       const { data: ministries } = await supabase.from('ministries').select('*');
       const { data: members } = await supabase.from('members').select('id, ministry');
       
-      // Fetch Tithes from Firebase for financial performance
+      // Fetch Tithes from Supabase for financial performance
       let tithes: TitheRecord[] = [];
       try {
-        const tithesSnapshot = await getDocs(collection(db, 'tithe_records'));
-        tithes = tithesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TitheRecord));
+        const { data: titheData, error: titheError } = await supabase
+          .from('tithe_entries')
+          .select('*');
+        
+        if (titheError) throw titheError;
+        tithes = titheData || [];
       } catch (err) {
-        console.warn("Firebase tithes fetch failed (likely auth):", err);
+        console.warn("Supabase tithes fetch failed:", err);
       }
 
       if (ministries && members) {

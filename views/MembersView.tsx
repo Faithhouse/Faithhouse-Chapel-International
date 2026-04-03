@@ -742,7 +742,8 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
                               emergency_contact_phone: m.emergency_contact_phone || '',
                               notify_birthday: m.notify_birthday ?? true,
                               notify_events: m.notify_events ?? true,
-                              status: m.status
+                              status: m.status,
+                              wedding_anniversary: m.wedding_anniversary || ''
                             }); 
                             setIsModalOpen(true); 
                           }} className="p-3 bg-slate-100 hover:bg-slate-900 text-slate-500 hover:text-fh-gold rounded-xl shadow-sm"><svg className="w-5 h-5 lg:w-4 lg:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>

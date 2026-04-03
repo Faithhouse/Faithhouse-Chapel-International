@@ -1,54 +1,42 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { supabase } from '../supabaseClient';
 import { UserProfile, FinancialRecord, Member, TitheRecord } from '../types';
-import { Users, Plus, Search, Calendar as CalendarIcon, DollarSign, CreditCard, Smartphone, Hash, FileText, CheckCircle2, Trash2, Edit3, Filter, Printer, X, Lock } from 'lucide-react';
-import { db, auth } from '../firebase';
 import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  getDocs, 
-  onSnapshot, 
-  query, 
-  orderBy,
-  serverTimestamp
-} from 'firebase/firestore';
-import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from 'firebase/auth';
-
-enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: any;
-}
-
-const handleFirestoreError = (error: unknown, operationType: OperationType, path: string | null) => {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-    },
-    operationType,
-    path
-  };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  toast.error(`Database Error: ${errInfo.error}`);
-  throw new Error(JSON.stringify(errInfo));
-};
+  Users, 
+  Plus, 
+  Search, 
+  Calendar as CalendarIcon, 
+  DollarSign, 
+  CreditCard, 
+  Smartphone, 
+  Hash, 
+  FileText, 
+  CheckCircle2, 
+  Trash2, 
+  Edit3, 
+  Filter, 
+  Printer, 
+  X, 
+  Lock,
+  TrendingUp,
+  BarChart as BarChartIcon,
+  ChevronRight,
+  ChevronDown
+} from 'lucide-react';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend, 
+  ResponsiveContainer,
+  Cell
+} from 'recharts';
 import FinancialReportDocument from '../src/components/FinancialReportDocument';
 
 interface FinanceViewProps {
@@ -62,58 +50,13 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
   const [activeTab, setActiveTab] = useState<'Statements' | 'Tithers'>('Statements');
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isReportDropdownOpen, setIsReportDropdownOpen] = useState(false);
   const [isTitheModalOpen, setIsTitheModalOpen] = useState(false);
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [accessKey, setAccessKey] = useState('');
   const [tableMissing, setTableMissing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isAuthReady, setIsAuthReady] = useState(false);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setIsAuthReady(true);
-      } else {
-        setIsAuthReady(false);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  const handleFirebaseLogin = async () => {
-    try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-    } catch (error: any) {
-      console.error("Firebase Login Error:", error);
-      if (error.code === 'auth/admin-restricted-operation') {
-        toast.error("Google Login is restricted. Please contact your administrator to enable it in the Firebase Console.");
-      } else {
-        toast.error(`Login Failed: ${error.message}`);
-      }
-    }
-  };
-
-  useEffect(() => {
-    if (isAuthReady) {
-      const q = query(collection(db, 'tithe_records'), orderBy('payment_date', 'desc'));
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const records = snapshot.docs.map(doc => {
-          const data = doc.data();
-          const member = members.find(m => m.id === data.member_id);
-          return {
-            id: doc.id,
-            ...data,
-            members: member
-          };
-        }) as TitheRecord[];
-        setTitheRecords(records);
-      }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'tithe_records');
-      });
-      return () => unsubscribe();
-    }
-  }, [isAuthReady, members]);
+  const [financialTrends, setFinancialTrends] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [memberSearch, setMemberSearch] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('All Months');
@@ -155,6 +98,16 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
 
   useEffect(() => {
     fetchInitialData();
+
+    const channel = supabase
+      .channel('finance-updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'financial_records' }, () => fetchInitialData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tithe_entries' }, () => fetchInitialData())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   useEffect(() => {
@@ -304,9 +257,10 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
       }
 
       // Fetch full data if everything is okay
-      const [finRes, memRes] = await Promise.all([
+      const [finRes, memRes, titheRes] = await Promise.all([
         supabase.from('financial_records').select('*').order('service_date', { ascending: false }),
-        supabase.from('members').select('*').order('first_name')
+        supabase.from('members').select('*').order('first_name'),
+        supabase.from('tithe_entries').select('*, members(*)').order('payment_date', { ascending: false })
       ]);
 
       if (finRes.error) {
@@ -314,22 +268,10 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
         errorLog.push(`financial_records: ${finRes.error.message}`);
       }
       
-      if (isAuthReady) {
-        try {
-          const titheSnap = await getDocs(query(collection(db, 'tithe_records'), orderBy('payment_date', 'desc')));
-          const tithes = titheSnap.docs.map(doc => {
-            const data = doc.data();
-            const member = memRes.data?.find(m => m.id === data.member_id);
-            return {
-              id: doc.id,
-              ...data,
-              members: member
-            };
-          }) as TitheRecord[];
-          setTitheRecords(tithes);
-        } catch (err) {
-          handleFirestoreError(err, OperationType.LIST, 'tithe_records');
-        }
+      if (titheRes.error) {
+        console.error('Tithe Records Fetch Error:', titheRes.error);
+        if (titheRes.error.code === '42P01' || titheRes.error.code === 'PGRST205') currentMissing.push('tithe_entries');
+        else errorLog.push(`tithe_entries: ${titheRes.error.message}`);
       }
 
       if (memRes.error) {
@@ -339,6 +281,18 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
 
       setRecords(finRes.data || []);
       setMembers(memRes.data || []);
+      setTitheRecords(titheRes.data || []);
+      
+      // Calculate Financial Trends
+      if (finRes.data && finRes.data.length > 0) {
+        const finData = [...finRes.data].reverse().slice(-6).map(f => ({
+          name: new Date(f.service_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          tithes: Number(f.tithes || 0),
+          offerings: Number(f.offerings || 0),
+          total: Number(f.tithes || 0) + Number(f.offerings || 0) + Number(f.seed || 0) + Number(f.other_income || 0)
+        }));
+        setFinancialTrends(finData);
+      }
       
       if (errorLog.length > 0) {
         setLastError(errorLog.join(' | '));
@@ -460,15 +414,16 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
     try {
       const payload = {
         ...titheFormData,
-        recorded_by: auth.currentUser?.uid || 'system',
-        created_at: serverTimestamp(),
+        recorded_by: userProfile?.id || 'system',
       };
 
       if (isEditingTithe && editingTitheId) {
-        await updateDoc(doc(db, 'tithe_records', editingTitheId), payload);
+        const { error } = await supabase.from('tithe_entries').update(payload).eq('id', editingTitheId);
+        if (error) throw error;
         toast.success('Tithe record updated successfully');
       } else {
-        await addDoc(collection(db, 'tithe_records'), payload);
+        const { error } = await supabase.from('tithe_entries').insert([payload]);
+        if (error) throw error;
         toast.success('Tithe record finalized successfully');
       }
       
@@ -483,8 +438,9 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
         service_type: 'Prophetic Word Service',
         notes: ''
       });
-    } catch (error) {
-      handleFirestoreError(error, isEditingTithe ? OperationType.UPDATE : OperationType.CREATE, 'tithe_records');
+      fetchInitialData();
+    } catch (error: any) {
+      toast.error(`Database Error: ${error.message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -509,12 +465,14 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
     
     setIsSubmitting(true);
     try {
-      await deleteDoc(doc(db, 'tithe_records', titheToDelete));
+      const { error } = await supabase.from('tithe_entries').delete().eq('id', titheToDelete);
+      if (error) throw error;
       toast.success('Tithe record deleted successfully');
       setIsDeleteConfirmOpen(false);
       setTitheToDelete(null);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `tithe_records/${titheToDelete}`);
+      fetchInitialData();
+    } catch (error: any) {
+      toast.error(`Database Error: ${error.message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -705,16 +663,13 @@ NOTIFY pgrst, 'reload schema';`;
     <div className="space-y-10 animate-in fade-in duration-700 pb-20">
       
       {/* 1. Header Protocol */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 py-2 no-print">
-        <div className="space-y-2">
-          <h2 className="text-3xl font-black text-fh-green tracking-tighter uppercase leading-none">Treasury</h2>
-          <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em]">Authorized Entries Only</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="relative">
+      <div className="grid grid-cols-1 lg:grid-cols-3 items-center gap-6 py-4 no-print">
+        {/* Left: Filters */}
+        <div className="flex items-center gap-4 order-2 lg:order-1">
+          <div className="relative flex-1 lg:flex-none">
             <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <select 
-              className="pl-12 pr-10 py-4 bg-white border border-slate-200 rounded-[1.75rem] font-black uppercase text-[10px] tracking-widest outline-none focus:ring-2 ring-fh-green/20 transition-all shadow-sm"
+              className="w-full lg:w-auto pl-12 pr-10 py-4 bg-white border border-slate-200 rounded-[1.75rem] font-black uppercase text-[10px] tracking-widest outline-none focus:ring-2 ring-fh-green/20 transition-all shadow-sm"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
             >
@@ -723,14 +678,73 @@ NOTIFY pgrst, 'reload schema';`;
               ))}
             </select>
           </div>
-          <button onClick={() => setIsReportModalOpen(true)} className="px-8 py-5 bg-white border border-slate-200 rounded-[1.75rem] font-black uppercase text-[10px] tracking-widest flex items-center gap-3 hover:bg-slate-50 transition-all shadow-sm active:scale-95">
-            <svg className="w-5 h-5 text-fh-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-            Generate Report
-          </button>
-          <button onClick={() => window.print()} className="px-8 py-5 bg-white border border-slate-200 rounded-[1.75rem] font-black uppercase text-[10px] tracking-widest flex items-center gap-3 hover:bg-slate-50 transition-all shadow-sm active:scale-95">
-            <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-            Print Audit
-          </button>
+        </div>
+
+        {/* Center: Heading */}
+        <div className="text-center order-1 lg:order-2">
+          <h2 className="text-3xl font-black text-fh-green tracking-tighter uppercase leading-none">Church Finance Overview</h2>
+          <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">Authorized Entries Only</p>
+        </div>
+
+        {/* Right: Actions */}
+        <div className="flex items-center justify-end gap-4 order-3">
+          {/* Dropdown Menu for Reports */}
+          <div className="relative">
+            <button 
+              onClick={() => setIsReportDropdownOpen(!isReportDropdownOpen)}
+              className="px-8 py-5 bg-white border border-slate-200 rounded-[1.75rem] font-black uppercase text-[10px] tracking-widest flex items-center gap-3 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+            >
+              <FileText className="w-5 h-5 text-fh-gold" />
+              Reports
+              <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isReportDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            <AnimatePresence>
+              {isReportDropdownOpen && (
+                <>
+                  <div className="fixed inset-0 z-[100]" onClick={() => setIsReportDropdownOpen(false)} />
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute right-0 mt-3 w-64 bg-white rounded-[2rem] shadow-2xl border border-slate-100 p-3 z-[110] overflow-hidden"
+                  >
+                    <button 
+                      onClick={() => {
+                        setIsReportModalOpen(true);
+                        setIsReportDropdownOpen(false);
+                      }}
+                      className="w-full flex items-center gap-4 px-6 py-4 hover:bg-slate-50 rounded-2xl transition-all text-left group"
+                    >
+                      <div className="w-10 h-10 bg-fh-gold/10 rounded-xl flex items-center justify-center group-hover:bg-fh-gold/20 transition-colors">
+                        <FileText className="w-5 h-5 text-fh-gold" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-900">Generate Report</p>
+                        <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Audit & Statements</p>
+                      </div>
+                    </button>
+                    <button 
+                      onClick={() => {
+                        window.print();
+                        setIsReportDropdownOpen(false);
+                      }}
+                      className="w-full flex items-center gap-4 px-6 py-4 hover:bg-slate-50 rounded-2xl transition-all text-left group"
+                    >
+                      <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center group-hover:bg-slate-200 transition-colors">
+                        <Printer className="w-5 h-5 text-slate-500" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-900">Print Audit</p>
+                        <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Hard Copy Version</p>
+                      </div>
+                    </button>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
+
           <button onClick={() => {
             if (activeTab === 'Statements') {
               setFormData({
@@ -786,26 +800,7 @@ NOTIFY pgrst, 'reload schema';`;
         </button>
       </div>
 
-      {!isAuthReady && (
-        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[3.5rem] border border-slate-100 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="w-20 h-20 bg-fh-gold/10 rounded-[2.5rem] flex items-center justify-center mb-6">
-            <Lock className="w-10 h-10 text-fh-gold" />
-          </div>
-          <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-2">Firebase Connection Required</h3>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest max-w-xs text-center mb-8">
-            To access tithe records and financial insights, please connect your account to the secure database.
-          </p>
-          <button 
-            onClick={handleFirebaseLogin}
-            className="px-10 py-5 bg-fh-green text-fh-gold rounded-[1.75rem] font-black uppercase text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all flex items-center gap-3"
-          >
-            <Smartphone className="w-4 h-4" />
-            Connect via Google
-          </button>
-        </div>
-      )}
-
-      {isAuthReady && activeTab === 'Statements' ? (
+      {activeTab === 'Statements' ? (
         <>
           {/* 2. Visual KPI Summary (Matches Dashboard Colors) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -876,6 +871,61 @@ NOTIFY pgrst, 'reload schema';`;
             <p className="text-[11px] font-bold uppercase tracking-widest opacity-60 mt-1">Total Net Balance</p>
           </div>
           <svg className="w-12 h-12 text-fh-gold opacity-20 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-1.13 2.4-1.61 0-.97-.69-1.61-2.57-2.06-2.14-.51-3.92-1.25-3.92-3.5 0-1.85 1.5-3.18 3.27-3.56V4h2.67v1.86c1.47.31 2.67 1.3 2.82 2.83h-1.96c-.09-.85-.68-1.5-2.22-1.5-1.54 0-2.03.74-2.03 1.48 0 .82.66 1.34 2.53 1.77 2.13.5 3.96 1.25 3.96 3.65 0 2.11-1.58 3.25-3.41 3.59z"/></svg>
+        </div>
+      </div>
+
+      {/* Income Trends Chart */}
+      <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200/50 shadow-sm relative overflow-hidden group no-print">
+        <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+          <DollarSign className="w-32 h-32 text-fh-green" />
+        </div>
+        <div className="flex items-center justify-between mb-8 relative z-10">
+          <div>
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Analytics</h3>
+            <p className="text-xl font-black text-slate-900 tracking-tighter mt-1">Income Trends (Last 6 Services)</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-fh-green"></div>
+              <span className="text-[10px] font-bold text-slate-500 uppercase">Tithes</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-fh-gold"></div>
+              <span className="text-[10px] font-bold text-slate-500 uppercase">Offerings</span>
+            </div>
+          </div>
+        </div>
+        <div className="h-[300px] w-full relative z-10">
+          {financialTrends.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={financialTrends} id="finance-income-bar">
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis 
+                  dataKey="name" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{fill: '#94a3b8', fontSize: 10, fontWeight: '700'}} 
+                  dy={10}
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{fill: '#94a3b8', fontSize: 10, fontWeight: '700'}}
+                />
+                <Tooltip 
+                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
+                  itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
+                />
+                <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }} />
+                <Bar dataKey="tithes" name="Tithes" fill="#20c997" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="offerings" name="Offerings" fill="#ffd700" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-full flex items-center justify-center bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Insufficient Data for Analysis</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1398,7 +1448,7 @@ NOTIFY pgrst, 'reload schema';`;
                 <div className="flex gap-4">
                    <button onClick={() => { setIsPinModalOpen(false); setAccessKey(''); }} className="flex-1 py-5 bg-slate-100 text-slate-400 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all">Abort</button>
                    <button onClick={handleAuthorizedSubmit} disabled={isSubmitting} className="flex-[2] py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all">
-                      {isSubmitting ? <div className="w-4 h-4 border-2 border-white/50 border-t-white animate-spin rounded-full" /> : <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>Authorize Sync</>}
+                      {isSubmitting ? <div className="w-4 h-4 border-2 border-white/50 border-t-white animate-spin rounded-full" /> : <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>Authorize Save</>}
                    </button>
                 </div>
              </div>

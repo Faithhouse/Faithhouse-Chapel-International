@@ -69,7 +69,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
   const [todayTasks, setTodayTasks] = useState<any[]>([]);
   const [upcomingBirthdays, setUpcomingBirthdays] = useState<Member[]>([]);
   const [upcomingAnniversaries, setUpcomingAnniversaries] = useState<Member[]>([]);
-  const [financialTrends, setFinancialTrends] = useState<any[]>([]);
   const [insights, setInsights] = useState<any[]>([]);
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -270,17 +269,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
         return dateA.getMonth() - dateB.getMonth() || dateA.getDate() - dateB.getDate();
       });
       setUpcomingAnniversaries(upcomingAnnis);
-
-      // 6. Financial Trends
-      if (finance && finance.length > 0) {
-        const finData = finance.slice(-6).map(f => ({
-          name: new Date(f.service_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          tithes: Number(f.tithes || 0),
-          offerings: Number(f.offerings || 0),
-          total: Number(f.tithes || 0) + Number(f.offerings || 0) + Number(f.seed || 0) + Number(f.other_income || 0)
-        }));
-        setFinancialTrends(finData);
-      }
 
       setTableMissing(false);
       if (isLoading) toast.success("Dashboard data synced successfully!");
@@ -654,54 +642,6 @@ NOTIFY pgrst, 'reload schema';`;
               ) : (
                 <div className="h-full flex items-center justify-center bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Insufficient Data for Analysis</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Financial Trends Chart */}
-          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200/50 shadow-sm relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-              <DollarSign className="w-32 h-32 text-fh-green" />
-            </div>
-            <div className="flex items-center justify-between mb-8 relative z-10">
-              <div>
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Finance</h3>
-                <p className="text-xl font-black text-slate-900 tracking-tighter mt-1">Income Trends</p>
-              </div>
-              <button onClick={() => setActiveItem('Finance')} className="text-[10px] font-black text-fh-green uppercase tracking-widest flex items-center gap-1 hover:gap-2 transition-all">
-                Full Report <ChevronRight className="w-3 h-3" />
-              </button>
-            </div>
-            <div className="h-[300px] w-full relative z-10">
-              {financialTrends.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={financialTrends} id="dashboard-finance-bar">
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis 
-                      dataKey="name" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{fill: '#94a3b8', fontSize: 10, fontWeight: '700'}} 
-                      dy={10}
-                    />
-                    <YAxis 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{fill: '#94a3b8', fontSize: 10, fontWeight: '700'}}
-                    />
-                    <Tooltip 
-                      contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
-                      itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
-                    />
-                    <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }} />
-                    <Bar dataKey="tithes" name="Tithes" fill="#20c997" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="offerings" name="Offerings" fill="#ffd700" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">No Financial Data Available</p>
                 </div>
               )}
             </div>

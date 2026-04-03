@@ -411,7 +411,7 @@ NOTIFY pgrst, 'reload schema';`;
            <pre className="bg-slate-950 text-fh-gold p-8 rounded-[2rem] text-[10px] font-mono text-left h-48 overflow-y-auto mb-10 shadow-2xl border border-white/5 scrollbar-hide">{repairSQL}</pre>
            <div className="flex gap-4 justify-center">
               <button onClick={() => { navigator.clipboard.writeText(repairSQL); alert('Repair protocol copied.'); }} className="px-10 py-5 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-95">Copy Script</button>
-              <button onClick={fetchInitialData} className="px-16 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-xl border-b-4 border-black active:scale-95">Re-Authorize Sync</button>
+              <button onClick={fetchInitialData} className="px-16 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-xl border-b-4 border-black active:scale-95">Retry Save Attendance</button>
            </div>
          </div>
        </div>
@@ -433,7 +433,7 @@ NOTIFY pgrst, 'reload schema';`;
           </div>
           <button onClick={saveAttendance} disabled={isSaving} className="px-10 py-5 bg-fh-green text-fh-gold rounded-[1.75rem] font-black uppercase text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30 flex items-center gap-3">
              {isSaving ? <div className="w-4 h-4 border-2 border-white/50 border-t-white animate-spin rounded-full" /> : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
-             Authorize Sync
+             Save Attendance
           </button>
         </div>
 
