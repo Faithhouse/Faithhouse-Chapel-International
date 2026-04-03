@@ -59,12 +59,17 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
       overflow: hidden;
     }
     @media (max-width: 768px) {
-      .document-container { padding: 20px; box-shadow: none; border: none; }
-      .bento-grid { grid-template-columns: 1fr; }
-      .side-by-side { flex-direction: column; }
-      .header-flex { flex-direction: column; align-items: center; text-align: center; gap: 20px; }
-      .header-flex-right { align-items: center; text-align: center; }
-      .official-stamp { display: none; }
+      .document-container { padding: 30px 20px; box-shadow: none; border: none; width: 100%; max-width: none; margin: 0; }
+      .bento-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .side-by-side { flex-direction: column; gap: 20px; }
+      .header-flex { flex-direction: column; align-items: center; text-align: center; gap: 15px; }
+      .header-flex-right { align-items: center; text-align: center; width: 100%; }
+      .official-stamp { transform: rotate(45deg) scale(0.7); top: 25px; right: -55px; }
+      .section-title { font-size: 10pt; }
+      .summary-item-value { font-size: 12pt; }
+      .signature-box { width: 100%; margin-bottom: 20px; }
+      .grid-cols-3 { grid-template-columns: 1fr; gap: 20px; }
+      .grid-cols-2 { grid-template-columns: 1fr; gap: 20px; }
     }
     .bg-pattern {
       position: absolute;
@@ -172,10 +177,12 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
       height: 100%;
       background: #e2e8f0;
     }
-    .bento-item.primary::before { background: #004d40; }
-    .bento-item.success::before { background: #10b981; }
-    .bento-item.danger::before { background: #ef4444; }
-    .bento-item.warning::before { background: #f59e0b; }
+    .bento-item.primary::before { background: #0ea5e9; } /* cms-blue */
+    .bento-item.success::before { background: #10b981; } /* cms-emerald */
+    .bento-item.danger::before { background: #f43f5e; } /* cms-rose */
+    .bento-item.warning::before { background: #8b5cf6; } /* cms-purple */
+    .bento-item.neutral::before { background: #334155; } /* slate-700 */
+    .bento-item.gold::before { background: #d4af37; } /* fh-gold */
     
     .summary-item-label { font-size: 7pt; font-weight: 900; color: #64748b; text-transform: uppercase; letter-spacing: 0.2em; margin-bottom: 8px; }
     .summary-item-value { font-size: 14pt; font-weight: 900; color: #0f172a; letter-spacing: -0.02em; }
@@ -232,7 +239,7 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
         <div className="header-accent" />
         <div className="official-stamp">Authorized</div>
         {reportType === 'Audit' && (
-          <div className="absolute top-[105px] right-[25px] text-right z-10 no-print-flex">
+          <div className="absolute top-[105px] right-[25px] text-right z-10">
             <p className="text-[9px] font-black text-fh-green uppercase tracking-[0.4em]">Financial Audit</p>
           </div>
         )}
@@ -252,7 +259,7 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
           </div>
           <div className="flex flex-col items-end gap-6 header-flex-right">
             <div className="text-right header-flex-right">
-              <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight font-serif">Audit Statement</h2>
+              <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight font-serif">Financial Audit</h2>
               <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em] mt-2">ID: AUD-{new Date().getFullYear()}-{Math.floor(Math.random() * 9000) + 1000}</p>
             </div>
           </div>
@@ -286,21 +293,21 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
               <p className="summary-item-value text-white text-3xl">{formatGHS(netMonthlyBalance)}</p>
             </div>
           </div>
-          <div className="bento-item success">
+          <div className="bento-item primary">
             <p className="summary-item-label">Tithes</p>
-            <p className="summary-item-value text-emerald-600">{formatGHS(totalTithes)}</p>
+            <p className="summary-item-value text-sky-600">{formatGHS(totalTithes)}</p>
           </div>
           <div className="bento-item warning">
             <p className="summary-item-label">Offerings</p>
-            <p className="summary-item-value text-fh-gold">{formatGHS(totalOfferings)}</p>
+            <p className="summary-item-value text-violet-600">{formatGHS(totalOfferings)}</p>
           </div>
-          <div className="bento-item">
+          <div className="bento-item success">
             <p className="summary-item-label">Seeds</p>
-            <p className="summary-item-value">{formatGHS(totalSeeds)}</p>
+            <p className="summary-item-value text-emerald-600">{formatGHS(totalSeeds)}</p>
           </div>
-          <div className="bento-item">
+          <div className="bento-item neutral">
             <p className="summary-item-label">Other</p>
-            <p className="summary-item-value">{formatGHS(totalOtherIncome)}</p>
+            <p className="summary-item-value text-slate-600">{formatGHS(totalOtherIncome)}</p>
           </div>
         </div>
 
@@ -421,7 +428,7 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
       <div className="header-accent" />
       <div className="official-stamp">Monthly</div>
       {reportType === 'Monthly' && (
-        <div className="absolute top-[105px] right-[25px] text-right z-10 no-print-flex">
+        <div className="absolute top-[105px] right-[25px] text-right z-10">
           <p className="text-[9px] font-black text-fh-green uppercase tracking-[0.4em]">Financial Report</p>
         </div>
       )}
@@ -441,29 +448,48 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
         </div>
         <div className="flex flex-col items-end gap-6 header-flex-right">
           <div className="text-right header-flex-right">
-            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight font-serif">Monthly Report</h2>
+            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight font-serif">Financial Report</h2>
             <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em] mt-2">{reportPeriod}</p>
           </div>
         </div>
       </div>
 
-      {/* 2. SUMMARY SECTION */}
-      <div className="summary-card">
-        <div>
+      {/* 2. BENTO SUMMARY */}
+      <h2 className="section-title uppercase relative z-10">Executive Summary</h2>
+      <div className="bento-grid relative z-10">
+        <div className="bento-item gold">
           <p className="summary-item-label">Opening Balance</p>
           <p className="summary-item-value">{formatGHS(openingBalance)}</p>
         </div>
-        <div>
+        <div className="bento-item primary">
           <p className="summary-item-label">Total Income</p>
-          <p className="summary-item-value text-emerald-600">{formatGHS(totalIncome)}</p>
+          <p className="summary-item-value text-sky-600">{formatGHS(totalIncome)}</p>
         </div>
-        <div>
+        <div className="bento-item danger">
           <p className="summary-item-label">Total Expense</p>
-          <p className="summary-item-value text-red-600">{formatGHS(totalExpense)}</p>
+          <p className="summary-item-value text-rose-600">{formatGHS(totalExpense)}</p>
         </div>
-        <div className="bg-fh-green text-white p-4 rounded-xl shadow-xl flex flex-col justify-center">
-          <p className="summary-item-label text-white/60">Net Balance</p>
-          <p className="summary-item-value text-white text-lg">{formatGHS(netMonthlyBalance)}</p>
+        <div className="bento-item bg-fh-green text-white border-none shadow-xl">
+          <div className="flex flex-col h-full justify-between">
+            <p className="summary-item-label text-white/60">Net Balance</p>
+            <p className="summary-item-value text-white text-2xl">{formatGHS(netMonthlyBalance)}</p>
+          </div>
+        </div>
+        <div className="bento-item primary">
+          <p className="summary-item-label">Tithes</p>
+          <p className="summary-item-value text-sky-600">{formatGHS(totalTithes)}</p>
+        </div>
+        <div className="bento-item warning">
+          <p className="summary-item-label">Offerings</p>
+          <p className="summary-item-value text-violet-600">{formatGHS(totalOfferings)}</p>
+        </div>
+        <div className="bento-item success">
+          <p className="summary-item-label">Seeds</p>
+          <p className="summary-item-value text-emerald-600">{formatGHS(totalSeeds)}</p>
+        </div>
+        <div className="bento-item neutral">
+          <p className="summary-item-label">Other</p>
+          <p className="summary-item-value text-slate-600">{formatGHS(totalOtherIncome)}</p>
         </div>
       </div>
 
