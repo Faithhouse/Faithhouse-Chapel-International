@@ -1314,6 +1314,13 @@ NOTIFY pgrst, 'reload schema';`;
                     <option>Help from above service</option>
                     <option>Special services</option>
                     <option>Conferences</option>
+                    <option>Sunday Service</option>
+                    <option>Mid-week Service</option>
+                    <option>Prayer Meeting</option>
+                    <option>Youth Service</option>
+                    <option>Women's Meeting</option>
+                    <option>Men's Meeting</option>
+                    <option>Communion Service</option>
                   </select>
                 </div>
               </div>
@@ -1369,8 +1376,14 @@ NOTIFY pgrst, 'reload schema';`;
                       <option>Prophetic Word Service</option>
                       <option>Help from above service</option>
                       <option>Special services</option>
-                      <option>Conferences - Exploits</option>
-                      <option>Women Conference</option>
+                      <option>Conferences</option>
+                      <option>Sunday Service</option>
+                      <option>Mid-week Service</option>
+                      <option>Prayer Meeting</option>
+                      <option>Youth Service</option>
+                      <option>Women's Meeting</option>
+                      <option>Men's Meeting</option>
+                      <option>Communion Service</option>
                    </select>
                  </div>
 

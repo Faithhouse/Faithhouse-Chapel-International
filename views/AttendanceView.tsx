@@ -606,6 +606,13 @@ NOTIFY pgrst, 'reload schema';`;
             <option>Help from above service</option>
             <option>Special services</option>
             <option>Conferences</option>
+            <option>Sunday Service</option>
+            <option>Mid-week Service</option>
+            <option>Prayer Meeting</option>
+            <option>Youth Service</option>
+            <option>Women's Meeting</option>
+            <option>Men's Meeting</option>
+            <option>Communion Service</option>
           </select>
         </div>
         <div className="flex flex-wrap items-center gap-3 pt-2">
@@ -716,7 +723,19 @@ NOTIFY pgrst, 'reload schema';`;
             <form onSubmit={handleCreateService} className="p-12 space-y-8">
               <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Service Designation</label><input required value={newService.event_name} onChange={e => setNewService({...newService, event_name: e.target.value})} placeholder="e.g. Mid-week Power Service" className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800" /></div>
               <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Service Type</label><select value={newService.event_type} onChange={e => setNewService({...newService, event_type: e.target.value as any})} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800"><option>Prophetic Word Service</option><option>Help from above service</option><option>Special services</option><option>Conferences</option></select></div>
+                <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Service Type</label><select value={newService.event_type} onChange={e => setNewService({...newService, event_type: e.target.value as any})} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800">
+                  <option>Prophetic Word Service</option>
+                  <option>Help from above service</option>
+                  <option>Special services</option>
+                  <option>Conferences</option>
+                  <option>Sunday Service</option>
+                  <option>Mid-week Service</option>
+                  <option>Prayer Meeting</option>
+                  <option>Youth Service</option>
+                  <option>Women's Meeting</option>
+                  <option>Men's Meeting</option>
+                  <option>Communion Service</option>
+                </select></div>
                 <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Branch Assignment</label><select required value={newService.branch_id} onChange={e => setNewService({...newService, branch_id: e.target.value})} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800"><option value="">Select Branch...</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
               </div>
               <div className="space-y-2"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Service Date</label><input type="date" required value={newService.event_date} onChange={e => setNewService({...newService, event_date: e.target.value})} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800" /></div>

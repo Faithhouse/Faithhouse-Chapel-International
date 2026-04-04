@@ -159,7 +159,7 @@ export interface RecentActivity {
 export interface ChurchEvent {
   id: string;
   title: string;
-  category: 'Prophetic Word Service' | 'Help from above service' | 'Special services' | 'Conferences';
+  category: 'Prophetic Word Service' | 'Help from above service' | 'Special services' | 'Conferences' | 'Sunday Service' | 'Mid-week Service' | 'Prayer Meeting' | 'Youth Service' | 'Women\'s Meeting' | 'Men\'s Meeting' | 'Communion Service';
   date: string;
   time: string;
   location: string;
@@ -183,7 +183,7 @@ export interface Minister {
 export interface AttendanceEvent {
   id: string;
   event_name: string;
-  event_type: 'Prophetic Word Service' | 'Help from above service' | 'Special services' | 'Conferences' | 'Children Ministry';
+  event_type: 'Prophetic Word Service' | 'Help from above service' | 'Special services' | 'Conferences' | 'Children Ministry' | 'Sunday Service' | 'Mid-week Service' | 'Prayer Meeting' | 'Youth Service' | 'Women\'s Meeting' | 'Men\'s Meeting' | 'Communion Service';
   event_date: string;
   branch_id?: string;
   men_count?: number;

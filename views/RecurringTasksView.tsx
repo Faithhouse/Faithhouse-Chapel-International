@@ -249,6 +249,13 @@ CREATE POLICY "Allow all for staff" ON public.events FOR ALL USING (true) WITH C
                   <option>Help from above service</option>
                   <option>Special services</option>
                   <option>Conferences</option>
+                  <option>Sunday Service</option>
+                  <option>Mid-week Service</option>
+                  <option>Prayer Meeting</option>
+                  <option>Youth Service</option>
+                  <option>Women's Meeting</option>
+                  <option>Men's Meeting</option>
+                  <option>Communion Service</option>
                 </select>
               </div>
               <div className="space-y-2">

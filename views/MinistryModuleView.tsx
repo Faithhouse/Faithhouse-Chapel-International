@@ -10,9 +10,12 @@ import {
   Music, Mic2, Play, FileText, Download, Plus, Trash2, Edit3,
   Users, Calendar, Activity, ListMusic, Headphones, Video,
   Globe, Radio, Heart, Shield, Baby, Zap, MapPin, MessageCircle,
-  Camera, Settings, Layers, BookOpen, Clock, Sparkles, Footprints, TrendingUp
+  Camera, Settings, Layers, BookOpen, Clock, Sparkles, Footprints, TrendingUp,
+  Save, Wand2, X, ChevronLeft
 } from 'lucide-react';
 import { toast } from 'sonner';
+import Markdown from 'react-markdown';
+import { GoogleGenAI } from "@google/genai";
 import VisitationView from './VisitationView';
 
 interface MinistryModuleViewProps {
@@ -76,8 +79,16 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
   // Media Specific State
   const [mediaEngagement] = useState([]);
 
+  // Editable Resources State
+  const [editableResources, setEditableResources] = useState<any[]>([]);
+  const [selectedResource, setSelectedResource] = useState<any | null>(null);
+  const [isEditingResource, setIsEditingResource] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [resourceTableMissing, setResourceTableMissing] = useState(false);
+
   useEffect(() => {
     fetchPersonnel();
+    fetchResources();
     // Fetch attendance for all ministries that have an overview using it
     const ministriesWithAttendance = [
       'Children Ministry', 'Teens Ministry', 'Young Adult Ministry', 
@@ -271,6 +282,78 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
       console.error('Error creating department session:', err);
     } finally {
       setIsDeptSubmitting(false);
+    }
+  };
+
+  const fetchResources = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('ministry_resources')
+        .select('*')
+        .eq('ministry_name', ministryName)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        if (error.code === '42P01' || error.code === 'PGRST205') {
+          setResourceTableMissing(true);
+        }
+        throw error;
+      }
+      setEditableResources(data || []);
+      setResourceTableMissing(false);
+    } catch (err) {
+      console.error('Error fetching resources:', err);
+    }
+  };
+
+  const saveResource = async (resource: any) => {
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('ministry_resources')
+        .upsert({
+          ...resource,
+          ministry_name: ministryName,
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+      toast.success("Resource saved successfully");
+      fetchResources();
+      setIsEditingResource(false);
+    } catch (err: any) {
+      console.error('Error saving resource:', err);
+      if (err.code === '42P01' || err.code === 'PGRST205') {
+        setResourceTableMissing(true);
+      }
+      toast.error('Failed to save resource: ' + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const generateResourceContent = async (title: string) => {
+    if (!title) return;
+    setIsGenerating(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Generate a professional church resource document for the ${ministryName} ministry titled "${title}". 
+        The content should be in Markdown format, comprehensive, and practical for ministry heads. 
+        Include sections like Introduction, Objectives, Guidelines, and Action Steps.`,
+      });
+
+      const content = response.text;
+      if (content) {
+        setSelectedResource(prev => ({ ...prev, content }));
+        toast.success("Content generated successfully!");
+      }
+    } catch (err: any) {
+      console.error('AI Generation Error:', err);
+      toast.error('Failed to generate content: ' + err.message);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -1551,76 +1634,169 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
     );
   };
 
-  const renderGenericResources = () => {
-    const resData: Record<string, any[]> = {
-      'Evangelism': [
-        { title: 'Soul Winning Tracts', type: 'PDF', size: '2.5 MB', category: 'Materials' },
-        { title: 'Outreach Training', type: 'Video', size: '120 MB', category: 'Training' },
-        { title: 'Convert Registry Form', type: 'DOCX', size: '150 KB', category: 'Forms' },
-      ],
-      'Evangelism Ministry': [
-        { title: 'Soul Winning Tracts', type: 'PDF', size: '2.5 MB', category: 'Materials' },
-        { title: 'Outreach Training', type: 'Video', size: '120 MB', category: 'Training' },
-        { title: 'Convert Registry Form', type: 'DOCX', size: '150 KB', category: 'Forms' },
-      ],
-      'Media Ministry': [
-        { title: 'Brand Identity Guide', type: 'PDF', size: '5.2 MB', category: 'Assets' },
-        { title: 'vMix Configuration', type: 'JSON', size: '45 KB', category: 'Software' },
-        { title: 'Stream Overlay Pack', type: 'ZIP', size: '85 MB', category: 'Graphics' },
-      ],
-      'Prayer Ministry': [
-        { title: 'Prayer Bulletin (Weekly)', type: 'PDF', size: '1.1 MB', category: 'Guides' },
-        { title: 'Fasting Guidelines', type: 'PDF', size: '800 KB', category: 'Training' },
-        { title: 'Intercession Manual', type: 'PDF', size: '3.4 MB', category: 'Materials' },
-      ],
-      'Ushering Ministry': [
-        { title: 'Protocol Handbook', type: 'PDF', size: '4.2 MB', category: 'Guidelines' },
-        { title: 'Seating Chart (Main)', type: 'PDF', size: '1.5 MB', category: 'Charts' },
-        { title: 'Hospitality Training', type: 'Video', size: '95 MB', category: 'Training' },
-      ],
-      'Protocol Ministry': [
-        { title: 'Protocol Handbook', type: 'PDF', size: '4.2 MB', category: 'Guidelines' },
-        { title: 'Seating Chart (Main)', type: 'PDF', size: '1.5 MB', category: 'Charts' },
-        { title: 'Hospitality Training', type: 'Video', size: '95 MB', category: 'Training' },
-      ],
-      'Children Ministry': [
-        { title: 'Sunday School Curriculum', type: 'PDF', size: '12 MB', category: 'Lessons' },
-        { title: 'Activity Worksheets', type: 'PDF', size: '8 MB', category: 'Materials' },
-        { title: 'Safety & Safeguarding', type: 'PDF', size: '2.1 MB', category: 'Policy' },
-      ],
-      'Children\'s Ministry': [
-        { title: 'Sunday School Curriculum', type: 'PDF', size: '12 MB', category: 'Lessons' },
-        { title: 'Activity Worksheets', type: 'PDF', size: '8 MB', category: 'Materials' },
-        { title: 'Safety & Safeguarding', type: 'PDF', size: '2.1 MB', category: 'Policy' },
-      ]
-    };
-
-    const currentResources = Object.entries(resData).find(([key]) => ministryName.toLowerCase().includes(key.toLowerCase()))?.[1] 
-      || [];
+  const renderEditableResourceEditor = () => {
+    if (!selectedResource) return null;
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in duration-700">
-        {currentResources.map((res, i) => (
-          <div key={i} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-md transition-all group">
-            <div className="flex items-center justify-between mb-6">
-              <div className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center group-hover:bg-fh-green group-hover:text-fh-gold transition-all">
-                <FileText className="w-6 h-6" />
+      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 md:p-10 overflow-hidden">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="bg-white w-full max-w-6xl h-full max-h-[90vh] rounded-[3rem] shadow-2xl flex flex-col overflow-hidden border border-slate-100"
+        >
+          {/* Editor Header */}
+          <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => setIsEditingResource(false)}
+                className="p-3 hover:bg-white rounded-2xl transition-all text-slate-400 hover:text-slate-900"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+              <div>
+                <input 
+                  type="text" 
+                  value={selectedResource.title}
+                  onChange={(e) => setSelectedResource({ ...selectedResource, title: e.target.value })}
+                  className="text-2xl font-black text-slate-900 uppercase tracking-tighter bg-transparent border-none outline-none focus:ring-0 w-full max-w-md"
+                  placeholder="Resource Title..."
+                />
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Editing Ministry Resource</p>
               </div>
-              <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{res.type}</span>
             </div>
-            <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight mb-2">{res.title}</h4>
-            <div className="flex items-center justify-between mt-6">
-              <span className="text-[10px] font-bold text-slate-400 uppercase">{res.size}</span>
-              <button className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all">
-                <Download className="w-3 h-3" />
-                Download
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => generateResourceContent(selectedResource.title)}
+                disabled={isGenerating}
+                className="flex items-center gap-2 px-6 py-3 bg-indigo-50 text-indigo-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all disabled:opacity-50"
+              >
+                <Wand2 className={`w-4 h-4 ${isGenerating ? 'animate-pulse' : ''}`} />
+                {isGenerating ? 'Generating...' : 'AI Generate'}
+              </button>
+              <button 
+                onClick={() => saveResource(selectedResource)}
+                disabled={isSubmitting}
+                className="flex items-center gap-2 px-8 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                {isSubmitting ? 'Saving...' : 'Save Document'}
+              </button>
+              <button 
+                onClick={() => setIsEditingResource(false)}
+                className="p-3 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-2xl transition-all"
+              >
+                <X className="w-6 h-6" />
               </button>
             </div>
           </div>
-        ))}
-        <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center group cursor-pointer hover:bg-white hover:border-fh-green transition-all">
-           <Plus className="w-8 h-8 text-slate-300 group-hover:text-fh-green mb-4" />
-           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-fh-green">Upload Asset</p>
+
+          {/* Editor Body */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* Input Area */}
+            <div className="flex-1 border-r border-slate-50 flex flex-col">
+              <div className="p-4 bg-slate-50/50 border-b border-slate-50 flex items-center gap-4">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Markdown Editor</span>
+              </div>
+              <textarea 
+                value={selectedResource.content || ''}
+                onChange={(e) => setSelectedResource({ ...selectedResource, content: e.target.value })}
+                className="flex-1 p-10 text-sm font-medium text-slate-700 bg-white outline-none resize-none scrollbar-hide leading-relaxed"
+                placeholder="Start typing your resource content here... (Markdown supported)"
+              />
+            </div>
+
+            {/* Preview Area */}
+            <div className="flex-1 bg-slate-50/30 flex flex-col overflow-y-auto scrollbar-hide">
+              <div className="p-4 bg-white border-b border-slate-50 flex items-center gap-4">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live Preview</span>
+              </div>
+              <div className="p-10 prose prose-slate max-w-none">
+                <div className="markdown-body">
+                  <Markdown>{selectedResource.content || '_No content yet. Use AI to generate or start typing..._'}</Markdown>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  };
+
+  const renderGenericResources = () => {
+    if (resourceTableMissing) {
+      const repairSQL = `-- MINISTRY RESOURCES TABLE REPAIR
+CREATE TABLE IF NOT EXISTS public.ministry_resources (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  ministry_name TEXT NOT NULL,
+  title TEXT NOT NULL,
+  content TEXT DEFAULT '',
+  category TEXT DEFAULT 'General',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+ALTER TABLE public.ministry_resources ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all for authenticated" ON public.ministry_resources FOR ALL USING (true) WITH CHECK (true);`;
+
+      return (
+        <div className="bg-white p-12 rounded-[3rem] border-2 border-dashed border-slate-200 text-center">
+          <FileText className="w-12 h-12 text-slate-300 mx-auto mb-6" />
+          <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter mb-2">Resources Database Offline</h3>
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-8 max-w-sm mx-auto">The table for editable resources is missing. Run the repair script to enable this feature.</p>
+          <pre className="bg-slate-900 text-fh-gold p-6 rounded-2xl text-[9px] font-mono text-left mb-8 overflow-x-auto">{repairSQL}</pre>
+          <button 
+            onClick={() => { navigator.clipboard.writeText(repairSQL); toast.success('SQL Copied'); }}
+            className="px-8 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest"
+          >
+            Copy Repair Script
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-8 animate-in fade-in duration-700">
+        {isEditingResource && renderEditableResourceEditor()}
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {editableResources.map((res, i) => (
+            <div 
+              key={res.id || i} 
+              onClick={() => { setSelectedResource(res); setIsEditingResource(true); }}
+              className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all group cursor-pointer relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 blur-2xl rounded-full translate-x-1/2 -translate-y-1/2"></div>
+              <div className="flex items-center justify-between mb-6 relative z-10">
+                <div className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center group-hover:bg-slate-900 group-hover:text-white transition-all">
+                  <FileText className="w-6 h-6" />
+                </div>
+                <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{res.category || 'Document'}</span>
+              </div>
+              <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight mb-2 group-hover:text-indigo-600 transition-colors relative z-10">{res.title}</h4>
+              <p className="text-[10px] text-slate-400 font-medium line-clamp-2 mb-6 relative z-10">
+                {res.content ? res.content.substring(0, 100) + '...' : 'No content yet. Click to edit.'}
+              </p>
+              <div className="flex items-center justify-between mt-auto relative z-10">
+                <span className="text-[9px] font-bold text-slate-300 uppercase">Last updated: {new Date(res.updated_at || res.created_at).toLocaleDateString()}</span>
+                <div className="flex items-center gap-2 text-indigo-500 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+                  <span className="text-[9px] font-black uppercase tracking-widest">Edit</span>
+                  <Edit3 className="w-3 h-3" />
+                </div>
+              </div>
+            </div>
+          ))}
+          
+          <div 
+            onClick={() => {
+              setSelectedResource({ title: 'New Resource', content: '', category: 'General' });
+              setIsEditingResource(true);
+            }}
+            className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center group cursor-pointer hover:bg-white hover:border-indigo-500 transition-all min-h-[240px]"
+          >
+             <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center shadow-sm group-hover:shadow-indigo-100 group-hover:scale-110 transition-all mb-4">
+                <Plus className="w-8 h-8 text-slate-300 group-hover:text-indigo-500" />
+             </div>
+             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-indigo-500">Create New Resource</p>
+          </div>
         </div>
       </div>
     );
@@ -1699,10 +1875,9 @@ NOTIFY pgrst, 'reload schema';`;
 
       {activeTab === 'Overview' && ministryName === 'Music Ministry' && renderMusicMinistryOverview()}
       {activeTab === 'Operations' && ministryName === 'Music Ministry' && renderMusicMinistryOperations()}
-      {activeTab === 'Resources' && ministryName === 'Music Ministry' && renderMusicMinistryResources()}
 
       {activeTab === 'Operations' && ['Evangelism', 'Media', 'Prayer', 'Ushering', 'Protocol', 'Children'].some(m => ministryName.toLowerCase().includes(m.toLowerCase())) && renderGenericOperations()}
-      {activeTab === 'Resources' && ['Evangelism', 'Media', 'Prayer', 'Ushering', 'Protocol', 'Children'].some(m => ministryName.toLowerCase().includes(m.toLowerCase())) && renderGenericResources()}
+      {activeTab === 'Resources' && renderGenericResources()}
 
       {activeTab === 'Overview' && (ministryName.toLowerCase().includes('evangelism')) && renderEvangelismOverview()}
       {activeTab === 'Overview' && (ministryName.toLowerCase().includes('media')) && renderMediaOverview()}

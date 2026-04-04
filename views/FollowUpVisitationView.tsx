@@ -301,7 +301,7 @@ const FollowUpVisitationView: React.FC = () => {
             {['Overview', 'Visitation', 'Personnel', 'Operations', 'Resources'].map((tab) => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => setActiveTab(tab as any)}
                 className={`pb-4 text-sm font-semibold transition-all relative ${
                   activeTab === tab ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'
                 }`}

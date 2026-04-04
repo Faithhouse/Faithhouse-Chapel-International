@@ -38,3 +38,12 @@ body {
 .animate-spin-reverse {
   animation: spin-reverse 1s linear infinite;
 }
+
+.markdown-body h1 { @apply text-2xl font-black mb-4 uppercase tracking-tighter; }
+.markdown-body h2 { @apply text-xl font-black mb-3 uppercase tracking-tight mt-6; }
+.markdown-body h3 { @apply text-lg font-black mb-2 uppercase tracking-tight mt-4; }
+.markdown-body p { @apply text-sm text-slate-600 leading-relaxed mb-4; }
+.markdown-body ul { @apply list-disc list-inside mb-4 space-y-2 text-sm text-slate-600; }
+.markdown-body ol { @apply list-decimal list-inside mb-4 space-y-2 text-sm text-slate-600; }
+.markdown-body blockquote { @apply border-l-4 border-slate-200 pl-4 italic text-slate-500 mb-4; }
+.markdown-body strong { @apply font-black text-slate-900; }

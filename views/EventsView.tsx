@@ -17,6 +17,13 @@ const categoryColors = {
   'Help from above service': 'bg-indigo-50 text-indigo-700 border-indigo-100',
   'Special services': 'bg-amber-50 text-amber-700 border-amber-100',
   'Conferences': 'bg-slate-900 text-fh-gold border-slate-700',
+  'Sunday Service': 'bg-blue-50 text-blue-700 border-blue-100',
+  'Mid-week Service': 'bg-emerald-50 text-emerald-700 border-emerald-100',
+  'Prayer Meeting': 'bg-rose-50 text-rose-700 border-rose-100',
+  'Youth Service': 'bg-violet-50 text-violet-700 border-violet-100',
+  'Women\'s Meeting': 'bg-pink-50 text-pink-700 border-pink-100',
+  'Men\'s Meeting': 'bg-cyan-50 text-cyan-700 border-cyan-100',
+  'Communion Service': 'bg-purple-50 text-purple-700 border-purple-100',
 };
 
 const months = [
@@ -404,6 +411,13 @@ NOTIFY pgrst, 'reload schema';`;
                 <option>Help from above service</option>
                 <option>Special services</option>
                 <option>Conferences</option>
+                <option>Sunday Service</option>
+                <option>Mid-week Service</option>
+                <option>Prayer Meeting</option>
+                <option>Youth Service</option>
+                <option>Women's Meeting</option>
+                <option>Men's Meeting</option>
+                <option>Communion Service</option>
               </select>
             </div>
             <div className="flex flex-wrap items-center gap-3 pt-2">
@@ -545,11 +559,18 @@ NOTIFY pgrst, 'reload schema';`;
             <div className="space-y-2">
               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2">Category</label>
               <select className="w-full p-4 bg-slate-50 rounded-2xl font-bold text-slate-800 cursor-pointer"
-                value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                value={formData.category} onChange={e => setFormData({...formData, category: e.target.value as any})}>
                 <option>Prophetic Word Service</option>
                 <option>Help from above service</option>
                 <option>Special services</option>
                 <option>Conferences</option>
+                <option>Sunday Service</option>
+                <option>Mid-week Service</option>
+                <option>Prayer Meeting</option>
+                <option>Youth Service</option>
+                <option>Women's Meeting</option>
+                <option>Men's Meeting</option>
+                <option>Communion Service</option>
               </select>
             </div>
 
