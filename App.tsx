@@ -70,7 +70,7 @@ const App: React.FC = () => {
           // For demo purposes, if no session, we'll simulate being the root admin
           // In production, this would redirect to a login page
           const mockAdmin: UserProfile = {
-            id: 'root-admin-id',
+            id: '00000000-0000-0000-0000-000000000000',
             email: 'systemadmin@faithhouse.church',
             full_name: 'System Administrator',
             role: 'admin',
