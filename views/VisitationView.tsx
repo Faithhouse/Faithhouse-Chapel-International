@@ -1,14 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { VisitationRecord, Member, UserProfile, AttendanceEvent } from '../types';
+import { VisitationRecord, Member, AttendanceEvent } from '../types';
 
 import VisitationWhatsAppView from './VisitationWhatsAppView';
 import FirstTimersView from './FirstTimersView';
 
-interface VisitationViewProps { userProfile: UserProfile | null; }
+interface VisitationViewProps { }
 
-const VisitationView: React.FC<VisitationViewProps> = ({ userProfile }) => {
+const VisitationView: React.FC<VisitationViewProps> = () => {
   const [activeTab, setActiveTab] = useState<'Registry' | 'AbsenteeRadar' | 'WhatsAppHub' | 'FirstTimers'>('AbsenteeRadar');
   const [records, setRecords] = useState<VisitationRecord[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -382,11 +382,11 @@ const VisitationView: React.FC<VisitationViewProps> = ({ userProfile }) => {
         </div>
       ) : activeTab === 'WhatsAppHub' ? (
         <div className="animate-in slide-in-from-right-4 duration-500">
-          <VisitationWhatsAppView userProfile={userProfile} />
+          <VisitationWhatsAppView />
         </div>
       ) : (
         <div className="animate-in slide-in-from-right-4 duration-500">
-          <FirstTimersView userProfile={userProfile} />
+          <FirstTimersView />
         </div>
       )}
 

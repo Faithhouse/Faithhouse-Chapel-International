@@ -13,8 +13,6 @@ import BranchesView from './views/BranchesView';
 import MinistriesView from './views/MinistriesView';
 import LeadershipView from './views/LeadershipView';
 import VisitationView from './views/VisitationView';
-import SettingsView from './views/SettingsView';
-import AdminUsersView from './views/AdminUsersView';
 import MinistryModuleView from './views/MinistryModuleView';
 import CellMeetingView from './views/CellMeetingView';
 import WhatsAppSchedulerView from './views/WhatsAppSchedulerView';
@@ -25,12 +23,12 @@ import YouthChildrenDashboardView from './views/YouthChildrenDashboardView';
 import FollowUpVisitationView from './views/FollowUpVisitationView';
 import FounderView from './views/FounderView';
 import PlaceholderView from './views/PlaceholderView';
-import Auth from './components/Auth';
 import RecurringTasksView from './views/RecurringTasksView';
+import UsersView from './views/UsersView';
+import ErrorBoundary from './components/ErrorBoundary';
 import DavidChatbot from './components/DavidChatbot';
 import { Toaster, toast } from 'sonner';
 import { NavItem, UserProfile } from './types';
-import { canAccess } from './src/utils/permissions';
 import { supabase } from './supabaseClient';
 
 const App: React.FC = () => {
@@ -39,20 +37,56 @@ const App: React.FC = () => {
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [initialEditId, setInitialEditId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
-  const MOCK_PROFILE: UserProfile = {
-    id: 'bypass-admin',
-    email: 'admin@faithhouse.church',
-    first_name: 'System',
-    last_name: 'Administrator',
-    role: 'System Administrator',
-    status: 'Active',
-    created_at: new Date().toISOString()
-  };
+  useEffect(() => {
+    const checkAuth = async () => {
+      setIsAuthLoading(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (profile) {
+            setCurrentUser(profile);
+          } else if (session.user.email === 'systemadmin@faithhouse.church') {
+            // Root Admin fallback if profile doesn't exist yet
+            const rootProfile: UserProfile = {
+              id: session.user.id,
+              email: session.user.email,
+              full_name: 'System Administrator',
+              role: 'admin',
+              is_active: true
+            };
+            setCurrentUser(rootProfile);
+          }
+        } else {
+          // For demo purposes, if no session, we'll simulate being the root admin
+          // In production, this would redirect to a login page
+          const mockAdmin: UserProfile = {
+            id: 'root-admin-id',
+            email: 'systemadmin@faithhouse.church',
+            full_name: 'System Administrator',
+            role: 'admin',
+            is_active: true
+          };
+          setCurrentUser(mockAdmin);
+        }
+      } catch (error) {
+        console.error('Auth error:', error);
+      } finally {
+        setIsAuthLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, []);
 
   const handleSetActiveItem = (item: string) => {
     if (item === activeItem) return;
@@ -69,235 +103,31 @@ const App: React.FC = () => {
     setActiveItem(previous);
   };
   
-  useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      fetchProfile();
-    } else {
-      setLoading(false);
-    }
-  }, []);
-
-  const fetchProfile = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        setProfile(null);
-        setLoading(false);
-        return;
-      }
-
-      const response = await fetch('/api/auth/me', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (!response.ok) {
-        localStorage.removeItem('auth_token');
-        setProfile(null);
-        setLoading(false);
-        return;
-      }
-
-      const data = await response.json();
-      
-      if (data) {
-        // Check for active status
-        if (data.status !== 'Active') {
-          setProfile(data);
-          setLoading(false);
-          return;
-        }
-
-        // God Level Access for Authorized Emails
-        const email = data.email?.toLowerCase() || '';
-        if (email === 'fcbhahbtwog@gmail.com' || email === 'systemadmin@faithhouse.com') {
-          data.role = 'System Administrator';
-        }
-
-        // Force password change if required
-        if (data.must_change_password) {
-          setActiveItem('Settings');
-          toast.warning("Security Protocol: Please change your password to continue.");
-        }
-      }
-      
-      setProfile(data);
-    } catch (err: any) {
-      console.error('Profile fetch failed:', err);
-      setError(err.message);
-      localStorage.removeItem('auth_token');
-      setProfile(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('auth_token');
-    setProfile(null);
-    setActiveItem('Dashboard');
-  };
-
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
-  if (loading) {
-    const logoUrl = "https://lh3.googleusercontent.com/d/1la57sO6NOuNEZaqa9zDxuxRnWPBavkjH";
-    return (
-      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-6 text-center overflow-hidden relative">
-        {/* Background Decorative Elements */}
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-          <div className="absolute -top-24 -left-24 w-96 h-96 bg-blue-600/10 rounded-full blur-[120px]" />
-          <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-fh-gold/5 rounded-full blur-[120px]" />
-        </div>
-        {error && (
-          <div className="mb-8 p-6 bg-rose-500/10 border border-rose-500/20 rounded-3xl max-w-sm animate-in fade-in zoom-in-95">
-            <p className="text-rose-400 text-xs font-black uppercase tracking-widest mb-4">{error}</p>
-            <button 
-              onClick={() => window.location.reload()}
-              className="px-6 py-2 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-all shadow-lg"
-            >
-              Retry Connection
-            </button>
-          </div>
-        )}
-        <div className="relative mb-12">
-          <motion.div 
-            animate={{ rotate: 360 }}
-            transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-            className="w-48 h-48 border border-white/5 rounded-full"
-          />
-          <motion.div 
-            animate={{ rotate: -360 }}
-            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-            className="absolute inset-6 border border-blue-500/10 rounded-full"
-          />
-          <motion.div 
-            animate={{ rotate: 360 }}
-            transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-            className="absolute inset-12 border border-fh-gold/5 rounded-full"
-          />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.5 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ 
-                type: "spring",
-                stiffness: 260,
-                damping: 20,
-                delay: 0.2
-              }}
-              className="bg-white p-4 rounded-[2.5rem] shadow-[0_0_50px_rgba(255,255,255,0.1)]"
-            >
-              <img 
-                src={logoUrl} 
-                alt="FaithHouse Logo" 
-                className="w-20 h-20 object-contain"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=F&background=007bff&color=fff&bold=true';
-                }}
-              />
-            </motion.div>
-          </div>
-        </div>
-        
-        <div className="space-y-6 max-w-sm">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5, duration: 0.8 }}
-          >
-            <h2 className="text-white font-black uppercase tracking-[0.3em] text-lg mb-2">Faithhouse Chapel</h2>
-            <p className="text-blue-400 font-medium italic text-xs tracking-wide">
-              "transforming lives through the power of God"
-            </p>
-          </motion.div>
-
-          <div className="mt-8 flex justify-center gap-1">
-            {[0, 1, 2].map((i) => (
-              <motion.div
-                key={i}
-                animate={{ 
-                  scale: [1, 1.5, 1],
-                  opacity: [0.3, 1, 0.3]
-                }}
-                transition={{ 
-                  duration: 1.5, 
-                  repeat: Infinity, 
-                  delay: i * 0.2 
-                }}
-                className="w-1.5 h-1.5 bg-blue-500 rounded-full"
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (profile && profile.status !== 'Active') {
-    return (
-      <div className="min-h-screen bg-[#050505] text-white flex items-center justify-center p-6 font-sans">
-        <div className="max-w-md w-full bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[3rem] p-12 text-center shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1 bg-rose-500"></div>
-          <div className="w-20 h-20 bg-rose-500/10 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-8 animate-pulse">
-            <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <h2 className="text-2xl font-black uppercase tracking-tighter mb-4">Security Lockout</h2>
-          <p className="text-white/40 text-xs mb-8 leading-relaxed">
-            Your access to the Faithhouse Chapel Internal System has been suspended. 
-            This may be due to administrative review or security protocols.
-          </p>
-          <div className="bg-rose-500/5 border border-rose-500/10 p-6 rounded-2xl mb-8">
-            <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest">Account Status: {profile.status}</p>
-          </div>
-          <button 
-            onClick={async () => {
-              await supabase.auth.signOut();
-              localStorage.removeItem('fci_simulated_user_id');
-              window.location.reload();
-            }}
-            className="w-full bg-white text-black py-4 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-rose-500 hover:text-white transition-all"
-          >
-            Terminate Session
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!profile) {
-    return <Auth onAuthSuccess={(userData) => {
-      setProfile(userData);
-      setLoading(false);
-      // Still fetch to ensure full profile data (including fields not in login response)
-      fetchProfile();
-    }} />;
-  }
-
   const renderContent = () => {
-    const role = profile?.role;
+    if (isAuthLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <div className="w-12 h-12 border-4 border-fh-gold border-t-transparent rounded-full animate-spin" />
+          <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Initializing System...</p>
+        </div>
+      );
+    }
 
     try {
       switch (activeItem) {
         case 'Dashboard':
-          return <DashboardView userProfile={profile} setActiveItem={handleSetActiveItem as any} />;
+          return <DashboardView setActiveItem={handleSetActiveItem as any} currentUser={currentUser} />;
         
         case 'General Overseer':
-          if (!['System Administrator', 'General Overseer', 'Head Pastor', 'General Office'].includes(role || '')) {
-            return <SecurityDenied module={activeItem} />;
-          }
-          return <FounderView userProfile={profile!} setActiveItem={handleSetActiveItem as any} />;
+          return <FounderView setActiveItem={handleSetActiveItem as any} />;
         
         case 'Members':
-          if (!canAccess(role, 'LEVEL_2')) return <SecurityDenied module={activeItem} />;
           return (
             <MembersView 
-              userProfile={profile} 
               initialEditId={initialEditId}
+              currentUser={currentUser}
               onSelectMember={(id) => { 
                 setSelectedMemberId(id); 
                 setInitialEditId(null);
@@ -307,11 +137,9 @@ const App: React.FC = () => {
           );
         
         case 'Member Profile':
-          if (!canAccess(role, 'LEVEL_2')) return <SecurityDenied module={activeItem} />;
           return (
             <MemberProfileView 
               memberId={selectedMemberId || ''} 
-              userProfile={profile} 
               onBack={handleBack} 
               onEdit={() => {
                 setInitialEditId(selectedMemberId);
@@ -321,69 +149,51 @@ const App: React.FC = () => {
           );
         
         case 'Attendance':
-          if (!canAccess(role, 'LEVEL_2')) return <SecurityDenied module={activeItem} />;
-          return <AttendanceView userProfile={profile} />;
+          return <AttendanceView />;
         
         case 'Upcoming Events':
-          return <EventsView userProfile={profile} />;
+          return <EventsView />;
         
         case 'Finance':
-          if (!canAccess(role, 'LEVEL_3')) return <SecurityDenied module={activeItem} />;
-          return <FinanceView userProfile={profile} />;
+          return <FinanceView currentUser={currentUser} />;
         
         case 'Branches':
-          if (!canAccess(role, 'LEVEL_1')) return <SecurityDenied module={activeItem} />;
-          return <BranchesView userProfile={profile} />;
+          return <BranchesView />;
         
         case 'Leadership Registry':
         case 'Church Leadership':
-          if (!canAccess(role, 'LEVEL_2')) return <SecurityDenied module={activeItem} />;
-          return <LeadershipView userProfile={profile} />;
+          return <LeadershipView />;
         
         case 'Ministries':
-          return <MinistriesView userProfile={profile} setActiveItem={handleSetActiveItem as any} />;
+          return <MinistriesView setActiveItem={handleSetActiveItem as any} />;
         
         case 'Visitation & Follow-up':
         case 'Follow-up & Visitation':
         case 'Follow-up & Visitation ministry':
-          if (!['System Administrator', 'Head Pastor', 'Follow-up & Visitation', 'Evangelism Ministry', 'General Office'].includes(role || '')) {
-            return <SecurityDenied module={activeItem} />;
-          }
           return <FollowUpVisitationView />;
         
         case 'WhatsApp Hub':
-          if (!canAccess(role, 'LEVEL_3')) return <SecurityDenied module={activeItem} />;
-          return <WhatsAppSchedulerView userProfile={profile} />;
+          return <WhatsAppSchedulerView />;
 
         case 'Recurring Tasks':
-          if (!canAccess(role, 'LEVEL_2')) return <SecurityDenied module={activeItem} />;
-          return <RecurringTasksView userProfile={profile} />;
+          return <RecurringTasksView />;
 
         case 'Cell Meeting':
-          return <CellMeetingView userProfile={profile} />;
+          return <CellMeetingView />;
 
-        case 'Admin Users':
-        case 'Settings':
-          if (!canAccess(role, 'LEVEL_3')) return <SecurityDenied module={activeItem} />;
-          return activeItem === 'Settings' ? (
-            <SettingsView 
-              userProfile={profile} 
-              initialTab={isRecoveryMode ? 'Security' : 'General'} 
-            />
-          ) : (
-            <AdminUsersView userProfile={profile} />
-          );
+        case 'Users':
+          return <UsersView currentUser={currentUser} />;
 
         // Dynamic Ministry Modules
         case 'Youth & Children Ministry':
-          return <YouthChildrenDashboardView userProfile={profile} />;
+          return <YouthChildrenDashboardView />;
 
         case 'Children Ministry':
         case 'Children\'s Ministry':
-          return <ChildrenMinistryView userProfile={profile} />;
+          return <ChildrenMinistryView />;
 
         case 'Teens Ministry':
-          return <TeensMinistryView userProfile={profile} />;
+          return <TeensMinistryView />;
 
         case 'Media Ministry':
         case 'Media Department':
@@ -398,7 +208,7 @@ const App: React.FC = () => {
         case 'Evangelism':
         case 'Evangelism Ministry':
         case 'Evangelism Department':
-          return <MinistryModuleView ministryName={activeItem} userProfile={profile} />;
+          return <MinistryModuleView ministryName={activeItem} />;
 
         default:
           return <PlaceholderView title={activeItem} />;
@@ -414,7 +224,8 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 font-sans print:bg-white">
+    <ErrorBoundary>
+      <div className="min-h-screen flex flex-col bg-slate-50 font-sans print:bg-white">
       <div className="print:hidden">
         <Sidebar 
           activeItem={activeItem} 
@@ -424,8 +235,7 @@ const App: React.FC = () => {
           }}
           isOpen={isSidebarOpen}
           toggleSidebar={toggleSidebar}
-          userProfile={profile}
-          handleLogout={handleLogout}
+          currentUser={currentUser}
         />
       </div>
 
@@ -433,10 +243,10 @@ const App: React.FC = () => {
         <div className="print:hidden">
           <Header 
             toggleSidebar={toggleSidebar} 
-            userProfile={profile} 
             activeItem={activeItem as string}
             onBack={handleBack}
             hasHistory={history.length > 1}
+            currentUser={currentUser}
           />
         </div>
         <main className="flex-1 p-4 md:p-8 print:p-0">
@@ -453,23 +263,8 @@ const App: React.FC = () => {
       </div>
       <Toaster position="top-right" richColors />
     </div>
+    </ErrorBoundary>
   );
 };
-
-const SecurityDenied = ({ module }: { module: string }) => (
-  <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-8 animate-in zoom-in-95 duration-500">
-    <div className="w-24 h-24 bg-rose-50 text-rose-500 rounded-[2.5rem] flex items-center justify-center shadow-xl border border-rose-100">
-       <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-    </div>
-    <div className="space-y-3">
-      <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight">Access Restricted</h2>
-      <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.4em]">Security Clearance Required</p>
-      <p className="text-slate-500 max-w-sm mx-auto text-sm leading-relaxed pt-4">
-        The <b>[{module}]</b> module contains sensitive organizational data. Your current departmental role does not have authorization to view this ledger.
-      </p>
-    </div>
-    <button onClick={() => window.location.reload()} className="px-10 py-4 bg-slate-900 text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all">Re-Verify Identity</button>
-  </div>
-);
 
 export default App;

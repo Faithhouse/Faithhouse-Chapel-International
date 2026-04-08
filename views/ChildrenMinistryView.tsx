@@ -3,8 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
 import { 
   Child, Parent, ClassGroup, Teacher, ChildrenService, 
-  ChildrenAttendance, CheckInLog, MedicalRecord, IncidentReport,
-  UserProfile 
+  ChildrenAttendance, CheckInLog, MedicalRecord, IncidentReport
 } from '../types';
 import { 
   Users, Baby, ShieldCheck, ClipboardList, AlertTriangle, 
@@ -16,10 +15,9 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface ChildrenMinistryViewProps {
-  userProfile: UserProfile | null;
 }
 
-const ChildrenMinistryView: React.FC<ChildrenMinistryViewProps> = ({ userProfile }) => {
+const ChildrenMinistryView: React.FC<ChildrenMinistryViewProps> = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'children' | 'attendance' | 'safety' | 'reports'>('dashboard');
   const [isLoading, setIsLoading] = useState(true);
   const [tableMissing, setTableMissing] = useState(false);
@@ -118,7 +116,7 @@ const ChildrenMinistryView: React.FC<ChildrenMinistryViewProps> = ({ userProfile
         parent_id: checkInParentId,
         service_id: activeService.id,
         authorized_person: authorizedPerson,
-        recorded_by: userProfile?.id
+        recorded_by: 'system'
       }]);
 
       if (error) throw error;
@@ -131,7 +129,7 @@ const ChildrenMinistryView: React.FC<ChildrenMinistryViewProps> = ({ userProfile
         date: activeService.date,
         check_in_time: new Date().toISOString(),
         status: 'Present',
-        marked_by: userProfile?.id
+        marked_by: 'system'
       }]);
 
       toast.success('Child checked in successfully');
@@ -269,7 +267,7 @@ const ChildrenMinistryView: React.FC<ChildrenMinistryViewProps> = ({ userProfile
         service_id: activeService.id,
         date: activeService.date,
         status,
-        marked_by: userProfile?.id
+        marked_by: 'system'
       }]);
 
       if (error) throw error;

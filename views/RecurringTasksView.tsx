@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { UserProfile, RecurringTaskTemplate } from '../types';
-import { permissions } from '../src/utils/permissions';
+import { RecurringTaskTemplate } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Trash2, CheckCircle2, Clock, Settings2, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface RecurringTasksViewProps {
-  userProfile: UserProfile | null;
 }
 
-const RecurringTasksView: React.FC<RecurringTasksViewProps> = ({ userProfile }) => {
+const RecurringTasksView: React.FC<RecurringTasksViewProps> = () => {
   const [templates, setTemplates] = useState<RecurringTaskTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);

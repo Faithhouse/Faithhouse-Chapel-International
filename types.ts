@@ -1,31 +1,4 @@
 
-// Expanded UserRole to include roles used in AdminUsersView
-export type UserRole = 
-  | 'System Administrator'
-  | 'Head Pastor' 
-  | 'Evangelism Ministry' 
-  | 'Follow-up & Visitation' 
-  | 'Music Ministry' 
-  | 'Security & Facilities' 
-  | 'Finance / Treasury' 
-  | 'General Admin'
-  | 'General Office'
-  | 'Assistant'
-  | 'Ministry Head'
-  | 'General Overseer'
-  | 'Church Admin';
-
-export interface UserProfile {
-  id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  role: UserRole;
-  status: 'Active' | 'Inactive' | 'Pending';
-  branch_id?: string;
-  created_at?: string;
-}
-
 export type NavItem = 
   | 'Dashboard'
   | 'General Overseer'
@@ -43,11 +16,10 @@ export type NavItem =
   | 'Finance'
   | 'Events'
   | 'Branches'
-  | 'Admin Users'
   | 'WhatsApp Hub'
   | 'Recurring Tasks'
-  | 'Member Profile'
-  | 'Settings';
+  | 'Users'
+  | 'Member Profile';
 
 export interface Branch {
   id: string;
@@ -203,20 +175,6 @@ export interface AttendanceRecord {
   status: 'Present' | 'Absent' | 'Excused' | 'Unmarked';
   notes?: string;
   created_at?: string;
-}
-
-export interface Permission {
-  module: string;
-  read: boolean;
-  write: boolean;
-  delete: boolean;
-}
-
-export interface Role {
-  id: string;
-  name: string;
-  description: string;
-  permissions: Permission[];
 }
 
 export interface RecurringTaskTemplate {
@@ -383,4 +341,16 @@ export interface TitheRecord {
   notes?: string;
   created_at?: string;
   members?: Member;
+}
+
+export type UserRole = 'admin' | 'pastor' | 'finance' | 'media' | 'worker';
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  full_name: string;
+  role: UserRole;
+  is_active: boolean;
+  created_by?: string;
+  created_at?: string;
 }

@@ -1,10 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { AttendanceEvent, AttendanceRecord, Member, Branch, UserProfile } from '../types';
+import { AttendanceEvent, AttendanceRecord, Member, Branch } from '../types';
 
 interface AttendanceViewProps {
-  userProfile: UserProfile | null;
 }
 
 interface EventStats {
@@ -13,7 +12,7 @@ interface EventStats {
   unmarked: number;
 }
 
-const AttendanceView: React.FC<AttendanceViewProps> = ({ userProfile }) => {
+const AttendanceView: React.FC<AttendanceViewProps> = () => {
   const [events, setEvents] = useState<AttendanceEvent[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);

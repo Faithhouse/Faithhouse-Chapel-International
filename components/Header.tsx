@@ -1,17 +1,17 @@
 
 import React from 'react';
+import { ArrowLeft, User, Shield } from 'lucide-react';
 import { UserProfile } from '../types';
-import { ArrowLeft } from 'lucide-react';
 
 interface HeaderProps {
   toggleSidebar: () => void;
-  userProfile: UserProfile | null;
   activeItem: string;
   onBack: () => void;
   hasHistory: boolean;
+  currentUser: UserProfile | null;
 }
 
-const Header: React.FC<HeaderProps> = ({ toggleSidebar, userProfile, activeItem, onBack, hasHistory }) => {
+const Header: React.FC<HeaderProps> = ({ toggleSidebar, activeItem, onBack, hasHistory, currentUser }) => {
   // Direct download link format for Google Drive
   const logoUrl = "https://lh3.googleusercontent.com/d/1la57sO6NOuNEZaqa9zDxuxRnWPBavkjH";
 
@@ -66,11 +66,15 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, userProfile, activeItem,
       <div className="flex-1 flex justify-end items-center gap-6">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
-            <div className="text-right leading-none">
-              <p className="text-[10px] font-black uppercase text-slate-900">{userProfile?.first_name} {userProfile?.last_name}</p>
+            <div className="text-right leading-none hidden sm:block">
+              <p className="text-[10px] font-black uppercase text-slate-900">{currentUser?.full_name || 'Faithhouse CMS'}</p>
+              <p className="text-[8px] font-bold text-fh-gold uppercase tracking-tighter mt-0.5 flex items-center justify-end gap-1">
+                <Shield className="w-2 h-2" />
+                {currentUser?.role || 'System'}
+              </p>
             </div>
-            <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-500 border border-slate-200 uppercase shadow-sm">
-              {userProfile?.first_name?.[0]}{userProfile?.last_name?.[0]}
+            <div className="w-9 h-9 rounded-full bg-slate-900 text-fh-gold flex items-center justify-center text-[10px] font-black border border-slate-200 uppercase shadow-sm">
+              {currentUser?.full_name?.charAt(0) || 'F'}
             </div>
           </div>
         </div>

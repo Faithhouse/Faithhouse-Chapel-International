@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { UserProfile, Branch, AttendanceEvent } from '../types';
+import { Branch, AttendanceEvent } from '../types';
 
 interface ScheduledVisitationMessage {
   id: string;
@@ -15,10 +15,9 @@ interface ScheduledVisitationMessage {
 }
 
 interface VisitationWhatsAppViewProps {
-  userProfile: UserProfile | null;
 }
 
-const VisitationWhatsAppView: React.FC<VisitationWhatsAppViewProps> = ({ userProfile }) => {
+const VisitationWhatsAppView: React.FC<VisitationWhatsAppViewProps> = () => {
   const [activeSubTab, setActiveSubTab] = useState<'Ledger' | 'Instant'>('Ledger');
   const [schedules, setSchedules] = useState<ScheduledVisitationMessage[]>([]);
   const [attendanceEvents, setAttendanceEvents] = useState<AttendanceEvent[]>([]);
@@ -126,7 +125,7 @@ const VisitationWhatsAppView: React.FC<VisitationWhatsAppViewProps> = ({ userPro
         ...formData,
         scheduled_for: time,
         status: 'Pending',
-        created_by: userProfile?.id,
+        created_by: 'system',
         created_at: new Date().toISOString()
       }));
 

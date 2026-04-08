@@ -8,11 +8,10 @@ import {
   Layers, Activity, FileText, X, Save,
   UserPlus, Map, Info
 } from 'lucide-react';
-import { UserProfile, Member } from '../types';
+import { Member } from '../types';
 import { supabase } from '../supabaseClient';
 
 interface CellMeetingViewProps {
-  userProfile: UserProfile | null;
 }
 
 interface CellGroup {
@@ -43,7 +42,7 @@ interface CellAttendanceRecord {
   status: 'Present' | 'Absent' | 'Excused' | 'Unmarked';
 }
 
-const CellMeetingView: React.FC<CellMeetingViewProps> = ({ userProfile }) => {
+const CellMeetingView: React.FC<CellMeetingViewProps> = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [memberSearchTerm, setMemberSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);

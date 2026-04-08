@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { UserProfile, Member, AttendanceEvent, AttendanceRecord } from '../types';
+import { Member, AttendanceEvent, AttendanceRecord } from '../types';
 import { motion } from 'framer-motion';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -20,10 +20,9 @@ import VisitationView from './VisitationView';
 
 interface MinistryModuleViewProps {
   ministryName: string;
-  userProfile: UserProfile | null;
 }
 
-const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, userProfile }) => {
+const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName }) => {
   const [activeTab, setActiveTab] = useState<'Overview' | 'Leadership' | 'Personnel' | 'Operations' | 'Resources' | 'Attendance' | 'Visitation' | 'Curriculum'>('Overview');
 
   useEffect(() => {
@@ -268,7 +267,7 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName, u
           event_name: `${ministryName} Session - ${today}`,
           event_type: ministryName,
           event_date: today,
-          branch_id: userProfile?.branch_id || null
+          branch_id: null
         }])
         .select()
         .single();
@@ -1885,7 +1884,7 @@ NOTIFY pgrst, 'reload schema';`;
       {activeTab === 'Overview' && (ministryName.toLowerCase().includes('ushering') || ministryName.toLowerCase().includes('protocol')) && renderUsheringOverview()}
       {activeTab === 'Overview' && (ministryName.toLowerCase().includes('children')) && renderChildrenOverview()}
       {activeTab === 'Overview' && (ministryName.toLowerCase().includes('follow-up') || ministryName.toLowerCase().includes('visitation')) && renderFollowUpOverview()}
-      {activeTab === 'Visitation' && (ministryName.toLowerCase().includes('follow-up') || ministryName.toLowerCase().includes('visitation')) && <VisitationView userProfile={userProfile} />}
+      {activeTab === 'Visitation' && (ministryName.toLowerCase().includes('follow-up') || ministryName.toLowerCase().includes('visitation')) && <VisitationView />}
       {activeTab === 'Leadership' && (ministryName.toLowerCase().includes('children')) && renderDeptLeadership()}
       {activeTab === 'Attendance' && (ministryName.toLowerCase().includes('children')) && renderDeptAttendance()}
       {activeTab === 'Curriculum' && (ministryName.toLowerCase().includes('children')) && renderChildrenCurriculum()}

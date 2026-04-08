@@ -1,15 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Volunteer, Member, Branch, UserProfile } from '../types';
+import { Volunteer, Member, Branch } from '../types';
 import { toast } from 'sonner';
 
 // Added interface for VolunteersView props
 interface VolunteersViewProps {
-  userProfile: UserProfile | null;
 }
 
-const VolunteersView: React.FC<VolunteersViewProps> = ({ userProfile }) => {
+const VolunteersView: React.FC<VolunteersViewProps> = () => {
   const [volunteers, setVolunteers] = useState<Volunteer[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { supabase } from '../supabaseClient';
-import { UserProfile, FinancialRecord, Member, TitheRecord } from '../types';
+import { FinancialRecord, Member, TitheRecord, UserProfile } from '../types';
 import { 
   Users, 
   Plus, 
@@ -24,7 +24,8 @@ import {
   TrendingUp,
   BarChart as BarChartIcon,
   ChevronRight,
-  ChevronDown
+  ChevronDown,
+  ShieldAlert
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -40,10 +41,10 @@ import {
 import FinancialReportDocument from '../src/components/FinancialReportDocument';
 
 interface FinanceViewProps {
-  userProfile: UserProfile | null;
+  currentUser: UserProfile | null;
 }
 
-const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
+const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
   const [records, setRecords] = useState<FinancialRecord[]>([]);
   const [titheRecords, setTitheRecords] = useState<TitheRecord[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -97,8 +98,12 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
     notes: ''
   });
 
+  const isAuthorized = currentUser?.role === 'admin' || currentUser?.role === 'pastor' || currentUser?.role === 'finance' || currentUser?.email === 'systemadmin@faithhouse.church';
+
   useEffect(() => {
-    fetchInitialData();
+    if (isAuthorized) {
+      fetchInitialData();
+    }
 
     const channel = supabase
       .channel('finance-updates')
@@ -425,7 +430,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ userProfile }) => {
     try {
       const payload = {
         ...titheFormData,
-        recorded_by: userProfile?.id || 'system',
+        recorded_by: 'system',
       };
 
       if (isEditingTithe && editingTitheId) {
@@ -666,6 +671,20 @@ NOTIFY pgrst, 'reload schema';`;
           openingBalance={openingBalance}
           reportType={selectedReportType}
         />
+      </div>
+    );
+  }
+
+  if (!isAuthorized) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+        <div className="w-24 h-24 bg-rose-50 rounded-[2.5rem] flex items-center justify-center mb-8 text-rose-500 shadow-inner">
+          <ShieldAlert className="w-12 h-12" />
+        </div>
+        <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-4">Access Restricted</h2>
+        <p className="text-slate-500 font-medium max-w-md mx-auto leading-relaxed uppercase text-[10px] tracking-[0.2em]">
+          You do not have the required clearance level to view financial records. Please contact the System Administrator if you believe this is an error.
+        </p>
       </div>
     );
   }

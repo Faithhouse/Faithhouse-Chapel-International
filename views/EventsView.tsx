@@ -3,12 +3,9 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { format, parseISO, isSameDay } from 'date-fns';
 import { supabase } from '../supabaseClient';
-import { UserProfile } from '../types';
-import { permissions } from '../src/utils/permissions';
 import { toast } from 'sonner';
 
 interface EventsViewProps {
-  userProfile: UserProfile | null;
 }
 
 // Moved outside to prevent re-creation and hoisting issues
@@ -33,7 +30,7 @@ const months = [
 
 const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 1 + i);
 
-const EventsView: React.FC<EventsViewProps> = ({ userProfile }) => {
+const EventsView: React.FC<EventsViewProps> = () => {
   const [events, setEvents] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -191,7 +188,6 @@ const EventsView: React.FC<EventsViewProps> = ({ userProfile }) => {
 
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!permissions.canEditEvents(userProfile?.role)) return;
     try {
       const { data: newEvent, error } = await supabase.from('events').insert([{...formData, branch_id: formData.branch_id || null}]).select().single();
       if (error) throw error;
@@ -390,11 +386,9 @@ NOTIFY pgrst, 'reload schema';`;
           <button onClick={fetchInitialData} className="p-4 bg-white border border-slate-200 text-slate-400 rounded-2xl hover:bg-slate-50 transition-all">
             <svg className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
           </button>
-          {permissions.canEditEvents(userProfile?.role) && (
-            <button onClick={() => setIsModalOpen(true)} className="px-8 py-4 bg-fh-green text-fh-gold rounded-2xl font-black text-xs uppercase shadow-xl border-b-4 border-black/20">
-              Schedule Programme
-            </button>
-          )}
+          <button onClick={() => setIsModalOpen(true)} className="px-8 py-4 bg-fh-green text-fh-gold rounded-2xl font-black text-xs uppercase shadow-xl border-b-4 border-black/20">
+            Schedule Programme
+          </button>
         </div>
       </div>
 
@@ -502,11 +496,9 @@ NOTIFY pgrst, 'reload schema';`;
                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Synced with Attendance</span>
                 </div>
-                {permissions.canEditEvents(userProfile?.role) && (
-                  <button onClick={() => setDeleteConfirmId(ev.id)} className="p-3 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all">
-                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                  </button>
-                )}
+                <button onClick={() => setDeleteConfirmId(ev.id)} className="p-3 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all">
+                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>
               </div>
             </div>
           )) : (
@@ -518,14 +510,12 @@ NOTIFY pgrst, 'reload schema';`;
               <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest mb-10 max-w-sm mx-auto leading-relaxed">
                 There are no service sessions recorded for {months[selectedMonth]} {selectedYear}.
               </p>
-              {permissions.canEditEvents(userProfile?.role) && (
-                <button 
-                  onClick={() => setIsModalOpen(true)}
-                  className="px-10 py-5 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:bg-fh-green hover:text-fh-gold transition-all"
-                >
-                  Schedule First Programme
-                </button>
-              )}
+              <button 
+                onClick={() => setIsModalOpen(true)}
+                className="px-10 py-5 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:bg-fh-green hover:text-fh-gold transition-all"
+              >
+                Schedule First Programme
+              </button>
             </div>
           )}
         </div>

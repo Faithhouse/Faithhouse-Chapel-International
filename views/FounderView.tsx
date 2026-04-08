@@ -32,15 +32,14 @@ import {
   Cell
 } from 'recharts';
 import { supabase } from '../supabaseClient';
-import { UserProfile, Ministry, Member, TitheRecord } from '../types';
+import { Ministry, Member, TitheRecord } from '../types';
 import { format } from 'date-fns';
 
 interface FounderViewProps {
-  userProfile: UserProfile;
   setActiveItem: (item: string) => void;
 }
 
-const FounderView: React.FC<FounderViewProps> = ({ userProfile, setActiveItem }) => {
+const FounderView: React.FC<FounderViewProps> = ({ setActiveItem }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({
     totalMembers: 0,

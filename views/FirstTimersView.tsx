@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { UserProfile, Branch } from '../types';
+import { Branch } from '../types';
 
 interface FirstTimer {
   id: string;
@@ -18,10 +18,9 @@ interface FirstTimer {
 }
 
 interface FirstTimersViewProps {
-  userProfile: UserProfile | null;
 }
 
-const FirstTimersView: React.FC<FirstTimersViewProps> = ({ userProfile }) => {
+const FirstTimersView: React.FC<FirstTimersViewProps> = () => {
   const [visitors, setVisitors] = useState<FirstTimer[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(true);

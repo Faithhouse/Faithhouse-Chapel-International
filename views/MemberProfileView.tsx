@@ -2,16 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '../supabaseClient';
-import { Member, AttendanceRecord, FinancialRecord, VisitationRecord, UserProfile } from '../types';
+import { Member, AttendanceRecord, FinancialRecord, VisitationRecord } from '../types';
 
 interface MemberProfileViewProps {
   memberId: string;
   onBack: () => void;
-  userProfile: UserProfile | null;
   onEdit?: () => void;
 }
 
-const MemberProfileView: React.FC<MemberProfileViewProps> = ({ memberId, onBack, userProfile, onEdit }) => {
+const MemberProfileView: React.FC<MemberProfileViewProps> = ({ memberId, onBack, onEdit }) => {
   const [member, setMember] = useState<Member | null>(null);
   const [attendance, setAttendance] = useState<any[]>([]);
   const [finances, setFinances] = useState<any[]>([]);

@@ -3,8 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
 import { 
   Child, Parent, ClassGroup, Teacher, ChildrenService, 
-  ChildrenAttendance, CheckInLog, MedicalRecord, IncidentReport,
-  UserProfile 
+  ChildrenAttendance, CheckInLog, MedicalRecord, IncidentReport
 } from '../types';
 import { 
   Users, Zap, ShieldCheck, ClipboardList, AlertTriangle, 
@@ -16,10 +15,9 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface TeensMinistryViewProps {
-  userProfile: UserProfile | null;
 }
 
-const TeensMinistryView: React.FC<TeensMinistryViewProps> = ({ userProfile }) => {
+const TeensMinistryView: React.FC<TeensMinistryViewProps> = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'teens' | 'attendance' | 'safety' | 'reports'>('dashboard');
   const [isLoading, setIsLoading] = useState(true);
   const [tableMissing, setTableMissing] = useState(false);
@@ -197,7 +195,7 @@ const TeensMinistryView: React.FC<TeensMinistryViewProps> = ({ userProfile }) =>
         service_id: activeService.id,
         date: activeService.date,
         status,
-        marked_by: userProfile?.id
+        marked_by: 'system'
       }]);
 
       if (error) throw error;

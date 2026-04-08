@@ -1,15 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Branch, UserProfile } from '../types';
+import { Branch } from '../types';
 import { toast } from 'sonner';
 
 // Added interface for BranchesView props
 interface BranchesViewProps {
-  userProfile: UserProfile | null;
 }
 
-const BranchesView: React.FC<BranchesViewProps> = ({ userProfile }) => {
+const BranchesView: React.FC<BranchesViewProps> = () => {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);

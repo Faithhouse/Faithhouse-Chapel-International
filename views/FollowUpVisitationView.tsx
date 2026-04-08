@@ -118,7 +118,14 @@ const SESSIONS = [
 import VisitationWhatsAppView from './VisitationWhatsAppView';
 import FirstTimersView from './FirstTimersView';
 
+const MOCK_PERSONNEL = [
+  { id: '1', first_name: 'Mike', last_name: 'Pastor', role: 'Head of Visitation' },
+  { id: '2', first_name: 'Grace', last_name: 'Sister', role: 'Follow-up Coordinator' },
+  { id: '3', first_name: 'David', last_name: 'Brother', role: 'Visitation Team' },
+];
+
 const FollowUpVisitationView: React.FC = () => {
+  const [personnel] = useState(MOCK_PERSONNEL);
   const [selectedSession, setSelectedSession] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'Overview' | 'Visitation' | 'Personnel' | 'Operations' | 'Resources'>('Overview');
   const [visitationSubTab, setVisitationSubTab] = useState<'Radar' | 'Registry' | 'WhatsApp' | 'FirstTimers'>('Radar');
@@ -131,7 +138,6 @@ const FollowUpVisitationView: React.FC = () => {
   const [members, setMembers] = useState<Member[]>(MOCK_MEMBERS);
   const [sessions, setSessions] = useState<any[]>([]);
   const [visitationRecords, setVisitationRecords] = useState<any[]>([]);
-  const [personnel, setPersonnel] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newRecord, setNewRecord] = useState({
@@ -178,13 +184,6 @@ const FollowUpVisitationView: React.FC = () => {
           .select('*, members(*)')
           .order('created_at', { ascending: false });
         setVisitationRecords(recordsData || []);
-
-        // Fetch Personnel (Users with relevant roles)
-        const { data: usersData } = await supabase
-          .from('profiles')
-          .select('*')
-          .in('role', ['System Administrator', 'Head Pastor', 'Follow-up & Visitation', 'Evangelism Ministry']);
-        setPersonnel(usersData || []);
 
       } catch (err) {
         console.error('Error fetching visitation data:', err);

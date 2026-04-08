@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
-import { UserProfile } from '../types';
 import { 
   Users, Baby, Zap, TrendingUp, Calendar, 
   CheckCircle2, XCircle, Clock, AlertTriangle,
@@ -14,10 +13,9 @@ import {
 } from 'recharts';
 
 interface YouthChildrenDashboardViewProps {
-  userProfile: UserProfile | null;
 }
 
-const YouthChildrenDashboardView: React.FC<YouthChildrenDashboardViewProps> = ({ userProfile }) => {
+const YouthChildrenDashboardView: React.FC<YouthChildrenDashboardViewProps> = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [tableMissing, setTableMissing] = useState(false);
   const [stats, setStats] = useState({

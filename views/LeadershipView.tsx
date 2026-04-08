@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { UserProfile } from '../types';
 import { 
   Users, 
   ShieldCheck, 
@@ -37,7 +36,7 @@ interface Leader {
 
 const categories = ['Pastor', 'Minister', 'Ministry Head/Deputy', 'Worker'] as const;
 
-const LeadershipView: React.FC<{ userProfile: UserProfile | null }> = ({ userProfile }) => {
+const LeadershipView: React.FC = () => {
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

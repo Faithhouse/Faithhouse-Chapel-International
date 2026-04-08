@@ -15,8 +15,7 @@ import {
   Line
 } from 'recharts';
 import { supabase } from '../supabaseClient';
-import { UserProfile, NavItem, Member } from '../types';
-import { permissions } from '../src/utils/permissions';
+import { NavItem, Member, UserProfile } from '../types';
 import { toast } from 'sonner';
 import { 
   Search, 
@@ -48,11 +47,11 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface DashboardViewProps {
-  userProfile?: UserProfile | null;
   setActiveItem: (item: NavItem) => void;
+  currentUser: UserProfile | null;
 }
 
-const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveItem }) => {
+const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUser }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({ 
     totalMembers: { value: 0, trend: 0, status: 'neutral' as 'neutral' | 'growth' | 'attention' | 'warning', sparkline: [] as any[] },
@@ -77,13 +76,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
   const [tableMissing, setTableMissing] = useState(false);
   const [missingTableName, setMissingTableName] = useState<string | null>(null);
 
-  // Permission Helpers
-  const role = userProfile?.role;
-  const isLeadership = permissions.isLeadership(role);
-  const isFinance = permissions.canManageFinance(role);
-  const canSeeRegistry = permissions.canSeeRegistry(role);
-  const isFollowUpTeam = permissions.isFollowUpTeam(role);
-
   useEffect(() => {
     fetchDashboardData();
 
@@ -103,7 +95,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
       supabase.removeChannel(channel);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [userProfile, dateFilter]);
+  }, [dateFilter]);
 
   const fetchDashboardData = async () => {
     setIsLoading(true);
@@ -303,8 +295,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ userProfile, setActiveIte
         .from('task_instances')
         .update({ 
           status: newStatus,
-          completed_at: newStatus === 'Completed' ? new Date().toISOString() : null,
-          completed_by: newStatus === 'Completed' ? userProfile?.id : null
+          completed_at: newStatus === 'Completed' ? new Date().toISOString() : null
         })
         .eq('id', taskId);
       

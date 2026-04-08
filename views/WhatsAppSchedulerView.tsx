@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
 import { 
-  UserProfile, 
   ScheduledMessage, 
   Branch, 
   Member, 
@@ -51,10 +50,9 @@ import { format } from 'date-fns';
 import { GoogleGenAI } from "@google/genai";
 
 interface WhatsAppSchedulerViewProps {
-  userProfile: UserProfile | null;
 }
 
-const WhatsAppSchedulerView: React.FC<WhatsAppSchedulerViewProps> = ({ userProfile }) => {
+const WhatsAppSchedulerView: React.FC<WhatsAppSchedulerViewProps> = () => {
   const [activeTab, setActiveTab] = useState<'Ledger' | 'Direct' | 'Gateway'>('Ledger');
   const [schedules, setSchedules] = useState<ScheduledMessage[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -161,7 +159,7 @@ const WhatsAppSchedulerView: React.FC<WhatsAppSchedulerViewProps> = ({ userProfi
       const { error } = await supabase.from('whatsapp_schedules').insert([{
         ...dispatchForm,
         status: 'Scheduled',
-        created_by: userProfile?.id,
+        created_by: 'system',
         sent_count: 0,
         delivered_count: 0,
         read_count: 0,

@@ -1,15 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Ministry, UserProfile, NavItem } from '../types';
+import { Ministry, NavItem } from '../types';
 import { toast } from 'sonner';
 
 interface MinistriesViewProps {
-  userProfile: UserProfile | null;
   setActiveItem: (item: NavItem | string) => void;
 }
 
-const MinistriesView: React.FC<MinistriesViewProps> = ({ userProfile, setActiveItem }) => {
+const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem }) => {
   const [ministries, setMinistries] = useState<Ministry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
