@@ -53,6 +53,7 @@ const menuItems: MenuItem[] = [
   { name: 'SYSTEM', icon: '', isHeader: true },
   { name: 'Recurring Tasks', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
   { name: 'Users', icon: <UsersIcon className="w-5 h-5" />, roles: ['system_admin', 'general_overseer', 'admin'] },
+  { name: 'Settings', icon: <Shield className="w-5 h-5" />, roles: ['system_admin', 'general_overseer'] },
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({ activeItem, setActiveItem, isOpen, toggleSidebar, currentUser, onLogout }) => {

@@ -26,6 +26,8 @@ import PlaceholderView from './views/PlaceholderView';
 import RecurringTasksView from './views/RecurringTasksView';
 import UsersView from './views/UsersView';
 import ProfileView from './views/ProfileView';
+import SettingsView from './views/SettingsView';
+import LoginView from './views/LoginView';
 import ErrorBoundary from './components/ErrorBoundary';
 import DavidChatbot from './components/DavidChatbot';
 import { Toaster, toast } from 'sonner';
@@ -40,6 +42,7 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isDemoMode, setIsDemoMode] = useState(false);
 
   useEffect(() => {
     const handleNavigation = (e: any) => {
@@ -65,27 +68,15 @@ const App: React.FC = () => {
           if (profile) {
             setCurrentUser(profile);
           } else if (session.user.email === 'systemadmin@faithhouse.church') {
-            // Root Admin fallback if profile doesn't exist yet
             const rootProfile: UserProfile = {
               id: session.user.id,
               email: session.user.email,
               full_name: 'System Administrator',
-              role: 'admin',
+              role: 'system_admin',
               is_active: true
             };
             setCurrentUser(rootProfile);
           }
-        } else {
-          // For demo purposes, if no session, we'll simulate being the root admin
-          // In production, this would redirect to a login page
-          const mockAdmin: UserProfile = {
-            id: '00000000-0000-0000-0000-000000000000',
-            email: 'systemadmin@faithhouse.church',
-            full_name: 'System Administrator',
-            role: 'admin',
-            is_active: true
-          };
-          setCurrentUser(mockAdmin);
         }
       } catch (error) {
         console.error('Auth error:', error);
@@ -95,7 +86,17 @@ const App: React.FC = () => {
     };
 
     checkAuth();
-  }, []);
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        checkAuth();
+      } else if (!isDemoMode) {
+        setCurrentUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [isDemoMode]);
 
   const handleSetActiveItem = (item: string) => {
     if (item === activeItem) return;
@@ -116,12 +117,17 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     try {
+      if (isDemoMode) {
+        setIsDemoMode(false);
+        setCurrentUser(null);
+        toast.success('Demo session ended');
+        return;
+      }
+
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       setCurrentUser(null);
       toast.success('Logged out successfully');
-      // In a real app, you might redirect to login here
-      window.location.reload(); 
     } catch (error: any) {
       toast.error('Logout failed');
     }
@@ -209,6 +215,9 @@ const App: React.FC = () => {
         case 'Profile':
           return <ProfileView currentUser={currentUser} />;
 
+        case 'Settings':
+          return <SettingsView currentUser={currentUser} />;
+
         // Dynamic Ministry Modules
         case 'Youth & Children Ministry':
           return <YouthChildrenDashboardView />;
@@ -251,44 +260,60 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <div className="min-h-screen flex flex-col bg-slate-50 font-sans print:bg-white">
-      <div className="print:hidden">
-        <Sidebar 
-          activeItem={activeItem} 
-          setActiveItem={(item) => {
-            handleSetActiveItem(item);
-            setIsSidebarOpen(false);
-          }}
-          isOpen={isSidebarOpen}
-          toggleSidebar={toggleSidebar}
-          currentUser={currentUser}
-          onLogout={handleLogout}
-        />
-      </div>
+        {!currentUser && !isDemoMode ? (
+          <LoginView onLoginSuccess={() => {
+            const mockAdmin: UserProfile = {
+              id: '00000000-0000-0000-0000-000000000000',
+              email: 'systemadmin@faithhouse.church',
+              full_name: 'System Administrator',
+              role: 'system_admin',
+              is_active: true
+            };
+            setCurrentUser(mockAdmin);
+            setIsDemoMode(true);
+          }} />
+        ) : (
+          <>
+            <div className="print:hidden">
+              <Sidebar 
+                activeItem={activeItem} 
+                setActiveItem={(item) => {
+                  handleSetActiveItem(item);
+                  setIsSidebarOpen(false);
+                }}
+                isOpen={isSidebarOpen}
+                toggleSidebar={toggleSidebar}
+                currentUser={currentUser}
+                onLogout={handleLogout}
+              />
+            </div>
 
-      <div className="flex-1 flex flex-col lg:pl-64 transition-all duration-300 print:pl-0">
-        <div className="print:hidden">
-          <Header 
-            toggleSidebar={toggleSidebar} 
-            activeItem={activeItem as string}
-            onBack={handleBack}
-            hasHistory={history.length > 1}
-            currentUser={currentUser}
-          />
-        </div>
-        <main className="flex-1 p-4 md:p-8 print:p-0">
-          <div className="max-w-7xl mx-auto print:max-w-none">
-            {renderContent()}
-          </div>
-        </main>
-        <div className="print:hidden">
-          <Footer />
-        </div>
+            <div className="flex-1 flex flex-col lg:pl-64 transition-all duration-300 print:pl-0">
+              <div className="print:hidden">
+                <Header 
+                  toggleSidebar={toggleSidebar} 
+                  activeItem={activeItem as string}
+                  onBack={handleBack}
+                  hasHistory={history.length > 1}
+                  currentUser={currentUser}
+                />
+              </div>
+              <main className="flex-1 p-4 md:p-8 print:p-0">
+                <div className="max-w-7xl mx-auto print:max-w-none">
+                  {renderContent()}
+                </div>
+              </main>
+              <div className="print:hidden">
+                <Footer />
+              </div>
+            </div>
+            <div className="print:hidden">
+              <DavidChatbot />
+            </div>
+          </>
+        )}
+        <Toaster position="top-right" richColors />
       </div>
-      <div className="print:hidden">
-        <DavidChatbot />
-      </div>
-      <Toaster position="top-right" richColors />
-    </div>
     </ErrorBoundary>
   );
 };

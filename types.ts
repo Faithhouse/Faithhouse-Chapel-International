@@ -20,6 +20,7 @@ export type NavItem =
   | 'Recurring Tasks'
   | 'Users'
   | 'Profile'
+  | 'Settings'
   | 'Member Profile';
 
 export interface Branch {
