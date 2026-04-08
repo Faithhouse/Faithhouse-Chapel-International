@@ -66,16 +66,28 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, activeItem, onBack, hasH
       <div className="flex-1 flex justify-end items-center gap-6">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
-            <div className="text-right leading-none hidden sm:block">
+            <button 
+              onClick={() => {
+                // We need a way to set active item from here. 
+                // Since App.tsx passes handleSetActiveItem to Sidebar, 
+                // we should probably pass it to Header too or use a custom event.
+                // For now, let's assume we can trigger a navigation.
+                window.dispatchEvent(new CustomEvent('navigate', { detail: 'Profile' }));
+              }}
+              className="text-right leading-none hidden sm:block hover:opacity-70 transition-opacity"
+            >
               <p className="text-[10px] font-black uppercase text-slate-900">{currentUser?.full_name || 'Faithhouse CMS'}</p>
               <p className="text-[8px] font-bold text-fh-gold uppercase tracking-tighter mt-0.5 flex items-center justify-end gap-1">
                 <Shield className="w-2 h-2" />
-                {currentUser?.role || 'System'}
+                {currentUser?.role?.replace('_', ' ') || 'System'}
               </p>
-            </div>
-            <div className="w-9 h-9 rounded-full bg-slate-900 text-fh-gold flex items-center justify-center text-[10px] font-black border border-slate-200 uppercase shadow-sm">
+            </button>
+            <button 
+              onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: 'Profile' }))}
+              className="w-9 h-9 rounded-full bg-slate-900 text-fh-gold flex items-center justify-center text-[10px] font-black border border-slate-200 uppercase shadow-sm hover:scale-105 transition-transform"
+            >
               {currentUser?.full_name?.charAt(0) || 'F'}
-            </div>
+            </button>
           </div>
         </div>
       </div>

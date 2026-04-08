@@ -32,6 +32,7 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'All'>('All');
@@ -74,32 +75,51 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
 
     setIsSubmitting(true);
     try {
-      // In a real app, this would call a Supabase Edge Function or a backend API
-      // that uses the service_role key to create the user in auth.users AND profiles.
-      // For this demo, we'll simulate the profile creation.
-      
-      const { data, error } = await supabase
-        .from('profiles')
-        .insert([{
-          id: crypto.randomUUID(), // Simulated UUID
-          email: formData.email,
-          full_name: formData.full_name,
-          role: formData.role,
-          is_active: true,
-          created_by: currentUser.id
-        }])
-        .select()
-        .single();
+      if (editingUser) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .update({
+            email: formData.email,
+            full_name: formData.full_name,
+            role: formData.role
+          })
+          .eq('id', editingUser.id)
+          .select()
+          .single();
 
-      if (error) throw error;
+        if (error) throw error;
 
-      toast.success(`Account created for ${formData.full_name}. Temporary password: ${formData.password || 'FaithHouse2026'}`);
-      setUsers([data, ...users]);
+        toast.success(`Account updated for ${formData.full_name}`);
+        setUsers(users.map(u => u.id === editingUser.id ? data : u));
+      } else {
+        // In a real app, this would call a Supabase Edge Function or a backend API
+        // that uses the service_role key to create the user in auth.users AND profiles.
+        // For this demo, we'll simulate the profile creation.
+        
+        const { data, error } = await supabase
+          .from('profiles')
+          .insert([{
+            id: crypto.randomUUID(), // Simulated UUID
+            email: formData.email,
+            full_name: formData.full_name,
+            role: formData.role,
+            is_active: true,
+            created_by: currentUser.id
+          }])
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        toast.success(`Account created for ${formData.full_name}. Temporary password: ${formData.password || 'FaithHouse2026'}`);
+        setUsers([data, ...users]);
+      }
       setIsModalOpen(false);
+      setEditingUser(null);
       setFormData({ email: '', full_name: '', role: 'worker', password: '' });
     } catch (error: any) {
-      console.error('Error creating user:', error);
-      toast.error(error.message || 'Failed to create user');
+      console.error('Error saving user:', error);
+      toast.error(error.message || 'Failed to save user');
     } finally {
       setIsSubmitting(false);
     }
@@ -135,6 +155,8 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
 
   const getRoleBadgeColor = (role: UserRole) => {
     switch (role) {
+      case 'system_admin': return 'bg-slate-900 text-fh-gold border-slate-800';
+      case 'general_overseer': return 'bg-amber-100 text-amber-700 border-amber-200';
       case 'admin': return 'bg-red-100 text-red-700 border-red-200';
       case 'pastor': return 'bg-purple-100 text-purple-700 border-purple-200';
       case 'finance': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
@@ -184,6 +206,8 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
             className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-2 focus:ring-fh-gold/20 focus:border-fh-gold transition-all font-medium appearance-none"
           >
             <option value="All">All Roles</option>
+            <option value="system_admin">System Admins</option>
+            <option value="general_overseer">General Overseer</option>
             <option value="admin">Administrators</option>
             <option value="pastor">Pastors</option>
             <option value="finance">Finance Officers</option>
@@ -281,7 +305,19 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
                         >
                           {user.is_active ? <ShieldAlert className="w-5 h-5" /> : <UserCheck className="w-5 h-5" />}
                         </button>
-                        <button className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors">
+                        <button 
+                          onClick={() => {
+                            setEditingUser(user);
+                            setFormData({
+                              email: user.email,
+                              full_name: user.full_name,
+                              role: user.role,
+                              password: ''
+                            });
+                            setIsModalOpen(true);
+                          }}
+                          className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors"
+                        >
                           <Edit3 className="w-5 h-5" />
                         </button>
                       </div>
@@ -307,15 +343,19 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
               <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-2xl bg-slate-900 text-fh-gold flex items-center justify-center">
-                    <UserPlus className="w-6 h-6" />
+                    {editingUser ? <Edit3 className="w-6 h-6" /> : <UserPlus className="w-6 h-6" />}
                   </div>
                   <div>
-                    <h2 className="text-xl font-black text-slate-900">Create Staff Account</h2>
-                    <p className="text-sm text-slate-500 font-medium">Internal access generation</p>
+                    <h2 className="text-xl font-black text-slate-900">{editingUser ? 'Edit Staff Account' : 'Create Staff Account'}</h2>
+                    <p className="text-sm text-slate-500 font-medium">{editingUser ? 'Update access details' : 'Internal access generation'}</p>
                   </div>
                 </div>
                 <button 
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setEditingUser(null);
+                    setFormData({ email: '', full_name: '', role: 'worker', password: '' });
+                  }}
                   className="p-2 hover:bg-white rounded-xl transition-colors text-slate-400"
                 >
                   <X className="w-6 h-6" />
@@ -368,12 +408,14 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
                         <option value="finance">Finance</option>
                         <option value="pastor">Pastor</option>
                         <option value="admin">Admin</option>
+                        <option value="general_overseer">General Overseer</option>
+                        <option value="system_admin">System Admin</option>
                       </select>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-black text-slate-400 uppercase tracking-widest ml-1">Temp Password</label>
+                    <label className="text-sm font-black text-slate-400 uppercase tracking-widest ml-1">{editingUser ? 'New Password' : 'Temp Password'}</label>
                     <div className="relative">
                       <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                       <input
@@ -381,7 +423,7 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
                         value={formData.password}
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                         className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-fh-gold/20 focus:border-fh-gold transition-all font-medium"
-                        placeholder="Optional"
+                        placeholder={editingUser ? "Leave blank to keep" : "Optional"}
                       />
                     </div>
                   </div>
@@ -403,12 +445,12 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
                     {isSubmitting ? (
                       <>
                         <RefreshCw className="w-5 h-5 animate-spin" />
-                        Creating...
+                        {editingUser ? 'Updating...' : 'Creating...'}
                       </>
                     ) : (
                       <>
-                        <UserPlus className="w-5 h-5" />
-                        Generate Account
+                        {editingUser ? <CheckCircle2 className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
+                        {editingUser ? 'Update Account' : 'Generate Account'}
                       </>
                     )}
                   </button>

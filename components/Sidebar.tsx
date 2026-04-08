@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { NavItem, UserProfile } from '../types';
-import { ChevronDown, ChevronRight, Baby, Zap, Shield, Users as UsersIcon } from 'lucide-react';
+import { ChevronDown, ChevronRight, Baby, Zap, Shield, Users as UsersIcon, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface SidebarProps {
@@ -10,6 +10,7 @@ interface SidebarProps {
   isOpen: boolean;
   toggleSidebar: () => void;
   currentUser: UserProfile | null;
+  onLogout: () => void;
 }
 
 interface MenuItem {
@@ -22,21 +23,21 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   { name: 'Dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
-  { name: 'EXECUTIVE', icon: '', isHeader: true, roles: ['admin', 'pastor'] },
-  { name: 'General Overseer', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z', roles: ['admin', 'pastor'] },
+  { name: 'EXECUTIVE', icon: '', isHeader: true, roles: ['system_admin', 'general_overseer', 'admin', 'pastor'] },
+  { name: 'General Overseer', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z', roles: ['system_admin', 'general_overseer', 'admin', 'pastor'] },
   { name: 'CHURCH DETAILS', icon: '', isHeader: true },
   { 
     name: 'Church Leadership', 
     icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z',
-    roles: ['admin', 'pastor']
+    roles: ['system_admin', 'general_overseer', 'admin', 'pastor']
   },
   { name: 'Members', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
-  { name: 'Branches', icon: 'M19 21V5a2 2 0 00-2-2H7', roles: ['admin', 'pastor', 'finance'] },
-  { name: 'Attendance', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2', roles: ['admin', 'pastor', 'worker'] },
-  { name: 'OUTREACH', icon: '', isHeader: true, roles: ['admin', 'pastor', 'media', 'worker'] },
-  { name: 'WhatsApp Hub', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z', roles: ['admin', 'pastor', 'media'] },
-  { name: 'FINANCE', icon: '', isHeader: true, roles: ['admin', 'pastor', 'finance'] },
-  { name: 'Finance', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2', roles: ['admin', 'pastor', 'finance'] },
+  { name: 'Branches', icon: 'M19 21V5a2 2 0 00-2-2H7', roles: ['system_admin', 'general_overseer', 'admin', 'pastor', 'finance'] },
+  { name: 'Attendance', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2', roles: ['system_admin', 'general_overseer', 'admin', 'pastor', 'worker'] },
+  { name: 'OUTREACH', icon: '', isHeader: true, roles: ['system_admin', 'general_overseer', 'admin', 'pastor', 'media', 'worker'] },
+  { name: 'WhatsApp Hub', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z', roles: ['system_admin', 'general_overseer', 'admin', 'pastor', 'media'] },
+  { name: 'FINANCE', icon: '', isHeader: true, roles: ['system_admin', 'general_overseer', 'admin', 'pastor', 'finance'] },
+  { name: 'Finance', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2', roles: ['system_admin', 'general_overseer', 'admin', 'pastor', 'finance'] },
   { name: 'MINISTRIES', icon: '', isHeader: true },
   { name: 'Ministries', icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16' },
   { 
@@ -51,17 +52,18 @@ const menuItems: MenuItem[] = [
   { name: 'Upcoming Events', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7' },
   { name: 'SYSTEM', icon: '', isHeader: true },
   { name: 'Recurring Tasks', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
-  { name: 'Users', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin'] },
+  { name: 'Users', icon: <UsersIcon className="w-5 h-5" />, roles: ['system_admin', 'general_overseer', 'admin'] },
 ];
 
-const Sidebar: React.FC<SidebarProps> = ({ activeItem, setActiveItem, isOpen, toggleSidebar, currentUser }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeItem, setActiveItem, isOpen, toggleSidebar, currentUser, onLogout }) => {
   // Direct download link format for Google Drive images
   const logoUrl = "https://lh3.googleusercontent.com/d/1la57sO6NOuNEZaqa9zDxuxRnWPBavkjH";
 
   const filteredMenuItems = menuItems.filter(item => {
     if (!item.roles) return true;
     if (!currentUser) return false;
-    return item.roles.includes(currentUser.role) || currentUser.email === 'systemadmin@faithhouse.church';
+    const godRoles = ['system_admin', 'general_overseer'];
+    return item.roles.includes(currentUser.role) || godRoles.includes(currentUser.role) || currentUser.email === 'systemadmin@faithhouse.church';
   });
 
   return (
@@ -106,16 +108,24 @@ const Sidebar: React.FC<SidebarProps> = ({ activeItem, setActiveItem, isOpen, to
             </nav>
           </div>
 
-          <div className="p-6 bg-[#2c3136] border-t border-white/5">
+          <div className="p-6 bg-[#2c3136] border-t border-white/5 space-y-4">
              <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-cms-accent flex items-center justify-center font-black text-xs border border-white/10 uppercase">
                   {currentUser?.full_name?.charAt(0) || 'F'}
                 </div>
-                <div className="overflow-hidden">
+                <div className="overflow-hidden flex-1">
                    <p className="text-xs font-black truncate">{currentUser?.full_name || 'Faithhouse CMS'}</p>
-                   <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">{currentUser?.role || 'Internal System'}</p>
+                   <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">{currentUser?.role?.replace('_', ' ') || 'Internal System'}</p>
                 </div>
              </div>
+             
+             <button 
+               onClick={onLogout}
+               className="w-full flex items-center gap-3 px-4 py-3 bg-white/5 hover:bg-rose-500/10 text-white/60 hover:text-rose-400 rounded-xl transition-all text-xs font-bold group"
+             >
+               <LogOut className="w-4 h-4 group-hover:scale-110 transition-transform" />
+               <span className="uppercase tracking-widest">Sign Out</span>
+             </button>
           </div>
         </div>
       </aside>

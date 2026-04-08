@@ -25,6 +25,7 @@ import FounderView from './views/FounderView';
 import PlaceholderView from './views/PlaceholderView';
 import RecurringTasksView from './views/RecurringTasksView';
 import UsersView from './views/UsersView';
+import ProfileView from './views/ProfileView';
 import ErrorBoundary from './components/ErrorBoundary';
 import DavidChatbot from './components/DavidChatbot';
 import { Toaster, toast } from 'sonner';
@@ -39,6 +40,14 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const handleNavigation = (e: any) => {
+      if (e.detail) handleSetActiveItem(e.detail);
+    };
+    window.addEventListener('navigate', handleNavigation);
+    return () => window.removeEventListener('navigate', handleNavigation);
+  }, [activeItem]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -104,6 +113,19 @@ const App: React.FC = () => {
   };
   
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      setCurrentUser(null);
+      toast.success('Logged out successfully');
+      // In a real app, you might redirect to login here
+      window.location.reload(); 
+    } catch (error: any) {
+      toast.error('Logout failed');
+    }
+  };
 
   const renderContent = () => {
     if (isAuthLoading) {
@@ -184,6 +206,9 @@ const App: React.FC = () => {
         case 'Users':
           return <UsersView currentUser={currentUser} />;
 
+        case 'Profile':
+          return <ProfileView currentUser={currentUser} />;
+
         // Dynamic Ministry Modules
         case 'Youth & Children Ministry':
           return <YouthChildrenDashboardView />;
@@ -236,6 +261,7 @@ const App: React.FC = () => {
           isOpen={isSidebarOpen}
           toggleSidebar={toggleSidebar}
           currentUser={currentUser}
+          onLogout={handleLogout}
         />
       </div>
 

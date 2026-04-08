@@ -19,6 +19,7 @@ export type NavItem =
   | 'WhatsApp Hub'
   | 'Recurring Tasks'
   | 'Users'
+  | 'Profile'
   | 'Member Profile';
 
 export interface Branch {
@@ -343,7 +344,7 @@ export interface TitheRecord {
   members?: Member;
 }
 
-export type UserRole = 'admin' | 'pastor' | 'finance' | 'media' | 'worker';
+export type UserRole = 'system_admin' | 'general_overseer' | 'admin' | 'pastor' | 'finance' | 'media' | 'worker';
 
 export interface UserProfile {
   id: string;
