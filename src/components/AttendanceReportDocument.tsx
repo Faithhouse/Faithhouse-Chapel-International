@@ -4,6 +4,7 @@ import { AttendanceEvent, Branch } from '../../types';
 
 interface AttendanceReportDocumentProps {
   organizationName: string;
+  reportType: string;
   reportPeriod: string;
   dateGenerated: string;
   events: AttendanceEvent[];
@@ -12,6 +13,7 @@ interface AttendanceReportDocumentProps {
 
 const AttendanceReportDocument: React.FC<AttendanceReportDocumentProps> = ({
   organizationName,
+  reportType,
   reportPeriod,
   dateGenerated,
   events,
@@ -156,7 +158,7 @@ const AttendanceReportDocument: React.FC<AttendanceReportDocumentProps> = ({
           <h1 className="text-2xl font-black text-fh-green tracking-tighter uppercase leading-none mb-2">{organizationName}</h1>
           <p className="text-sm font-bold text-slate-500 mb-4">(Wonders Cathedral)</p>
           <div className="inline-block px-6 py-2 bg-fh-green text-white text-[10pt] font-black uppercase tracking-[0.3em] rounded-full">
-            Attendance Report
+            {reportType} Attendance Report
           </div>
         </div>
       </div>
@@ -317,7 +319,7 @@ const AttendanceReportDocument: React.FC<AttendanceReportDocumentProps> = ({
       </div>
 
       <div className="mt-20 pt-10 border-t border-slate-100 text-[8pt] text-slate-400 font-black uppercase tracking-[0.3em] text-center">
-        Faithhouse Chapel International • Wonders Cathedral • Attendance Report
+        Faithhouse Chapel International • Wonders Cathedral • {reportType} Attendance Report
       </div>
     </div>
   );

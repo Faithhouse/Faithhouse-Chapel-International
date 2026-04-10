@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.42.0",
+    "@react-google-maps/api": "^2.20.8",
     "@supabase/supabase-js": "^2.48.1",
     "@tailwindcss/vite": "^4.2.0",
     "@types/bcryptjs": "^2.4.6",

@@ -36,7 +36,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = () => {
   const [schemaError, setSchemaError] = useState<string | null>(null);
   const [networkError, setNetworkError] = useState<string | null>(null);
   const [isPrintMode, setIsPrintMode] = useState(false);
-  const [reportType, setReportType] = useState<'Monthly' | 'Quarterly' | 'Half-Year' | 'Annual'>('Monthly');
+  const [reportType, setReportType] = useState<'Monthly' | 'Quarterly' | 'Midyear' | 'Annual'>('Monthly');
 
   // Filters
   const [branchFilter, setBranchFilter] = useState('All');
@@ -107,7 +107,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = () => {
         const quarter = Math.floor(selectedMonth / 3);
         startDate = new Date(Date.UTC(selectedYear, quarter * 3, 1)).toISOString().split('T')[0];
         endDate = new Date(Date.UTC(selectedYear, (quarter + 1) * 3, 0)).toISOString().split('T')[0];
-      } else if (reportType === 'Half-Year') {
+      } else if (reportType === 'Midyear') {
         const half = Math.floor(selectedMonth / 6);
         startDate = new Date(Date.UTC(selectedYear, half * 6, 1)).toISOString().split('T')[0];
         endDate = new Date(Date.UTC(selectedYear, (half + 1) * 6, 0)).toISOString().split('T')[0];
@@ -321,9 +321,9 @@ const AttendanceView: React.FC<AttendanceViewProps> = () => {
     if (reportType === 'Quarterly') {
       const quarter = Math.floor(selectedMonth / 3) + 1;
       reportPeriodString = `Quarter ${quarter}, ${selectedYear}`;
-    } else if (reportType === 'Half-Year') {
+    } else if (reportType === 'Midyear') {
       const half = Math.floor(selectedMonth / 6) + 1;
-      reportPeriodString = `Half-Year ${half}, ${selectedYear}`;
+      reportPeriodString = `Midyear ${half}, ${selectedYear}`;
     } else if (reportType === 'Annual') {
       reportPeriodString = `Annual Report ${selectedYear}`;
     }
@@ -348,6 +348,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = () => {
         </div>
         <AttendanceReportDocument 
           organizationName="Faithhouse Chapel International"
+          reportType={reportType}
           reportPeriod={reportPeriodString}
           dateGenerated={new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
           events={events}
@@ -657,7 +658,7 @@ NOTIFY pgrst, 'reload schema';`;
             >
               <option value="Monthly">Monthly</option>
               <option value="Quarterly">Quarterly</option>
-              <option value="Half-Year">Half-Year</option>
+              <option value="Midyear">Midyear</option>
               <option value="Annual">Annual</option>
             </select>
             <button 

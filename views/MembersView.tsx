@@ -64,7 +64,10 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
     notify_birthday: true,
     notify_events: true,
     wedding_anniversary: '',
-    status: 'Active' as Member['status']
+    status: 'Active' as Member['status'],
+    follow_up_status: 'Pending' as Member['follow_up_status'],
+    latitude: 0,
+    longitude: 0
   });
 
   useEffect(() => {
@@ -92,7 +95,10 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
           notify_birthday: memberToEdit.notify_birthday ?? true,
           notify_events: memberToEdit.notify_events ?? true,
           wedding_anniversary: memberToEdit.wedding_anniversary || '',
-          status: memberToEdit.status
+          status: memberToEdit.status,
+          follow_up_status: memberToEdit.follow_up_status || 'Pending',
+          latitude: memberToEdit.latitude || 0,
+          longitude: memberToEdit.longitude || 0
         });
         setIsModalOpen(true);
       }
@@ -182,6 +188,9 @@ CREATE TABLE IF NOT EXISTS public.members (
   date_joined DATE,
   branch_id UUID REFERENCES public.branches(id),
   status TEXT DEFAULT 'Active',
+  follow_up_status TEXT DEFAULT 'Pending',
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
   ministry TEXT DEFAULT 'N/A',
   gps_address TEXT,
   emergency_contact_name TEXT,
@@ -413,7 +422,7 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
       first_name: '', last_name: '', gender: 'Male', phone: '', email: '', gps_address: '', dob: '',
       date_joined: new Date().toISOString().split('T')[0], branch_id: branches[0]?.id || '', ministry: 'N/A',
       emergency_contact_name: '', emergency_contact_phone: '', notify_birthday: true, notify_events: true, 
-      wedding_anniversary: '', status
+      wedding_anniversary: '', status, follow_up_status: 'Pending', latitude: 0, longitude: 0
     });
   };
 
@@ -535,7 +544,11 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
         const { latitude, longitude } = position.coords;
         const coords = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
         try {
-          const { error } = await supabase.from('members').update({ gps_address: coords }).eq('id', memberId);
+          const { error } = await supabase.from('members').update({ 
+            gps_address: coords,
+            latitude: latitude,
+            longitude: longitude
+          }).eq('id', memberId);
           if (error) throw error;
           fetchInitialData();
           showNotify("Coordinate Synced.");
@@ -748,6 +761,9 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
                               notify_birthday: m.notify_birthday ?? true,
                               notify_events: m.notify_events ?? true,
                               status: m.status,
+                              follow_up_status: m.follow_up_status || 'Pending',
+                              latitude: m.latitude || 0,
+                              longitude: m.longitude || 0,
                               wedding_anniversary: m.wedding_anniversary || ''
                             }); 
                             setIsModalOpen(true); 
@@ -1054,6 +1070,17 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
                       {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                    </select>
                  </div>
+                 <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Follow-Up Status</label>
+                    <select name="follow_up_status" value={formData.follow_up_status} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner">
+                       <option value="Pending">Pending</option>
+                       <option value="Contacted">Contacted</option>
+                       <option value="Visited">Visited</option>
+                       <option value="Completed">Completed</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Latitude</label><input type="number" step="any" name="latitude" value={formData.latitude} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                  <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Longitude</label><input type="number" step="any" name="longitude" value={formData.longitude} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
               </div>
               <button type="submit" disabled={isSubmitting} className="w-full py-6 bg-fh-green text-fh-gold rounded-[2.5rem] font-black uppercase text-xs tracking-[0.4em] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30">
                  {isSubmitting ? <div className="w-5 h-5 border-2 border-fh-gold/50 border-t-fh-gold animate-spin rounded-full" /> : 'Authorize Identity Commit'}

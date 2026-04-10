@@ -25,6 +25,7 @@ import FounderView from './views/FounderView';
 import PlaceholderView from './views/PlaceholderView';
 import RecurringTasksView from './views/RecurringTasksView';
 import UsersView from './views/UsersView';
+import FollowUpMapView from './views/FollowUpMapView';
 import ProfileView from './views/ProfileView';
 import SettingsView from './views/SettingsView';
 import LoginView from './views/LoginView';
@@ -232,6 +233,9 @@ const App: React.FC = () => {
         
         case 'WhatsApp Hub':
           return <WhatsAppSchedulerView />;
+
+        case 'Follow-Up Map':
+          return <FollowUpMapView currentUser={currentUser} />;
 
         case 'Recurring Tasks':
           return <RecurringTasksView />;
