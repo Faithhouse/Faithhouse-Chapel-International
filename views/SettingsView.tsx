@@ -12,7 +12,8 @@ import {
   ExternalLink,
   Layout,
   Upload,
-  Loader2
+  Loader2,
+  ShieldAlert
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -132,6 +133,33 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
     }
   };
 
+  const [showRepair, setShowRepair] = useState(false);
+
+  const repairSQL = `-- 1. CREATE STORAGE BUCKET
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('system-assets', 'system-assets', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- 2. ALLOW PUBLIC STORAGE ACCESS (For Internal Login System)
+DROP POLICY IF EXISTS "Public View" ON storage.objects;
+CREATE POLICY "Public View" ON storage.objects FOR SELECT TO public USING ( bucket_id = 'system-assets' );
+
+DROP POLICY IF EXISTS "Public Upload" ON storage.objects;
+CREATE POLICY "Public Upload" ON storage.objects FOR INSERT TO public WITH CHECK ( bucket_id = 'system-assets' );
+
+DROP POLICY IF EXISTS "Public Update" ON storage.objects;
+CREATE POLICY "Public Update" ON storage.objects FOR UPDATE TO public USING ( bucket_id = 'system-assets' );
+
+DROP POLICY IF EXISTS "Public Delete" ON storage.objects;
+CREATE POLICY "Public Delete" ON storage.objects FOR DELETE TO public USING ( bucket_id = 'system-assets' );
+
+-- 3. ALLOW PUBLIC SETTINGS ACCESS
+DROP POLICY IF EXISTS "Allow public read settings" ON system_settings;
+CREATE POLICY "Allow public read settings" ON system_settings FOR SELECT TO public USING (true);
+
+DROP POLICY IF EXISTS "Allow public manage settings" ON system_settings;
+CREATE POLICY "Allow public manage settings" ON system_settings FOR ALL TO public USING (true) WITH CHECK (true);`;
+
   return (
     <div className="max-w-5xl mx-auto space-y-8">
       <div className="flex items-center justify-between mb-8">
@@ -145,15 +173,57 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
           </div>
         </div>
         
-        <button
-          onClick={handleSaveSettings}
-          disabled={isSubmitting}
-          className="px-8 py-4 bg-slate-900 text-fh-gold rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-slate-800 transition-all disabled:opacity-50 flex items-center gap-2"
-        >
-          {isSubmitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Save Changes
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowRepair(!showRepair)}
+            className="px-6 py-4 bg-rose-50 text-rose-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-rose-100 transition-all flex items-center gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${showRepair ? 'rotate-180' : ''} transition-transform`} />
+            Database Repair
+          </button>
+          <button
+            onClick={handleSaveSettings}
+            disabled={isSubmitting}
+            className="px-8 py-4 bg-slate-900 text-fh-gold rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-slate-800 transition-all disabled:opacity-50 flex items-center gap-2"
+          >
+            {isSubmitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            Save Changes
+          </button>
+        </div>
       </div>
+
+      {showRepair && (
+        <div className="bg-rose-50 border-2 border-rose-100 rounded-[2.5rem] p-10 animate-in zoom-in-95 duration-300">
+          <div className="flex items-start gap-6 mb-8">
+            <div className="w-14 h-14 bg-rose-500 text-white rounded-2xl flex items-center justify-center shrink-0 shadow-lg">
+              <ShieldAlert className="w-8 h-8" />
+            </div>
+            <div>
+              <h2 className="text-xl font-black text-rose-900 uppercase tracking-tight">Fix Permissions (RLS Error)</h2>
+              <p className="text-rose-600 font-bold text-sm mt-1 leading-relaxed">
+                If you see "new row violates row-level security policy", your database is blocking guest uploads. 
+                Since you are using the internal login system, you must grant public access to the storage bucket.
+              </p>
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            <p className="text-xs font-black text-rose-400 uppercase tracking-widest ml-1">Run this script in Supabase SQL Editor:</p>
+            <pre className="bg-slate-900 text-fh-gold-pale p-8 rounded-3xl text-[11px] font-mono overflow-x-auto shadow-inner border border-rose-200/20 leading-relaxed">
+              {repairSQL}
+            </pre>
+            <button 
+              onClick={() => {
+                navigator.clipboard.writeText(repairSQL);
+                toast.success('Repair script copied to clipboard!');
+              }}
+              className="w-full py-4 bg-rose-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-rose-600 transition-all active:scale-[0.98]"
+            >
+              Copy Repair Script
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Login Slideshow Management */}

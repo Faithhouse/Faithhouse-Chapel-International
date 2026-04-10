@@ -226,29 +226,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between px-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Security Key</label>
-                  {!isSignUp && (
-                    <button 
-                      type="button"
-                      onClick={() => {
-                        if (!email) {
-                          toast.error('Please enter your email address first');
-                          return;
-                        }
-                        supabase.auth.resetPasswordForEmail(email, {
-                          redirectTo: `${window.location.origin}/reset-password`,
-                        }).then(({ error }) => {
-                          if (error) toast.error(error.message);
-                          else toast.success('Password reset email sent!');
-                        });
-                      }}
-                      className="text-[9px] font-black text-fh-gold uppercase tracking-widest hover:text-fh-gold/80 transition-all"
-                    >
-                      Forgot?
-                    </button>
-                  )}
-                </div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Security Key</label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
                   <input
@@ -281,16 +259,6 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               </button>
             </form>
 
-            <div className="mt-10 pt-8 border-t border-slate-100 text-center">
-              <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-4">Immediate Access</p>
-              <button
-                onClick={handleDemoLogin}
-                className="w-full py-4 bg-fh-gold/10 text-fh-gold hover:bg-fh-gold/20 rounded-2xl flex items-center justify-center gap-2 font-black text-[10px] uppercase tracking-widest transition-all"
-              >
-                <ShieldCheck className="w-4 h-4" />
-                Continue as System Admin (Demo)
-              </button>
-            </div>
           </div>
         </div>
 
@@ -299,7 +267,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
           <p className="text-white/60 font-black uppercase tracking-[0.4em] text-[10px] mb-2">FaithHouse Chapel International</p>
           <div className="flex items-center justify-center gap-4">
             <div className="h-px w-8 bg-white/20" />
-            <p className="text-fh-gold font-bold text-[8px] uppercase tracking-widest">Experience the Presence of God</p>
+            <p className="text-fh-gold font-bold text-[8px] uppercase tracking-widest">Transforming Lives Through The Power of God</p>
             <div className="h-px w-8 bg-white/20" />
           </div>
         </div>
