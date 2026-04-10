@@ -10,7 +10,9 @@ import {
   Save, 
   RefreshCw,
   ExternalLink,
-  Layout
+  Layout,
+  Upload,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -20,8 +22,10 @@ interface SettingsViewProps {
 
 const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [slideshowImages, setSlideshowImages] = useState<string[]>([]);
   const [newImageUrl, setNewImageUrl] = useState('');
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchSettings();
@@ -41,6 +45,55 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
     } catch (err) {
       console.error('Error fetching settings:', err);
       toast.error('Failed to load system settings');
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+      const filePath = `slideshow/${fileName}`;
+
+      // Upload to 'system-assets' bucket
+      const { data, error: uploadError } = await supabase.storage
+        .from('system-assets')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        // If bucket doesn't exist, we might need to create it or use public URL
+        // In this environment, we'll try to use a public bucket if possible
+        throw uploadError;
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('system-assets')
+        .getPublicUrl(filePath);
+
+      setSlideshowImages([...slideshowImages, publicUrl]);
+      toast.success('Image uploaded successfully');
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast.error(error.message || 'Failed to upload image. Ensure "system-assets" bucket exists.');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -118,7 +171,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
 
             <div className="space-y-6">
               {/* Add New Image */}
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-4">
                 <div className="relative flex-1">
                   <ImageIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                   <input
@@ -126,16 +179,34 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
                     value={newImageUrl}
                     onChange={(e) => setNewImageUrl(e.target.value)}
                     placeholder="Paste image URL here..."
-                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-fh-gold/20 focus:border-fh-gold transition-all font-medium"
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-fh-gold/20 focus:border-fh-gold transition-all font-medium text-sm"
                   />
                 </div>
-                <button
-                  onClick={handleAddImage}
-                  className="px-6 bg-fh-gold text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-fh-gold/90 transition-all flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleAddImage}
+                    className="flex-1 sm:flex-none px-6 py-4 bg-slate-900 text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add URL
+                  </button>
+                  
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    onChange={handleFileUpload} 
+                    className="hidden" 
+                    accept="image/*"
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="flex-1 sm:flex-none px-6 py-4 bg-fh-gold text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-fh-gold/90 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                    Import Image
+                  </button>
+                </div>
               </div>
 
               {/* Image List */}

@@ -43,6 +43,36 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [lastActivity, setLastActivity] = useState(Date.now());
+
+  useEffect(() => {
+    if (!currentUser && !isDemoMode) return;
+
+    const INACTIVITY_LIMIT = 5 * 60 * 1000; // 5 minutes
+
+    const checkInactivity = () => {
+      if (Date.now() - lastActivity > INACTIVITY_LIMIT) {
+        handleLogout();
+      }
+    };
+
+    const interval = setInterval(checkInactivity, 10000); // Check every 10 seconds
+
+    const resetTimer = () => setLastActivity(Date.now());
+
+    window.addEventListener('mousemove', resetTimer);
+    window.addEventListener('keydown', resetTimer);
+    window.addEventListener('click', resetTimer);
+    window.addEventListener('scroll', resetTimer);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('mousemove', resetTimer);
+      window.removeEventListener('keydown', resetTimer);
+      window.removeEventListener('click', resetTimer);
+      window.removeEventListener('scroll', resetTimer);
+    };
+  }, [currentUser, isDemoMode, lastActivity]);
 
   useEffect(() => {
     const handleNavigation = (e: any) => {
@@ -261,16 +291,22 @@ const App: React.FC = () => {
     <ErrorBoundary>
       <div className="min-h-screen flex flex-col bg-slate-50 font-sans print:bg-white">
         {!currentUser && !isDemoMode ? (
-          <LoginView onLoginSuccess={() => {
-            const mockAdmin: UserProfile = {
-              id: '00000000-0000-0000-0000-000000000000',
-              email: 'systemadmin@faithhouse.church',
-              full_name: 'System Administrator',
-              role: 'system_admin',
-              is_active: true
-            };
-            setCurrentUser(mockAdmin);
-            setIsDemoMode(true);
+          <LoginView onLoginSuccess={(internalUser) => {
+            if (internalUser) {
+              setCurrentUser(internalUser);
+              setIsDemoMode(true); 
+            } else {
+              // Handle Demo Login button
+              const mockAdmin: UserProfile = {
+                id: '00000000-0000-0000-0000-000000000000',
+                email: 'systemadmin@faithhouse.church',
+                full_name: 'System Administrator',
+                role: 'system_admin',
+                is_active: true
+              };
+              setCurrentUser(mockAdmin);
+              setIsDemoMode(true);
+            }
           }} />
         ) : (
           <>

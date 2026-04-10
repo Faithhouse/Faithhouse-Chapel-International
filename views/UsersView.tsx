@@ -104,6 +104,7 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
             full_name: formData.full_name,
             role: formData.role,
             is_active: true,
+            temp_password: formData.password || 'FaithHouse2026',
             created_by: currentUser.id
           }])
           .select()
@@ -138,6 +139,30 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
       toast.success(`User ${!currentStatus ? 'activated' : 'deactivated'}`);
     } catch (error: any) {
       toast.error('Failed to update status');
+    }
+  };
+
+  const handleSetTempPassword = async (user: UserProfile) => {
+    const tempPass = prompt(`Enter a new temporary password for ${user.full_name}:`, "FaithHouse2026");
+    if (!tempPass) return;
+
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          temp_password: tempPass,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+      toast.success(`Temporary password set for ${user.full_name}. They can now login with: ${tempPass}`);
+    } catch (error: any) {
+      console.error('Reset error:', error);
+      toast.error(error.message || 'Failed to set temporary password');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -304,6 +329,13 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
                           title={user.is_active ? 'Deactivate' : 'Activate'}
                         >
                           {user.is_active ? <ShieldAlert className="w-5 h-5" /> : <UserCheck className="w-5 h-5" />}
+                        </button>
+                        <button 
+                          onClick={() => handleSetTempPassword(user)}
+                          className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors"
+                          title="Set Temporary Password"
+                        >
+                          <Key className="w-5 h-5" />
                         </button>
                         <button 
                           onClick={() => {

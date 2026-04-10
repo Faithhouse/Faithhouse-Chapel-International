@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { AttendanceEvent, AttendanceRecord, Member, Branch } from '../types';
+import AttendanceReportDocument from '../src/components/AttendanceReportDocument';
+import { FileText, Printer, X } from 'lucide-react';
 
 interface AttendanceViewProps {
 }
@@ -33,6 +35,8 @@ const AttendanceView: React.FC<AttendanceViewProps> = () => {
   const [notification, setNotification] = useState<string | null>(null);
   const [schemaError, setSchemaError] = useState<string | null>(null);
   const [networkError, setNetworkError] = useState<string | null>(null);
+  const [isPrintMode, setIsPrintMode] = useState(false);
+  const [reportType, setReportType] = useState<'Monthly' | 'Quarterly' | 'Half-Year' | 'Annual'>('Monthly');
 
   // Filters
   const [branchFilter, setBranchFilter] = useState('All');
@@ -78,7 +82,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = () => {
       supabase.removeChannel(eventSubscription);
       supabase.removeChannel(recordSubscription);
     };
-  }, [branchFilter, typeFilter, selectedMonth, selectedYear]);
+  }, [branchFilter, typeFilter, selectedMonth, selectedYear, reportType]);
 
   const fetchInitialData = async () => {
     setIsLoading(true);
@@ -93,9 +97,25 @@ const AttendanceView: React.FC<AttendanceViewProps> = () => {
       if (branchFilter !== 'All') eventQuery = eventQuery.eq('branch_id', branchFilter);
       if (typeFilter !== 'All') eventQuery = eventQuery.eq('event_type', typeFilter);
       
-      // Add month/year filtering
-      const startDate = new Date(Date.UTC(selectedYear, selectedMonth, 1)).toISOString().split('T')[0];
-      const endDate = new Date(Date.UTC(selectedYear, selectedMonth + 1, 0)).toISOString().split('T')[0];
+      // Add month/year/quarter/annual filtering
+      let startDate, endDate;
+      
+      if (reportType === 'Monthly') {
+        startDate = new Date(Date.UTC(selectedYear, selectedMonth, 1)).toISOString().split('T')[0];
+        endDate = new Date(Date.UTC(selectedYear, selectedMonth + 1, 0)).toISOString().split('T')[0];
+      } else if (reportType === 'Quarterly') {
+        const quarter = Math.floor(selectedMonth / 3);
+        startDate = new Date(Date.UTC(selectedYear, quarter * 3, 1)).toISOString().split('T')[0];
+        endDate = new Date(Date.UTC(selectedYear, (quarter + 1) * 3, 0)).toISOString().split('T')[0];
+      } else if (reportType === 'Half-Year') {
+        const half = Math.floor(selectedMonth / 6);
+        startDate = new Date(Date.UTC(selectedYear, half * 6, 1)).toISOString().split('T')[0];
+        endDate = new Date(Date.UTC(selectedYear, (half + 1) * 6, 0)).toISOString().split('T')[0];
+      } else { // Annual
+        startDate = new Date(Date.UTC(selectedYear, 0, 1)).toISOString().split('T')[0];
+        endDate = new Date(Date.UTC(selectedYear, 11, 31)).toISOString().split('T')[0];
+      }
+      
       eventQuery = eventQuery.gte('event_date', startDate).lte('event_date', endDate);
 
       const { data: eventData, error: eventError } = await eventQuery;
@@ -295,6 +315,47 @@ const AttendanceView: React.FC<AttendanceViewProps> = () => {
       setIsDeleting(null);
     }
   };
+
+  if (isPrintMode) {
+    let reportPeriodString = `${months[selectedMonth]} ${selectedYear}`;
+    if (reportType === 'Quarterly') {
+      const quarter = Math.floor(selectedMonth / 3) + 1;
+      reportPeriodString = `Quarter ${quarter}, ${selectedYear}`;
+    } else if (reportType === 'Half-Year') {
+      const half = Math.floor(selectedMonth / 6) + 1;
+      reportPeriodString = `Half-Year ${half}, ${selectedYear}`;
+    } else if (reportType === 'Annual') {
+      reportPeriodString = `Annual Report ${selectedYear}`;
+    }
+
+    return (
+      <div className="bg-white min-h-screen">
+        <div className="fixed top-4 right-4 flex gap-2 no-print z-[200]">
+          <button 
+            onClick={() => window.print()} 
+            className="flex items-center gap-2 px-6 py-3 bg-fh-green text-fh-gold rounded-xl font-black uppercase text-[10px] tracking-widest shadow-2xl hover:scale-105 transition-all"
+          >
+            <Printer className="w-4 h-4" />
+            Print Report
+          </button>
+          <button 
+            onClick={() => setIsPrintMode(false)} 
+            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-2xl hover:scale-105 transition-all"
+          >
+            <X className="w-4 h-4" />
+            Exit Report
+          </button>
+        </div>
+        <AttendanceReportDocument 
+          organizationName="Faithhouse Chapel International"
+          reportPeriod={reportPeriodString}
+          dateGenerated={new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+          events={events}
+          branches={branches}
+        />
+      </div>
+    );
+  }
 
   if (schemaError) {
      let repairSQL = '';
@@ -587,10 +648,31 @@ NOTIFY pgrst, 'reload schema';`;
           <h2 className="text-3xl font-black text-fh-green tracking-tighter uppercase leading-none">Attendance Registry</h2>
           <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em]">Service Growth & Records Ledger</p>
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="px-10 py-5 bg-fh-green text-fh-gold rounded-[1.75rem] font-black uppercase tracking-widest text-[10px] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30 flex items-center gap-3">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-          Create Service Log
-        </button>
+        <div className="flex flex-wrap justify-center md:justify-end gap-4">
+          <div className="flex items-center bg-white border border-slate-200 rounded-[1.75rem] overflow-hidden shadow-sm">
+            <select 
+              value={reportType} 
+              onChange={(e) => setReportType(e.target.value as any)}
+              className="pl-6 pr-2 py-5 bg-transparent text-[10px] font-black uppercase tracking-widest outline-none border-r border-slate-100"
+            >
+              <option value="Monthly">Monthly</option>
+              <option value="Quarterly">Quarterly</option>
+              <option value="Half-Year">Half-Year</option>
+              <option value="Annual">Annual</option>
+            </select>
+            <button 
+              onClick={() => setIsPrintMode(true)}
+              className="px-8 py-5 text-slate-600 font-black uppercase text-[10px] tracking-widest hover:bg-slate-50 active:scale-95 transition-all flex items-center gap-3"
+            >
+              <FileText className="w-5 h-5 text-fh-gold" />
+              Generate Report
+            </button>
+          </div>
+          <button onClick={() => setIsModalOpen(true)} className="px-10 py-5 bg-fh-green text-fh-gold rounded-[1.75rem] font-black uppercase tracking-widest text-[10px] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30 flex items-center gap-3">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+            Create Service Log
+          </button>
+        </div>
       </div>
 
       <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">

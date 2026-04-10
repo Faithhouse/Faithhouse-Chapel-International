@@ -32,6 +32,16 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
   const totalExpense = records.reduce((sum, r) => sum + (r.expenses || 0), 0);
   const netMonthlyBalance = totalIncome - totalExpense;
 
+  // Ministry (Service Type) Breakdown
+  const ministryStats = records.reduce((acc, r) => {
+    if (!acc[r.service_type]) {
+      acc[r.service_type] = { income: 0, expense: 0 };
+    }
+    acc[r.service_type].income += (r.total_income || 0);
+    acc[r.service_type].expense += (r.expenses || 0);
+    return acc;
+  }, {} as Record<string, { income: number, expense: number }>);
+
   const formatGHS = (amount: number) => {
     return `GH₵${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
@@ -380,7 +390,30 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
           <div className="p-8 text-center border-2 border-dashed border-slate-100 rounded-2xl text-slate-400 text-sm font-bold uppercase tracking-widest">No transactions recorded for this period.</div>
         )}
 
-        {/* 6. AUDIT STATUS */}
+        {/* 6. MINISTRY BREAKDOWN */}
+        <h2 className="section-title uppercase">Ministry / Service Type Breakdown</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Ministry / Service Type</th>
+              <th className="text-right">Total Income</th>
+              <th className="text-right">Total Expense</th>
+              <th className="text-right">Net Position</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(ministryStats).map(([type, stats], i) => (
+              <tr key={i}>
+                <td className="font-bold">{type}</td>
+                <td className="text-right text-emerald-600">{formatGHS(stats.income)}</td>
+                <td className="text-right text-red-600">{formatGHS(stats.expense)}</td>
+                <td className="text-right font-black">{formatGHS(stats.income - stats.expense)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* 7. AUDIT STATUS */}
         <div className="mt-12 bg-slate-900 text-white p-8 rounded-2xl flex items-center justify-between shadow-xl">
           <div>
             <p className="text-[8pt] font-black uppercase tracking-[0.4em] text-fh-gold mb-2">Audit Status</p>
@@ -561,6 +594,29 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
           </table>
         </div>
       </div>
+
+      {/* 4. MINISTRY BREAKDOWN */}
+      <h2 className="section-title uppercase">Ministry / Service Type Breakdown</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Ministry / Service Type</th>
+            <th className="text-right">Total Income</th>
+            <th className="text-right">Total Expense</th>
+            <th className="text-right">Net Position</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Object.entries(ministryStats).map(([type, stats], i) => (
+            <tr key={i}>
+              <td className="font-bold">{type}</td>
+              <td className="text-right text-emerald-600">{formatGHS(stats.income)}</td>
+              <td className="text-right text-red-600">{formatGHS(stats.expense)}</td>
+              <td className="text-right font-black">{formatGHS(stats.income - stats.expense)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
       {/* FOOTER / SIGN-OFF */}
       <div className="mt-24 grid grid-cols-2 gap-32">

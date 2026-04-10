@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 
 interface LoginViewProps {
-  onLoginSuccess: () => void;
+  onLoginSuccess: (user?: any) => void;
 }
 
 const churchImages = [
@@ -94,13 +94,38 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
         toast.success('Account created! Please check your email for confirmation or try logging in.');
         setIsSignUp(false);
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        // Try standard Supabase Auth first
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
-        if (error) throw error;
-        toast.success('Welcome back to FaithHouse CMS');
-        onLoginSuccess();
+
+        if (!authError) {
+          toast.success('Welcome back to FaithHouse CMS');
+          onLoginSuccess();
+          return;
+        }
+
+        // If standard auth fails, check for internal "Temporary Password" in profiles
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('email', email)
+          .eq('temp_password', password)
+          .single();
+
+        if (profile) {
+          if (!profile.is_active) {
+            toast.error('This account has been deactivated. Please contact the administrator.');
+            return;
+          }
+          toast.success(`Welcome back, ${profile.full_name}`);
+          onLoginSuccess(profile);
+          return;
+        }
+
+        // If both fail, show the original error
+        throw authError;
       }
     } catch (error: any) {
       console.error('Auth error:', error);
@@ -201,7 +226,29 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Security Key</label>
+                <div className="flex items-center justify-between px-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Security Key</label>
+                  {!isSignUp && (
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        if (!email) {
+                          toast.error('Please enter your email address first');
+                          return;
+                        }
+                        supabase.auth.resetPasswordForEmail(email, {
+                          redirectTo: `${window.location.origin}/reset-password`,
+                        }).then(({ error }) => {
+                          if (error) toast.error(error.message);
+                          else toast.success('Password reset email sent!');
+                        });
+                      }}
+                      className="text-[9px] font-black text-fh-gold uppercase tracking-widest hover:text-fh-gold/80 transition-all"
+                    >
+                      Forgot?
+                    </button>
+                  )}
+                </div>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
                   <input
