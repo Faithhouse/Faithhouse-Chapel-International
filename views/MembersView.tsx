@@ -590,7 +590,7 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
           <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">Global Identity • Branch Distribution Active</p>
         </div>
         <div className="flex flex-wrap justify-center md:justify-end gap-4">
-           {(currentUser?.role === 'admin' || currentUser?.role === 'pastor' || currentUser?.email === 'systemadmin@faithhouse.church') && (
+           {(currentUser?.role === 'system_admin' || currentUser?.role === 'general_overseer' || currentUser?.role === 'admin' || currentUser?.role === 'pastor' || currentUser?.email === 'systemadmin@faithhouse.church') && (
              <>
                <button onClick={findRegistryDuplicates} className="px-6 py-5 bg-white border border-slate-200 text-rose-500 rounded-[1.75rem] font-black uppercase text-[10px] tracking-widest shadow-sm hover:bg-rose-50 active:scale-95 transition-all flex items-center gap-3">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>

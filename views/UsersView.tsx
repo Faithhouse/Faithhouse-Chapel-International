@@ -68,7 +68,7 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentUser || (currentUser.role !== 'admin' && currentUser.email !== 'systemadmin@faithhouse.church')) {
+    if (!currentUser || (currentUser.role !== 'system_admin' && currentUser.role !== 'general_overseer' && currentUser.role !== 'admin' && currentUser.email !== 'systemadmin@faithhouse.church')) {
       toast.error('Unauthorized action');
       return;
     }

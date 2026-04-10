@@ -98,7 +98,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
     notes: ''
   });
 
-  const isAuthorized = currentUser?.role === 'admin' || currentUser?.role === 'pastor' || currentUser?.role === 'finance' || currentUser?.email === 'systemadmin@faithhouse.church';
+  const isAuthorized = currentUser?.role === 'system_admin' || currentUser?.role === 'general_overseer' || currentUser?.role === 'admin' || currentUser?.role === 'pastor' || currentUser?.role === 'finance' || currentUser?.email === 'systemadmin@faithhouse.church';
 
   useEffect(() => {
     if (isAuthorized) {
