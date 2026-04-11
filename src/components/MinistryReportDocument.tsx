@@ -216,21 +216,15 @@ const MinistryReportDocument: React.FC<MinistryReportDocumentProps> = ({
       <div className="header-accent" />
       <div className="official-stamp">
         {report.report_type}
-        <span>Performance Report</span>
       </div>
 
       {/* HEADER */}
-      <div className="flex justify-between items-start mb-16 relative z-10">
-        <div className="flex items-center gap-8">
-          <img src={logoUrl} alt="Logo" className="w-24 h-24 object-contain" referrerPolicy="no-referrer" />
-          <div>
-            <h1 className="text-xl font-black text-fh-green tracking-tighter uppercase leading-none">{organizationName}</h1>
-            <p className="text-sm font-bold text-slate-500 mt-1">(Wonders Cathedral)</p>
-          </div>
-        </div>
-        <div className="text-right">
-          <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight font-serif">Performance Report</h2>
-          <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em] mt-2">ID: REP-{report.year}-{report.id.slice(0, 4).toUpperCase()}</p>
+      <div className="flex flex-col items-center mb-16 relative z-10 text-center">
+        <img src={logoUrl} alt="Logo" className="w-16 h-16 object-contain mb-4" referrerPolicy="no-referrer" />
+        <div>
+          <h1 className="text-xl font-black text-fh-green tracking-tighter uppercase leading-none">{organizationName}</h1>
+          <p className="text-sm font-bold text-slate-500 mt-1">(Wonders Cathedral)</p>
+          <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em] mt-4">ID: REP-{report.year}-{report.id.slice(0, 4).toUpperCase()}</p>
         </div>
       </div>
 
