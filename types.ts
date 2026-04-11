@@ -46,6 +46,7 @@ export interface Member {
   branch_id: string;
   status: 'Active' | 'Inactive' | 'Visitor' | 'Probation';
   follow_up_status?: 'Pending' | 'Contacted' | 'Visited' | 'Completed';
+  last_seen?: string;
   latitude?: number;
   longitude?: number;
   ministry?: string;

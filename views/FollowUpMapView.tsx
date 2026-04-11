@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow, DirectionsRenderer } from '@react-google-maps/api';
 import { supabase } from '../supabaseClient';
 import { Member, UserProfile } from '../types';
-import { MapPin, Phone, User, Navigation, Search, Filter, Map as MapIcon, Loader2, Compass } from 'lucide-react';
+import { MapPin, Phone, User, Navigation, Search, Filter, Map as MapIcon, Loader2, Compass, AlertCircle, HelpCircle, Download } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface FollowUpMapViewProps {
@@ -60,6 +60,21 @@ const FollowUpMapView: React.FC<FollowUpMapViewProps> = ({ currentUser }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [radiusFilter, setRadiusFilter] = useState<number>(5); // 5km radius
+  const [showTroubleshooting, setShowTroubleshooting] = useState(false);
+  const [authError, setAuthError] = useState(false);
+
+  useEffect(() => {
+    (window as any).gm_authFailure = () => {
+      setAuthError(true);
+      toast.error('Google Maps Authentication Failed', {
+        description: 'Please check your API key and restrictions.',
+        duration: 10000,
+      });
+    };
+    return () => {
+      delete (window as any).gm_authFailure;
+    };
+  }, []);
 
   const fetchMembers = useCallback(async () => {
     setIsLoading(true);
@@ -181,6 +196,28 @@ const FollowUpMapView: React.FC<FollowUpMapViewProps> = ({ currentUser }) => {
     }
   };
 
+  if (!import.meta.env.VITE_GOOGLE_MAPS_API_KEY) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200 p-8 text-center">
+        <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mb-4">
+          <AlertCircle className="w-8 h-8" />
+        </div>
+        <h3 className="text-xl font-bold text-slate-900 mb-2">Google Maps API Key Missing</h3>
+        <p className="text-slate-500 text-sm max-w-md mb-6">
+          To use the Follow-Up Map, you must provide a Google Maps API Key in the application settings.
+        </p>
+        <div className="bg-white p-4 rounded-xl border border-slate-200 text-left text-xs space-y-2 max-w-lg">
+          <p className="font-bold text-slate-700">How to fix:</p>
+          <ol className="list-decimal list-inside space-y-1 text-slate-500">
+            <li>Go to the <b>Settings</b> menu in the AI Studio sidebar.</li>
+            <li>Add a new variable: <code>VITE_GOOGLE_MAPS_API_KEY</code></li>
+            <li>Paste your Google Maps API Key from the Google Cloud Console.</li>
+          </ol>
+        </div>
+      </div>
+    );
+  }
+
   if (!isLoaded) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh]">
@@ -203,7 +240,14 @@ const FollowUpMapView: React.FC<FollowUpMapViewProps> = ({ currentUser }) => {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
+          <button 
+            onClick={() => setShowTroubleshooting(!showTroubleshooting)}
+            className="p-3 text-slate-400 hover:text-cms-blue hover:bg-cms-blue/5 rounded-xl transition-all"
+            title="Map Troubleshooting"
+          >
+            <HelpCircle className="w-5 h-5" />
+          </button>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
@@ -241,6 +285,52 @@ const FollowUpMapView: React.FC<FollowUpMapViewProps> = ({ currentUser }) => {
           </div>
         </div>
       </div>
+
+      {(showTroubleshooting || authError) && (
+        <div className={`border rounded-2xl p-6 animate-in slide-in-from-top duration-300 ${authError ? 'bg-rose-50 border-rose-200' : 'bg-amber-50 border-amber-200'}`}>
+          <div className="flex items-start gap-4">
+            <div className={`p-2 rounded-lg ${authError ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
+              <AlertCircle className="w-5 h-5" />
+            </div>
+            <div className="space-y-3">
+              <h3 className={`font-bold ${authError ? 'text-rose-900' : 'text-amber-900'}`}>
+                {authError ? 'Google Maps Authentication Error' : 'Troubleshooting "ApiTargetBlockedMapError"'}
+              </h3>
+              <p className={`text-sm ${authError ? 'text-rose-800' : 'text-amber-800'}`}>
+                {authError 
+                  ? 'The Google Maps API rejected your API key. This is usually due to "ApiTargetBlockedMapError" or "ApiNotActivatedMapError".'
+                  : 'This error usually means your Google Maps API Key is restricted and doesn\'t allow requests from this environment.'}
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white/50 p-4 rounded-xl border border-amber-100">
+                  <p className="text-xs font-bold text-amber-900 uppercase mb-2">1. Enable the API</p>
+                  <p className="text-xs text-amber-800">
+                    Ensure "Maps JavaScript API" is enabled in your <a href="https://console.cloud.google.com/google/maps-apis/api-list" target="_blank" className="underline font-bold">Google Cloud Console</a>.
+                  </p>
+                </div>
+                <div className="bg-white/50 p-4 rounded-xl border border-amber-100">
+                  <p className="text-xs font-bold text-amber-900 uppercase mb-2">2. Check Key Restrictions</p>
+                  <p className="text-xs text-amber-800 mb-2">
+                    If you have "API restrictions", make sure "Maps JavaScript API" is selected. If you have "Application restrictions", ensure this domain is allowed:
+                  </p>
+                  <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-amber-100">
+                    <code className="text-[10px] text-slate-600 flex-1 truncate">{window.location.hostname}</code>
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(window.location.hostname);
+                        toast.success('Domain copied to clipboard');
+                      }}
+                      className="p-1 hover:bg-slate-100 rounded text-slate-400"
+                    >
+                      <Download className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3 relative">

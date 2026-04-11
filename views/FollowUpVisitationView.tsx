@@ -1,6 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../supabaseClient';
+import { toast } from 'sonner';
+import { Member, UserProfile } from '../types';
 import { 
   Users, 
   UserCheck, 
@@ -16,6 +18,9 @@ import {
   AlertCircle, 
   Sparkles,
   X,
+  Plus,
+  Edit3,
+  Trash2,
   Calendar,
   MapPin,
   MoreVertical,
@@ -26,106 +31,18 @@ import {
   Activity
 } from 'lucide-react';
 
-interface Member {
-  id: string;
-  name: string;
-  lastSeen: string;
-  status: 'Active' | 'At Risk' | 'Missing' | 'First Timer';
-  phone: string;
-  assignedTo: string;
-  department: string;
-  zone: string;
-  notes: string[];
-  history: { type: 'Call' | 'Message' | 'Visit'; date: string; note: string }[];
+// Local interface for UI state mapping if needed, but we'll use the imported Member type
+// interface Member { ... }
+
+interface FollowUpVisitationViewProps {
+  setActiveItem?: (item: string) => void;
+  currentUser: UserProfile | null;
 }
 
-const MOCK_MEMBERS: Member[] = [
-  {
-    id: '1',
-    name: 'Oluwaseun Adewale',
-    lastSeen: '2026-03-29',
-    status: 'Active',
-    phone: '+234 801 234 5678',
-    assignedTo: 'Pastor Mike',
-    department: 'Media',
-    zone: 'Zone A',
-    notes: ['Consistent attendee', 'Needs prayer for family'],
-    history: [
-      { type: 'Call', date: '2026-03-25', note: 'Checked in on health' },
-      { type: 'Visit', date: '2026-03-10', note: 'Home visitation successful' }
-    ]
-  },
-  {
-    id: '2',
-    name: 'Chioma Okoro',
-    lastSeen: '2026-03-15',
-    status: 'At Risk',
-    phone: '+234 802 345 6789',
-    assignedTo: 'Sis. Grace',
-    department: 'Music',
-    zone: 'Zone C',
-    notes: ['Missed last 2 services', 'Work schedule conflict'],
-    history: [
-      { type: 'Message', date: '2026-03-20', note: 'Sent encouragement text' }
-    ]
-  },
-  {
-    id: '3',
-    name: 'Kofi Mensah',
-    lastSeen: '2026-02-28',
-    status: 'Missing',
-    phone: '+234 803 456 7890',
-    assignedTo: 'Unassigned',
-    department: 'None',
-    zone: 'Zone B',
-    notes: ['Relocated temporarily?', 'No response to calls'],
-    history: []
-  },
-  {
-    id: '4',
-    name: 'Sarah Johnson',
-    lastSeen: '2026-03-29',
-    status: 'First Timer',
-    phone: '+234 804 567 8901',
-    assignedTo: 'Bro. David',
-    department: 'None',
-    zone: 'Zone A',
-    notes: ['New in town', 'Interested in Youth Ministry'],
-    history: [
-      { type: 'Call', date: '2026-03-30', note: 'Welcome call completed' }
-    ]
-  },
-  {
-    id: '5',
-    name: 'Ibrahim Musa',
-    lastSeen: '2026-03-22',
-    status: 'At Risk',
-    phone: '+234 805 678 9012',
-    assignedTo: 'Pastor Mike',
-    department: 'Ushering',
-    zone: 'Zone D',
-    notes: ['Travelled for business'],
-    history: []
-  }
-];
-
-const SESSIONS = [
-  { id: 'sun-miracle', name: 'Sunday Miracle Service', attendees: 250 },
-  { id: 'midweek', name: 'Midweek Service', attendees: 180 },
-  { id: 'prayer', name: 'Prayer Meeting', attendees: 90 },
-];
-
-import VisitationWhatsAppView from './VisitationWhatsAppView';
-import FirstTimersView from './FirstTimersView';
-
-const MOCK_PERSONNEL = [
-  { id: '1', first_name: 'Mike', last_name: 'Pastor', role: 'Head of Visitation' },
-  { id: '2', first_name: 'Grace', last_name: 'Sister', role: 'Follow-up Coordinator' },
-  { id: '3', first_name: 'David', last_name: 'Brother', role: 'Visitation Team' },
-];
-
-const FollowUpVisitationView: React.FC = () => {
-  const [personnel] = useState(MOCK_PERSONNEL);
+const FollowUpVisitationView: React.FC<FollowUpVisitationViewProps> = ({ setActiveItem, currentUser }) => {
+  const [personnel, setPersonnel] = useState<any[]>([]);
+  const [resources, setResources] = useState<any[]>([]);
+  
   const [selectedSession, setSelectedSession] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'Overview' | 'Visitation' | 'Personnel' | 'Operations' | 'Resources'>('Overview');
   const [visitationSubTab, setVisitationSubTab] = useState<'Radar' | 'Registry' | 'WhatsApp' | 'FirstTimers'>('Radar');
@@ -135,11 +52,79 @@ const FollowUpVisitationView: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [showInsights, setShowInsights] = useState(false);
-  const [members, setMembers] = useState<Member[]>(MOCK_MEMBERS);
+  const [members, setMembers] = useState<Member[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
   const [visitationRecords, setVisitationRecords] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isPersonnelModalOpen, setIsPersonnelModalOpen] = useState(false);
+  const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [tableError, setTableError] = useState<string | null>(null);
+  const [editingPersonnel, setEditingPersonnel] = useState<any>(null);
+  const [editingResource, setEditingResource] = useState<any>(null);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  
+  const fetchPersonnel = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('visitation_personnel')
+        .select(`
+          *,
+          members:member_id (id, first_name, last_name, email, phone)
+        `);
+      if (error) throw error;
+      setPersonnel(data || []);
+    } catch (error: any) {
+      console.error('Error fetching personnel:', error);
+      if (error.code === 'PGRST205' || error.message?.includes('not found')) {
+        setTableError("Personnel table missing");
+      }
+    }
+  }, []);
+
+  const fetchResources = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('visitation_resources')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        if (error.code === 'PGRST205' || error.message.includes('not found')) {
+          setTableError("Resources table missing");
+        }
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        // Seed default resources if empty
+        const defaults = [
+          { title: 'First Timer Welcome Script', category: 'Script', description: 'Standard script for welcoming new visitors via phone.' },
+          { title: 'Home Visitation Guidelines', category: 'Guideline', description: 'Best practices and safety protocols for home visits.' },
+          { title: 'Follow-up Email Template', category: 'Template', description: 'Professional email template for Monday morning follow-ups.' }
+        ];
+        await supabase.from('visitation_resources').insert(defaults);
+        const { data: refreshed } = await supabase.from('visitation_resources').select('*');
+        setResources(refreshed || []);
+      } else {
+        setResources(data);
+      }
+    } catch (error) {
+      console.error('Error fetching resources:', error);
+    }
+  }, []);
+  
+  const [regForm, setRegForm] = useState({
+    first_name: '',
+    last_name: '',
+    phone: '',
+    email: '',
+    gender: 'Male',
+    ministry: 'Visitation',
+    status: 'Visitor' as const
+  });
+
   const [newRecord, setNewRecord] = useState({
     member_id: '',
     category: 'First-time Visitor',
@@ -147,6 +132,275 @@ const FollowUpVisitationView: React.FC = () => {
     notes: '',
     visit_date: new Date().toISOString().split('T')[0]
   });
+
+  const fetchAllUsers = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, role')
+        .eq('is_active', true);
+      if (error) throw error;
+      setAllUsers(data || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPersonnel();
+    fetchResources();
+    fetchAllUsers();
+  }, [fetchPersonnel, fetchResources, fetchAllUsers]);
+
+  // Database Repair/Setup
+  const repairSQL = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setTableError(null);
+      
+      const sql = `
+        -- Enable UUID extension
+        CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+        -- Visitation Personnel Table Migration/Setup
+        DO $$ 
+        BEGIN 
+          IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'visitation_personnel') THEN
+            CREATE TABLE visitation_personnel (
+              id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+              member_id UUID REFERENCES members(id) ON DELETE CASCADE,
+              role TEXT NOT NULL,
+              status TEXT DEFAULT 'Active',
+              assigned_cases INTEGER DEFAULT 0,
+              completion_rate INTEGER DEFAULT 0,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+            );
+          ELSE
+            -- If table exists, ensure member_id exists and user_id is removed
+            IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='visitation_personnel' AND column_name='user_id') THEN
+              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='visitation_personnel' AND column_name='member_id') THEN
+                ALTER TABLE visitation_personnel ADD COLUMN member_id UUID REFERENCES members(id) ON DELETE CASCADE;
+              END IF;
+              ALTER TABLE visitation_personnel DROP COLUMN user_id;
+            END IF;
+          END IF;
+        END $$;
+
+        -- Visitation Resources Table
+        CREATE TABLE IF NOT EXISTS visitation_resources (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          title TEXT NOT NULL,
+          description TEXT,
+          category TEXT NOT NULL, -- 'Template', 'Guideline', 'Script'
+          file_url TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+        );
+
+        -- Ensure visitation_records has priority and outcome if not present
+        DO $$ 
+        BEGIN 
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='visitation_records' AND column_name='priority') THEN
+            ALTER TABLE visitation_records ADD COLUMN priority TEXT DEFAULT 'Medium';
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='visitation_records' AND column_name='outcome') THEN
+            ALTER TABLE visitation_records ADD COLUMN outcome TEXT;
+          END IF;
+        END $$;
+      `;
+
+      const { error } = await supabase.rpc('exec_sql', { sql_string: sql });
+      
+      if (error) {
+        console.error('RPC exec_sql failed:', error);
+        if (error.message?.includes('exec_sql') || error.code === 'PGRST202') {
+          setTableError(`The database helper function 'exec_sql' is missing. You must create it in the Supabase SQL Editor before auto-restoration can work.`);
+        } else {
+          setTableError(`Restoration failed: ${error.message}. You may need to run the SQL manually in the Supabase dashboard.`);
+        }
+        return;
+      }
+
+      toast.success("Database systems verified");
+      fetchPersonnel();
+      fetchResources();
+    } catch (e: any) {
+      console.error('Database setup error:', e);
+      setTableError(`System error: ${e.message}. Please ensure the 'exec_sql' function is enabled in Supabase.`);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchPersonnel, fetchResources]);
+
+  useEffect(() => {
+    repairSQL();
+  }, [repairSQL]);
+
+  const [newPersonnel, setNewPersonnel] = useState({
+    member_id: '',
+    role: 'Visitation Team',
+    status: 'Active'
+  });
+
+  const [newResource, setNewResource] = useState({
+    title: '',
+    description: '',
+    category: 'Template',
+    file_url: ''
+  });
+
+  const handleAddPersonnel = async () => {
+    // Role-based access check
+    const allowedRoles = ['system_admin', 'admin', 'pastor', 'general_overseer'];
+    if (!currentUser || !allowedRoles.includes(currentUser.role)) {
+      toast.error('You do not have permission to manage personnel');
+      return;
+    }
+
+    try {
+      if (editingPersonnel) {
+        const { error } = await supabase
+          .from('visitation_personnel')
+          .update({
+            role: newPersonnel.role,
+            status: newPersonnel.status
+          })
+          .eq('id', editingPersonnel.id);
+        if (error) throw error;
+        toast.success('Personnel updated successfully');
+      } else {
+        const { error } = await supabase
+          .from('visitation_personnel')
+          .insert([newPersonnel]);
+        if (error) throw error;
+        toast.success('Personnel added successfully');
+      }
+      setIsPersonnelModalOpen(false);
+      setEditingPersonnel(null);
+      setNewPersonnel({ member_id: '', role: 'Visitation Team', status: 'Active' });
+      fetchPersonnel();
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
+  const handleDeletePersonnel = async (id: string) => {
+    // Role-based access check
+    const allowedRoles = ['system_admin', 'admin', 'pastor', 'general_overseer'];
+    if (!currentUser || !allowedRoles.includes(currentUser.role)) {
+      toast.error('You do not have permission to remove personnel');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to remove this person from the visitation team?')) return;
+    try {
+      const { error } = await supabase
+        .from('visitation_personnel')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      toast.success('Personnel removed');
+      fetchPersonnel();
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
+  const handleAddResource = async () => {
+    try {
+      if (editingResource) {
+        const { error } = await supabase
+          .from('visitation_resources')
+          .update(newResource)
+          .eq('id', editingResource.id);
+        if (error) throw error;
+        toast.success('Resource updated successfully');
+      } else {
+        const { error } = await supabase
+          .from('visitation_resources')
+          .insert([newResource]);
+        if (error) throw error;
+        toast.success('Resource added successfully');
+      }
+      setIsResourceModalOpen(false);
+      setEditingResource(null);
+      fetchResources();
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
+  const handleDeleteResource = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this resource?')) return;
+    try {
+      const { error } = await supabase
+        .from('visitation_resources')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      toast.success('Resource deleted');
+      fetchResources();
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
+  const handlePrintReport = () => {
+    window.print();
+  };
+
+  const handleRegisterVisitor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.from('members').insert([regForm]);
+      if (error) throw error;
+      toast.success('Visitor registered successfully');
+      setIsRegisterModalOpen(false);
+      setRegForm({
+        first_name: '', last_name: '', phone: '', email: '', gender: 'Male', ministry: 'Visitation', status: 'Visitor'
+      });
+      // Refresh members
+      const { data: membersData } = await supabase.from('members').select('*');
+      setMembers(membersData as Member[]);
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleExportCSV = () => {
+    if (visitationRecords.length === 0) {
+      toast.error("No records to export");
+      return;
+    }
+
+    const headers = ['Mission ID', 'Member', 'Category', 'Status', 'Date', 'Notes'];
+    const rows = visitationRecords.map(r => [
+      r.id,
+      `${r.members?.first_name} ${r.members?.last_name}`,
+      r.category,
+      r.status,
+      new Date(r.visit_date).toLocaleDateString(),
+      r.notes || ''
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `visitation_report_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Report exported as CSV");
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -156,19 +410,7 @@ const FollowUpVisitationView: React.FC = () => {
         // Fetch Members
         const { data: membersData } = await supabase.from('members').select('*');
         if (membersData) {
-          const mappedMembers: Member[] = membersData.map(m => ({
-            id: m.id,
-            name: `${m.first_name} ${m.last_name || ''}`.trim(),
-            lastSeen: m.last_seen || 'N/A',
-            status: (m.status as any) || 'Active',
-            phone: m.phone || 'N/A',
-            assignedTo: 'Unassigned',
-            department: m.ministry || 'None',
-            zone: m.gps_address || 'N/A',
-            notes: [],
-            history: []
-          }));
-          setMembers(mappedMembers);
+          setMembers(membersData as Member[]);
         }
 
         // Fetch Sessions (Attendance Events)
@@ -200,25 +442,41 @@ const FollowUpVisitationView: React.FC = () => {
     try {
       const { error } = await supabase.from('visitation_records').insert([newRecord]);
       if (error) throw error;
+      toast.success('Visitation record created successfully');
       setIsAddModalOpen(false);
       // Refresh records
       const { data } = await supabase.from('visitation_records').select('*, members(*)').order('created_at', { ascending: false });
       setVisitationRecords(data || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error adding record:', err);
+      toast.error(err.message || 'Failed to add record');
+    }
+  };
+
+  const handleDeleteRecord = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this record?')) return;
+    try {
+      const { error } = await supabase.from('visitation_records').delete().eq('id', id);
+      if (error) throw error;
+      toast.success('Record deleted');
+      const { data } = await supabase.from('visitation_records').select('*, members(*)').order('created_at', { ascending: false });
+      setVisitationRecords(data || []);
+    } catch (err: any) {
+      toast.error(err.message);
     }
   };
 
   const filteredMembers = useMemo(() => {
     return members.filter(m => {
-      const matchesSearch = m.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const fullName = `${m.first_name} ${m.last_name || ''}`.toLowerCase();
+      const matchesSearch = fullName.includes(searchTerm.toLowerCase());
       const matchesFilter = filter === 'All' || 
-                           (filter === 'Absentees' && (m.status === 'Missing' || m.status === 'At Risk')) ||
-                           (filter === 'First Timers' && m.status === 'First Timer') ||
-                           (filter === 'At Risk' && m.status === 'At Risk') ||
-                           (filter === 'Workers' && m.department !== 'None' && m.department !== 'N/A');
-      const matchesDept = !departmentFilter || m.department === departmentFilter;
-      const matchesZone = !zoneFilter || m.zone === zoneFilter;
+                           (filter === 'Absentees' && (m.status === 'Inactive' || m.status === 'Probation')) ||
+                           (filter === 'First Timers' && m.status === 'Visitor') ||
+                           (filter === 'At Risk' && m.status === 'Probation') ||
+                           (filter === 'Workers' && m.ministry !== 'None' && m.ministry !== 'N/A');
+      const matchesDept = !departmentFilter || m.ministry === departmentFilter;
+      const matchesZone = !zoneFilter || m.gps_address === zoneFilter;
       
       return matchesSearch && matchesFilter && matchesDept && matchesZone;
     });
@@ -250,21 +508,21 @@ const FollowUpVisitationView: React.FC = () => {
   };
 
   const departments = useMemo(() => {
-    const depts = new Set(members.map(m => m.department).filter(d => d && d !== 'None' && d !== 'N/A'));
+    const depts = new Set(members.map(m => m.ministry).filter(d => d && d !== 'None' && d !== 'N/A'));
     return Array.from(depts).sort();
   }, [members]);
 
   const zones = useMemo(() => {
-    const zs = new Set(members.map(m => m.zone).filter(z => z && z !== 'N/A'));
+    const zs = new Set(members.map(m => m.gps_address).filter(z => z && z !== 'N/A'));
     return Array.from(zs).sort();
   }, [members]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Active': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-      case 'At Risk': return 'bg-amber-100 text-amber-700 border-amber-200';
-      case 'Missing': return 'bg-rose-100 text-rose-700 border-rose-200';
-      case 'First Timer': return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'Inactive': return 'bg-amber-100 text-amber-700 border-amber-200';
+      case 'Probation': return 'bg-rose-100 text-rose-700 border-rose-200';
+      case 'Visitor': return 'bg-blue-100 text-blue-700 border-blue-200';
       default: return 'bg-slate-100 text-slate-700 border-slate-200';
     }
   };
@@ -280,17 +538,25 @@ const FollowUpVisitationView: React.FC = () => {
               <p className="text-slate-500 text-sm font-medium">Pastoral Care & Outreach Dashboard</p>
             </div>
             <div className="flex items-center gap-3">
-              <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
-                <Printer className="w-5 h-5" />
+              <button 
+                onClick={() => setIsRegisterModalOpen(true)}
+                className="px-6 py-2 bg-violet-600 text-white rounded-xl text-sm font-bold hover:bg-violet-700 transition-all shadow-lg shadow-violet-100 flex items-center gap-2"
+              >
+                <UserPlus className="w-4 h-4" />
+                Register Visitor
               </button>
-              <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
-                <Download className="w-5 h-5" />
+              <button 
+                onClick={() => setActiveItem?.('Follow-Up Map')}
+                className="bg-fh-green text-fh-gold px-4 py-2 rounded-lg text-sm font-semibold hover:bg-fh-green-dark transition-all shadow-sm flex items-center gap-2"
+              >
+                <MapPin className="w-4 h-4" />
+                View Follow-Up Map
               </button>
               <button 
                 onClick={() => setIsAddModalOpen(true)}
                 className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-all shadow-sm shadow-indigo-200 flex items-center gap-2"
               >
-                <UserPlus className="w-4 h-4" />
+                <Plus className="w-4 h-4" />
                 Add New Record
               </button>
             </div>
@@ -319,6 +585,114 @@ const FollowUpVisitationView: React.FC = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {tableError && (
+          <div className="bg-rose-50 border-2 border-rose-100 rounded-[2rem] p-8 text-center space-y-6 animate-in zoom-in-95 duration-500">
+            <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto">
+              <AlertCircle className="w-8 h-8" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-900">Database Synchronization Error</h3>
+              <p className="text-slate-500 text-sm mt-1 max-w-md mx-auto">
+                {tableError}
+              </p>
+            </div>
+            
+            <div className="flex flex-col items-center gap-4">
+              <button 
+                onClick={repairSQL}
+                disabled={isLoading}
+                className="px-8 py-3 bg-fh-green text-fh-gold rounded-xl font-bold uppercase text-xs tracking-widest shadow-lg hover:scale-105 transition-all disabled:opacity-50"
+              >
+                {isLoading ? 'Attempting Restoration...' : 'Attempt Auto-Restoration'}
+              </button>
+
+              {(tableError.includes('Restoration failed') || tableError.includes('exec_sql')) && (
+                <div className="w-full max-w-2xl bg-white p-6 rounded-2xl border border-rose-200 text-left space-y-4">
+                  <p className="text-xs font-bold text-slate-700 uppercase tracking-widest">Manual Fix Required</p>
+                  
+                  {tableError.includes('exec_sql') ? (
+                    <>
+                      <p className="text-xs text-slate-500">
+                        The system needs a helper function to manage tables. Please run this SQL first in your <b>Supabase SQL Editor</b>:
+                      </p>
+                      <pre className="bg-slate-900 text-fh-gold p-4 rounded-xl text-[10px] overflow-x-auto font-mono">
+{`-- 1. Create the exec_sql helper function
+CREATE OR REPLACE FUNCTION exec_sql(sql_string text)
+RETURNS void AS $$
+BEGIN
+  EXECUTE sql_string;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;`}
+                      </pre>
+                      <button 
+                        onClick={() => {
+                          const sql = `CREATE OR REPLACE FUNCTION exec_sql(sql_string text)\nRETURNS void AS $$\nBEGIN\n  EXECUTE sql_string;\nEND;\n$$ LANGUAGE plpgsql SECURITY DEFINER;`;
+                          navigator.clipboard.writeText(sql);
+                          toast.success('Helper SQL copied');
+                        }}
+                        className="text-[10px] font-bold text-indigo-600 hover:underline"
+                      >
+                        Copy Helper SQL
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xs text-slate-500">
+                        If auto-restoration fails, please copy the SQL below and run it in your <b>Supabase SQL Editor</b>:
+                      </p>
+                      <pre className="bg-slate-900 text-fh-gold p-4 rounded-xl text-[10px] overflow-x-auto font-mono max-h-48">
+{`-- Run this in Supabase SQL Editor
+-- 1. Ensure the table exists with member_id
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'visitation_personnel') THEN
+    CREATE TABLE visitation_personnel (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      member_id UUID REFERENCES members(id) ON DELETE CASCADE,
+      role TEXT NOT NULL,
+      status TEXT DEFAULT 'Active',
+      assigned_cases INTEGER DEFAULT 0,
+      completion_rate INTEGER DEFAULT 0,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+    );
+  ELSE
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='visitation_personnel' AND column_name='user_id') THEN
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='visitation_personnel' AND column_name='member_id') THEN
+        ALTER TABLE visitation_personnel ADD COLUMN member_id UUID REFERENCES members(id) ON DELETE CASCADE;
+      END IF;
+      ALTER TABLE visitation_personnel DROP COLUMN user_id;
+    END IF;
+  END IF;
+END $$;
+
+-- 2. Ensure resources table exists
+CREATE TABLE IF NOT EXISTS visitation_resources (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title TEXT NOT NULL,
+  description TEXT,
+  category TEXT NOT NULL,
+  file_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);`}
+                      </pre>
+                      <button 
+                        onClick={() => {
+                          const sql = `-- Run this in Supabase SQL Editor\nDO $$ \nBEGIN \n  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'visitation_personnel') THEN\n    CREATE TABLE visitation_personnel (\n      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n      member_id UUID REFERENCES members(id) ON DELETE CASCADE,\n      role TEXT NOT NULL,\n      status TEXT DEFAULT 'Active', \n      assigned_cases INTEGER DEFAULT 0,\n      completion_rate INTEGER DEFAULT 0,\n      created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())\n    );\n  ELSE\n    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='visitation_personnel' AND column_name='user_id') THEN\n      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='visitation_personnel' AND column_name='member_id') THEN\n        ALTER TABLE visitation_personnel ADD COLUMN member_id UUID REFERENCES members(id) ON DELETE CASCADE;\n      END IF;\n      ALTER TABLE visitation_personnel DROP COLUMN user_id;\n    END IF;\n  END IF;\nEND $$;\n\nCREATE TABLE IF NOT EXISTS visitation_resources (\n  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n  title TEXT NOT NULL,\n  description TEXT,\n  category TEXT NOT NULL,\n  file_url TEXT,\n  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())\n);`;
+                          navigator.clipboard.writeText(sql);
+                          toast.success('SQL copied to clipboard');
+                        }}
+                        className="text-[10px] font-bold text-indigo-600 hover:underline"
+                      >
+                        Copy SQL Script
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {activeTab === 'Overview' && (
           <div className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -381,33 +755,87 @@ const FollowUpVisitationView: React.FC = () => {
         )}
 
         {activeTab === 'Personnel' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {personnel.map((person, i) => (
-              <div key={i} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-14 h-14 rounded-2xl bg-slate-900 text-fh-gold flex items-center justify-center font-black text-lg">
-                    {person.first_name?.[0]}{person.last_name?.[0]}
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-slate-900">{person.first_name} {person.last_name}</h3>
-                    <p className="text-xs text-slate-500 font-medium uppercase tracking-widest">{person.role}</p>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-400 font-bold uppercase">Assigned Cases</span>
-                    <span className="text-slate-900 font-black">12</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-400 font-bold uppercase">Completion Rate</span>
-                    <span className="text-emerald-500 font-black">92%</span>
-                  </div>
-                </div>
-                <button className="w-full mt-6 py-3 bg-slate-50 text-slate-600 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-100 transition-all">
-                  View Performance
-                </button>
+          <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in duration-500">
+            <div className="p-10 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-6 bg-slate-50/30">
+              <div>
+                <h3 className="text-2xl font-black text-fh-green uppercase tracking-tighter">Visitation Workforce</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Departmental Registry</p>
               </div>
-            ))}
+              <button 
+                onClick={() => {
+                  setEditingPersonnel(null);
+                  setNewPersonnel({ member_id: '', role: 'Visitation Team', status: 'Active' });
+                  setIsPersonnelModalOpen(true);
+                }}
+                className="px-10 py-4 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[11px] tracking-widest shadow-xl active:scale-95 transition-all border-b-4 border-black/30 flex items-center gap-3"
+              >
+                <Plus className="w-5 h-5" />
+                Provision Staff
+              </button>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] border-b border-slate-100">
+                  <tr>
+                    <th className="px-10 py-6">Staff Identity</th>
+                    <th className="px-10 py-6">Role & Status</th>
+                    <th className="px-10 py-6">Relay Contact</th>
+                    <th className="px-10 py-6 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {personnel.length > 0 ? personnel.map((person) => (
+                    <tr key={person.id} className="hover:bg-slate-50 transition-all group">
+                      <td className="px-10 py-6">
+                        <div className="flex items-center gap-5">
+                          <div className="w-12 h-12 bg-slate-900 text-fh-gold rounded-xl flex items-center justify-center font-black text-xs uppercase">
+                            {person.members?.first_name?.[0]}{person.members?.last_name?.[0]}
+                          </div>
+                          <div>
+                            <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{person.members?.first_name} {person.members?.last_name}</p>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{person.members?.email || 'NO EMAIL'}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-10 py-6">
+                        <p className="text-xs font-bold text-slate-700 uppercase tracking-tight">{person.role}</p>
+                        <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                          person.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'
+                        }`}>
+                          {person.status}
+                        </span>
+                      </td>
+                      <td className="px-10 py-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                        {person.members?.phone || 'NO PHONE'}
+                      </td>
+                      <td className="px-10 py-6 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button 
+                            onClick={() => {
+                              setEditingPersonnel(person);
+                              setNewPersonnel({ member_id: person.member_id, role: person.role, status: person.status });
+                              setIsPersonnelModalOpen(true);
+                            }}
+                            className="p-2.5 text-slate-400 hover:text-fh-green hover:bg-slate-50 rounded-xl transition-all"
+                          >
+                            <Edit3 className="w-5 h-5" />
+                          </button>
+                          <button 
+                            onClick={() => handleDeletePersonnel(person.id)}
+                            className="p-2.5 text-slate-400 hover:text-rose-500 hover:bg-slate-50 rounded-xl transition-all"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr><td colSpan={4} className="px-10 py-32 text-center text-slate-300 uppercase tracking-widest italic opacity-50">Empty Department.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -416,7 +844,13 @@ const FollowUpVisitationView: React.FC = () => {
             <div className="p-8 border-b border-slate-100 flex items-center justify-between">
               <h3 className="text-lg font-bold text-slate-900 uppercase tracking-tight">Care Mission Logs</h3>
               <div className="flex gap-2">
-                <button className="px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-xs font-bold uppercase tracking-widest border border-slate-200">Export CSV</button>
+                <button 
+                  onClick={handleExportCSV}
+                  className="px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-xs font-bold uppercase tracking-widest border border-slate-200 hover:bg-slate-100 transition-all flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Export CSV
+                </button>
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -428,6 +862,7 @@ const FollowUpVisitationView: React.FC = () => {
                     <th className="px-8 py-6">Category</th>
                     <th className="px-8 py-6">Status</th>
                     <th className="px-8 py-6">Date</th>
+                    <th className="px-8 py-6 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -448,6 +883,14 @@ const FollowUpVisitationView: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-8 py-6 text-sm text-slate-500">{new Date(record.visit_date).toLocaleDateString()}</td>
+                      <td className="px-8 py-6 text-right">
+                        <button 
+                          onClick={() => handleDeleteRecord(record.id)}
+                          className="p-2 text-slate-400 hover:text-rose-600 rounded-lg"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -457,40 +900,93 @@ const FollowUpVisitationView: React.FC = () => {
         )}
 
         {activeTab === 'Resources' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
-              <h3 className="text-lg font-bold text-slate-900 mb-6">Outreach Templates</h3>
-              <div className="space-y-4">
-                {[
-                  { title: 'First Timer Welcome', desc: 'Standard script for welcoming new visitors.' },
-                  { title: 'Absence Inquiry', desc: 'Gentle follow-up for missed services.' },
-                  { title: 'Hospital Visitation', desc: 'Guidelines and prayers for sick members.' },
-                ].map((res, i) => (
-                  <div key={i} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-indigo-200 transition-all cursor-pointer">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-bold text-slate-900">{res.title}</h4>
-                      <Download className="w-4 h-4 text-slate-400 group-hover:text-indigo-600" />
-                    </div>
-                    <p className="text-xs text-slate-500">{res.desc}</p>
-                  </div>
-                ))}
-              </div>
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-bold text-slate-900">Visitation Resources</h3>
+              <button 
+                onClick={() => {
+                  setEditingResource(null);
+                  setNewResource({ title: '', description: '', category: 'Template', file_url: '' });
+                  setIsResourceModalOpen(true);
+                }}
+                className="bg-slate-900 text-fh-gold px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-800 transition-all"
+              >
+                <ClipboardList className="w-4 h-4" />
+                Add Resource
+              </button>
             </div>
-            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
-              <h3 className="text-lg font-bold text-slate-900 mb-6">Pastoral Guidelines</h3>
-              <div className="space-y-4">
-                {[
-                  { title: 'Ethics of Visitation', desc: 'Code of conduct for home visits.' },
-                  { title: 'Reporting Protocol', desc: 'How to document sensitive interactions.' },
-                ].map((res, i) => (
-                  <div key={i} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-indigo-200 transition-all cursor-pointer">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-bold text-slate-900">{res.title}</h4>
-                      <FileText className="w-4 h-4 text-slate-400 group-hover:text-indigo-600" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+                <h3 className="text-lg font-bold text-slate-900 mb-6">Outreach Templates & Scripts</h3>
+                <div className="space-y-4">
+                  {resources.filter(r => r.category === 'Template' || r.category === 'Script').map((res, i) => (
+                    <div key={i} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-indigo-200 transition-all relative">
+                      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={() => {
+                            setEditingResource(res);
+                            setNewResource({ title: res.title, description: res.description, category: res.category, file_url: res.file_url });
+                            setIsResourceModalOpen(true);
+                          }}
+                          className="p-1 text-slate-400 hover:text-indigo-600"
+                        >
+                          <FileText className="w-3 h-3" />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteResource(res.id)}
+                          className="p-1 text-slate-400 hover:text-rose-600"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-bold text-slate-900">{res.title}</h4>
+                        <a href={res.file_url} target="_blank" rel="noreferrer">
+                          <Download className="w-4 h-4 text-slate-400 group-hover:text-indigo-600" />
+                        </a>
+                      </div>
+                      <p className="text-xs text-slate-500">{res.description}</p>
                     </div>
-                    <p className="text-xs text-slate-500">{res.desc}</p>
-                  </div>
-                ))}
+                  ))}
+                  {resources.filter(r => r.category === 'Template' || r.category === 'Script').length === 0 && (
+                    <p className="text-xs text-slate-400 italic">No templates added yet.</p>
+                  )}
+                </div>
+              </div>
+              <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+                <h3 className="text-lg font-bold text-slate-900 mb-6">Pastoral Guidelines</h3>
+                <div className="space-y-4">
+                  {resources.filter(r => r.category === 'Guideline').map((res, i) => (
+                    <div key={i} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-indigo-200 transition-all relative">
+                      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={() => {
+                            setEditingResource(res);
+                            setNewResource({ title: res.title, description: res.description, category: res.category, file_url: res.file_url });
+                            setIsResourceModalOpen(true);
+                          }}
+                          className="p-1 text-slate-400 hover:text-indigo-600"
+                        >
+                          <FileText className="w-3 h-3" />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteResource(res.id)}
+                          className="p-1 text-slate-400 hover:text-rose-600"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-bold text-slate-900">{res.title}</h4>
+                        <FileText className="w-4 h-4 text-slate-400 group-hover:text-indigo-600" />
+                      </div>
+                      <p className="text-xs text-slate-500">{res.description}</p>
+                    </div>
+                  ))}
+                  {resources.filter(r => r.category === 'Guideline').length === 0 && (
+                    <p className="text-xs text-slate-400 italic">No guidelines added yet.</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -520,6 +1016,178 @@ const FollowUpVisitationView: React.FC = () => {
                 </button>
               ))}
             </div>
+
+            {visitationSubTab === 'Radar' && (
+              <div className="space-y-6">
+                <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+                  <h3 className="text-lg font-bold text-slate-900 mb-2">Absence Detection Radar</h3>
+                  <p className="text-sm text-slate-500 mb-6">Members who have missed recent services and may need follow-up.</p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {members.filter(m => m.status === 'Inactive' || m.status === 'Probation').slice(0, 6).map((member, i) => (
+                      <div key={i} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center font-bold">
+                            {member.first_name?.[0]}
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-slate-900">{member.first_name} {member.last_name}</h4>
+                            <p className="text-xs text-slate-500">Last seen: {member.date_joined || 'Unknown'}</p>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => {
+                            setNewRecord({
+                              ...newRecord,
+                              member_id: member.id,
+                              category: 'Inactive/Backslidden',
+                              priority: 'High'
+                            });
+                            setIsAddModalOpen(true);
+                          }}
+                          className="p-2 bg-white text-slate-400 hover:text-indigo-600 rounded-xl shadow-sm"
+                        >
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    {members.filter(m => m.status === 'Inactive' || m.status === 'Probation').length === 0 && (
+                      <div className="col-span-full py-12 text-center text-slate-400 italic">
+                        No members currently flagged by radar.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {visitationSubTab === 'Registry' && (
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+                  <h3 className="text-lg font-bold text-slate-900 uppercase tracking-tight">Visitation Registry</h3>
+                  <button 
+                    onClick={handlePrintReport}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-xs font-bold uppercase tracking-widest border border-slate-200 hover:bg-slate-100 transition-all"
+                  >
+                    <Printer className="w-4 h-4" />
+                    Print Report
+                  </button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">
+                      <tr>
+                        <th className="px-8 py-6">Member</th>
+                        <th className="px-8 py-6">Category</th>
+                        <th className="px-8 py-6">Priority</th>
+                        <th className="px-8 py-6">Status</th>
+                        <th className="px-8 py-6">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {visitationRecords.map((record, i) => (
+                        <tr key={i} className="hover:bg-slate-50 transition-all">
+                          <td className="px-8 py-6">
+                            <p className="text-sm font-bold text-slate-900">{record.members?.first_name} {record.members?.last_name}</p>
+                          </td>
+                          <td className="px-8 py-6">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{record.category}</span>
+                          </td>
+                          <td className="px-8 py-6">
+                            <span className={`text-[10px] font-bold uppercase ${
+                              record.priority === 'High' ? 'text-rose-600' : 
+                              record.priority === 'Medium' ? 'text-amber-600' : 'text-slate-400'
+                            }`}>
+                              {record.priority}
+                            </span>
+                          </td>
+                          <td className="px-8 py-6">
+                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                              record.status === 'Completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+                            }`}>
+                              {record.status}
+                            </span>
+                          </td>
+                          <td className="px-8 py-6 text-sm text-slate-500">{new Date(record.visit_date).toLocaleDateString()}</td>
+                        </tr>
+                      ))}
+                      {visitationRecords.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="px-8 py-12 text-center text-slate-400 italic">No visitation records found.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {visitationSubTab === 'WhatsApp' && (
+              <div className="bg-white p-12 rounded-3xl border border-slate-200 shadow-sm text-center space-y-6">
+                <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+                  <MessageSquare className="w-10 h-10" />
+                </div>
+                <div className="max-w-md mx-auto">
+                  <h3 className="text-xl font-bold text-slate-900">WhatsApp Follow-up Hub</h3>
+                  <p className="text-slate-500 text-sm mt-2">Send automated or manual follow-up messages to members directly through our WhatsApp integration.</p>
+                </div>
+                <button 
+                  onClick={() => setActiveItem?.('WhatsApp Hub')}
+                  className="bg-emerald-600 text-white px-8 py-3 rounded-2xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
+                >
+                  Open WhatsApp Hub
+                </button>
+              </div>
+            )}
+
+            {visitationSubTab === 'FirstTimers' && (
+              <div className="space-y-6">
+                <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+                  <h3 className="text-lg font-bold text-slate-900 mb-2">First Timer Follow-up</h3>
+                  <p className="text-sm text-slate-500 mb-6">New visitors who joined in the last 30 days and need a welcome visit.</p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {members.filter(m => m.status === 'Visitor').map((member, i) => (
+                      <div key={i} className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="w-12 h-12 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
+                            {member.first_name?.[0]}
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-slate-900">{member.first_name} {member.last_name}</h4>
+                            <p className="text-xs text-slate-500">Joined: {member.date_joined || 'Recent'}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => {
+                              setNewRecord({
+                                ...newRecord,
+                                member_id: member.id,
+                                category: 'First-time Visitor',
+                                priority: 'High'
+                              });
+                              setIsAddModalOpen(true);
+                            }}
+                            className="flex-1 py-2 bg-white text-indigo-600 border border-indigo-100 rounded-xl text-xs font-bold hover:bg-indigo-50 transition-all"
+                          >
+                            Schedule Visit
+                          </button>
+                          <button className="p-2 bg-white text-emerald-600 border border-emerald-100 rounded-xl hover:bg-emerald-50 transition-all">
+                            <Phone className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {members.filter(m => m.status === 'Visitor').length === 0 && (
+                      <div className="col-span-full py-12 text-center text-slate-400 italic">
+                        No new first timers currently awaiting follow-up.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
         {false && activeTab === 'Visitation' && (
@@ -665,7 +1333,6 @@ const FollowUpVisitationView: React.FC = () => {
                           <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Last Seen</th>
                           <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
                           <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Phone Number</th>
-                          <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned To</th>
                           <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
                         </tr>
                       </thead>
@@ -679,16 +1346,16 @@ const FollowUpVisitationView: React.FC = () => {
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-sm">
-                                  {member.name.split(' ').map(n => n[0]).join('')}
+                                  {member.first_name[0]}{member.last_name?.[0]}
                                 </div>
                                 <div>
-                                  <p className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{member.name}</p>
-                                  <p className="text-xs text-slate-500">{member.department}</p>
+                                  <p className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{member.first_name} {member.last_name}</p>
+                                  <p className="text-xs text-slate-500">{member.ministry}</p>
                                 </div>
                               </div>
                             </td>
                             <td className="px-6 py-4">
-                              <p className="text-sm text-slate-600 font-medium">{member.lastSeen}</p>
+                              <p className="text-sm text-slate-600 font-medium">{member.last_seen || 'N/A'}</p>
                             </td>
                             <td className="px-6 py-4">
                               <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase border ${getStatusColor(member.status)}`}>
@@ -697,14 +1364,6 @@ const FollowUpVisitationView: React.FC = () => {
                             </td>
                             <td className="px-6 py-4">
                               <p className="text-sm text-slate-600 font-mono">{member.phone}</p>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center">
-                                  <Users className="w-3 h-3 text-slate-400" />
-                                </div>
-                                <p className="text-sm text-slate-600">{member.assignedTo}</p>
-                              </div>
                             </td>
                             <td className="px-6 py-4 text-right">
                               <div className="flex items-center justify-end gap-2" onClick={e => e.stopPropagation()}>
@@ -825,10 +1484,10 @@ const FollowUpVisitationView: React.FC = () => {
 
                 <div className="flex flex-col items-center text-center space-y-4">
                   <div className="w-24 h-24 rounded-3xl bg-indigo-600 flex items-center justify-center text-white text-3xl font-bold shadow-xl shadow-indigo-200">
-                    {selectedMember.name.split(' ').map(n => n[0]).join('')}
+                    {selectedMember.first_name[0]}{selectedMember.last_name?.[0]}
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-slate-900">{selectedMember.name}</h3>
+                    <h3 className="text-2xl font-bold text-slate-900">{selectedMember.first_name} {selectedMember.last_name}</h3>
                     <span className={`inline-block mt-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase border ${getStatusColor(selectedMember.status)}`}>
                       {selectedMember.status}
                     </span>
@@ -837,12 +1496,12 @@ const FollowUpVisitationView: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-slate-50 p-4 rounded-2xl">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Department</p>
-                    <p className="text-sm font-bold text-slate-700">{selectedMember.department}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Ministry</p>
+                    <p className="text-sm font-bold text-slate-700">{selectedMember.ministry || 'None'}</p>
                   </div>
                   <div className="bg-slate-50 p-4 rounded-2xl">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Zone</p>
-                    <p className="text-sm font-bold text-slate-700">{selectedMember.zone}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Address</p>
+                    <p className="text-sm font-bold text-slate-700">{selectedMember.gps_address || 'N/A'}</p>
                   </div>
                 </div>
 
@@ -867,45 +1526,11 @@ const FollowUpVisitationView: React.FC = () => {
                 <div className="space-y-4">
                   <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                     <Clock className="w-4 h-4 text-indigo-600" />
-                    Interaction History
+                    Follow-up Status
                   </h4>
-                  <div className="space-y-3">
-                    {selectedMember.history.length > 0 ? selectedMember.history.map((h, i) => (
-                      <div key={i} className="flex gap-4">
-                        <div className="flex flex-col items-center">
-                          <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
-                            {h.type === 'Call' && <Phone className="w-4 h-4 text-slate-500" />}
-                            {h.type === 'Message' && <MessageSquare className="w-4 h-4 text-slate-500" />}
-                            {h.type === 'Visit' && <MapPin className="w-4 h-4 text-slate-500" />}
-                          </div>
-                          {i !== selectedMember.history.length - 1 && <div className="w-0.5 h-full bg-slate-100 my-1" />}
-                        </div>
-                        <div className="pb-4">
-                          <p className="text-xs font-bold text-slate-400 uppercase">{h.date}</p>
-                          <p className="text-sm font-bold text-slate-700">{h.type}</p>
-                          <p className="text-sm text-slate-500 mt-1">{h.note}</p>
-                        </div>
-                      </div>
-                    )) : (
-                      <p className="text-sm text-slate-400 italic">No interaction history recorded.</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-indigo-600" />
-                    Follow-up Notes
-                  </h4>
-                  <div className="space-y-2">
-                    {selectedMember.notes.map((note, i) => (
-                      <div key={i} className="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100">
-                        <p className="text-sm text-indigo-900">{note}</p>
-                      </div>
-                    ))}
-                    <button className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-sm font-bold text-slate-400 hover:border-indigo-300 hover:text-indigo-500 transition-all">
-                      + Add New Note
-                    </button>
+                  <div className="bg-white border border-slate-200 rounded-2xl p-4">
+                    <p className="text-sm text-slate-600 font-medium">Status: {selectedMember.follow_up_status || 'Not Started'}</p>
+                    <p className="text-xs text-slate-400 mt-1">Last seen: {selectedMember.last_seen || 'N/A'}</p>
                   </div>
                 </div>
 
@@ -954,7 +1579,7 @@ const FollowUpVisitationView: React.FC = () => {
                   >
                     <option value="">Select Member...</option>
                     {members.map(m => (
-                      <option key={m.id} value={m.id}>{m.name}</option>
+                      <option key={m.id} value={m.id}>{m.first_name} {m.last_name}</option>
                     ))}
                   </select>
                 </div>
@@ -1012,6 +1637,250 @@ const FollowUpVisitationView: React.FC = () => {
                   Create Record
                 </button>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Register Visitor Modal */}
+      <AnimatePresence>
+        {isRegisterModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsRegisterModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="relative bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden"
+            >
+              <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-violet-50/50">
+                <div>
+                  <h3 className="text-xl font-bold text-violet-900">Register New Visitor</h3>
+                  <p className="text-xs text-violet-600 font-medium">Add a first-time guest to the follow-up system</p>
+                </div>
+                <button onClick={() => setIsRegisterModalOpen(false)} className="p-2 hover:bg-violet-100 rounded-full transition-colors">
+                  <X className="w-5 h-5 text-violet-400" />
+                </button>
+              </div>
+              <form onSubmit={handleRegisterVisitor} className="p-8 grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">First Name</label>
+                  <input
+                    required
+                    type="text"
+                    value={regForm.first_name}
+                    onChange={e => setRegForm({...regForm, first_name: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Last Name</label>
+                  <input
+                    required
+                    type="text"
+                    value={regForm.last_name}
+                    onChange={e => setRegForm({...regForm, last_name: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Phone Number</label>
+                  <input
+                    required
+                    type="tel"
+                    value={regForm.phone}
+                    onChange={e => setRegForm({...regForm, phone: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Email (Optional)</label>
+                  <input
+                    type="email"
+                    value={regForm.email}
+                    onChange={e => setRegForm({...regForm, email: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Gender</label>
+                  <select
+                    value={regForm.gender}
+                    onChange={e => setRegForm({...regForm, gender: e.target.value as any})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                  >
+                    <option>Male</option>
+                    <option>Female</option>
+                  </select>
+                </div>
+                <div className="col-span-2 pt-4">
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full bg-violet-600 text-white py-4 rounded-2xl font-bold hover:bg-violet-700 transition-all shadow-lg shadow-violet-200 disabled:opacity-50"
+                  >
+                    {isLoading ? 'Registering...' : 'Complete Registration'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* Personnel Modal */}
+      <AnimatePresence>
+        {isPersonnelModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsPersonnelModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden"
+            >
+              <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+                <h3 className="text-xl font-bold text-slate-900">{editingPersonnel ? 'Edit Personnel' : 'Add Personnel'}</h3>
+                <button onClick={() => setIsPersonnelModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                  <X className="w-5 h-5 text-slate-400" />
+                </button>
+              </div>
+              <div className="p-8 space-y-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Select Member</label>
+                  <select
+                    disabled={!!editingPersonnel}
+                    value={newPersonnel.member_id}
+                    onChange={e => setNewPersonnel({...newPersonnel, member_id: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                  >
+                    <option value="">Choose a member...</option>
+                    {members.map(m => (
+                      <option key={m.id} value={m.id}>{m.first_name} {m.last_name} ({m.status})</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Role in Team</label>
+                  <select
+                    value={newPersonnel.role}
+                    onChange={e => setNewPersonnel({...newPersonnel, role: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                  >
+                    <option>Head of Visitation</option>
+                    <option>Follow-up Coordinator</option>
+                    <option>Visitation Team</option>
+                    <option>Zone Leader</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Status</label>
+                  <select
+                    value={newPersonnel.status}
+                    onChange={e => setNewPersonnel({...newPersonnel, status: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                  >
+                    <option>Active</option>
+                    <option>Inactive</option>
+                    <option>On Leave</option>
+                  </select>
+                </div>
+                <button
+                  onClick={handleAddPersonnel}
+                  className="w-full py-4 bg-slate-900 text-fh-gold rounded-2xl font-bold uppercase tracking-widest text-xs shadow-lg hover:bg-slate-800 transition-all active:scale-95"
+                >
+                  {editingPersonnel ? 'Update Personnel' : 'Add to Team'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Resource Modal */}
+      <AnimatePresence>
+        {isResourceModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsResourceModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden"
+            >
+              <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+                <h3 className="text-xl font-bold text-slate-900">{editingResource ? 'Edit Resource' : 'Add Resource'}</h3>
+                <button onClick={() => setIsResourceModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                  <X className="w-5 h-5 text-slate-400" />
+                </button>
+              </div>
+              <div className="p-8 space-y-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Title</label>
+                  <input
+                    type="text"
+                    value={newResource.title}
+                    onChange={e => setNewResource({...newResource, title: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                    placeholder="e.g. First Timer Script"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Category</label>
+                  <select
+                    value={newResource.category}
+                    onChange={e => setNewResource({...newResource, category: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                  >
+                    <option>Template</option>
+                    <option>Script</option>
+                    <option>Guideline</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Description</label>
+                  <textarea
+                    value={newResource.description}
+                    onChange={e => setNewResource({...newResource, description: e.target.value})}
+                    rows={3}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500 transition-all resize-none"
+                    placeholder="Brief description of the resource..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">File URL / Link</label>
+                  <input
+                    type="text"
+                    value={newResource.file_url}
+                    onChange={e => setNewResource({...newResource, file_url: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                    placeholder="https://..."
+                  />
+                </div>
+                <button
+                  onClick={handleAddResource}
+                  className="w-full py-4 bg-slate-900 text-fh-gold rounded-2xl font-bold uppercase tracking-widest text-xs shadow-lg hover:bg-slate-800 transition-all active:scale-95"
+                >
+                  {editingResource ? 'Update Resource' : 'Save Resource'}
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

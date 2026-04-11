@@ -229,7 +229,8 @@ const App: React.FC = () => {
         case 'Visitation & Follow-up':
         case 'Follow-up & Visitation':
         case 'Follow-up & Visitation ministry':
-          return <FollowUpVisitationView />;
+        case 'Visitation Logs':
+          return <FollowUpVisitationView setActiveItem={handleSetActiveItem as any} currentUser={currentUser} />;
         
         case 'WhatsApp Hub':
           return <WhatsAppSchedulerView />;

@@ -36,7 +36,15 @@ const menuItems: MenuItem[] = [
   { name: 'Attendance', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2', roles: ['system_admin', 'general_overseer', 'admin', 'pastor', 'worker'] },
   { name: 'OUTREACH', icon: '', isHeader: true, roles: ['system_admin', 'general_overseer', 'admin', 'pastor', 'media', 'worker'] },
   { name: 'WhatsApp Hub', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z', roles: ['system_admin', 'general_overseer', 'admin', 'pastor', 'media'] },
-  { name: 'Follow-Up Map', icon: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z', roles: ['system_admin', 'general_overseer', 'admin', 'pastor', 'worker'] },
+  { 
+    name: 'Follow-up & Visitation', 
+    icon: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z',
+    roles: ['system_admin', 'general_overseer', 'admin', 'pastor', 'worker'],
+    subItems: [
+      { name: 'Visitation Logs', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2' },
+      { name: 'Follow-Up Map', icon: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z' }
+    ]
+  },
   { name: 'FINANCE', icon: '', isHeader: true, roles: ['system_admin', 'general_overseer', 'admin', 'pastor', 'finance'] },
   { name: 'Finance', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2', roles: ['system_admin', 'general_overseer', 'admin', 'pastor', 'finance'] },
   { name: 'MINISTRIES', icon: '', isHeader: true },
