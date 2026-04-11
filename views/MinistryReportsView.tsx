@@ -225,7 +225,7 @@ const MinistryReportsView: React.FC<MinistryReportsViewProps> = ({ currentUser, 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-2">
-          <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Ministry Reports</h2>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">Ministry Reports</h2>
           <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.4em] flex items-center gap-2">
             <Activity className="w-3 h-3 text-fh-gold" />
             Performance & Accountability Hub
