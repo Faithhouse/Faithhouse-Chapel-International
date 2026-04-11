@@ -27,6 +27,7 @@ import RecurringTasksView from './views/RecurringTasksView';
 import UsersView from './views/UsersView';
 import FollowUpMapView from './views/FollowUpMapView';
 import ProfileView from './views/ProfileView';
+import MinistryReportsView from './views/MinistryReportsView';
 import SettingsView from './views/SettingsView';
 import LoginView from './views/LoginView';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -225,6 +226,9 @@ const App: React.FC = () => {
         
         case 'Ministries':
           return <MinistriesView setActiveItem={handleSetActiveItem as any} />;
+        
+        case 'Ministry Reports':
+          return <MinistryReportsView currentUser={currentUser} />;
         
         case 'Visitation & Follow-up':
         case 'Follow-up & Visitation':

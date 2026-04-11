@@ -211,9 +211,9 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
           <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.4em]">Operational Oversight Hub</p>
         </div>
         <div className="flex gap-4">
-          <button onClick={() => setIsReportModalOpen(true)} className="px-8 py-4 bg-white border border-slate-200 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-3 hover:bg-slate-50 transition-all shadow-sm active:scale-95">
+          <button onClick={() => setActiveItem('Ministry Reports')} className="px-8 py-4 bg-white border border-slate-200 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-3 hover:bg-slate-50 transition-all shadow-sm active:scale-95">
             <svg className="w-5 h-5 text-fh-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-            Generate Report
+            Ministry Reports
           </button>
           <button 
             onClick={() => { resetForm(); setEditingId(null); setIsModalOpen(true); }}

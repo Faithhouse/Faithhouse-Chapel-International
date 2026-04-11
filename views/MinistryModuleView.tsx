@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Markdown from 'react-markdown';
+import MinistryReportsView from './MinistryReportsView';
 import { GoogleGenAI } from "@google/genai";
 import VisitationView from './VisitationView';
 
@@ -23,10 +24,20 @@ interface MinistryModuleViewProps {
 }
 
 const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName }) => {
-  const [activeTab, setActiveTab] = useState<'Overview' | 'Leadership' | 'Personnel' | 'Operations' | 'Resources' | 'Attendance' | 'Visitation' | 'Curriculum'>('Overview');
+  const [activeTab, setActiveTab] = useState<'Overview' | 'Leadership' | 'Personnel' | 'Operations' | 'Resources' | 'Attendance' | 'Visitation' | 'Curriculum' | 'Reports'>('Overview');
+  const [currentMinistryId, setCurrentMinistryId] = useState<string | null>(null);
 
   useEffect(() => {
     setActiveTab('Overview');
+    const fetchMinistryId = async () => {
+      const { data } = await supabase
+        .from('ministries')
+        .select('id')
+        .eq('name', ministryName)
+        .single();
+      if (data) setCurrentMinistryId(data.id);
+    };
+    fetchMinistryId();
   }, [ministryName]);
 
   const [ministryMembers, setMinistryMembers] = useState<Member[]>([]);
@@ -1802,10 +1813,10 @@ CREATE POLICY "Allow all for authenticated" ON public.ministry_resources FOR ALL
   };
 
   const tabs = ministryName === 'Children Ministry' 
-    ? (['Overview', 'Leadership', 'Attendance', 'Curriculum', 'Personnel', 'Operations', 'Resources'] as const)
+    ? (['Overview', 'Leadership', 'Attendance', 'Curriculum', 'Personnel', 'Operations', 'Resources', 'Reports'] as const)
     : (ministryName === 'Follow-up & Visitation' || ministryName === 'Follow-up & Visitation ministry')
-    ? (['Overview', 'Visitation', 'Personnel', 'Operations', 'Resources'] as const)
-    : (['Overview', 'Personnel', 'Operations', 'Resources'] as const);
+    ? (['Overview', 'Visitation', 'Personnel', 'Operations', 'Resources', 'Reports'] as const)
+    : (['Overview', 'Personnel', 'Operations', 'Resources', 'Reports'] as const);
 
   if (schemaError === "REPAIR_REQUIRED") {
     const repairSQL = `-- SCHEMA REPAIR: ADD MISSING COLUMNS & REFRESH CACHE
@@ -1923,6 +1934,12 @@ NOTIFY pgrst, 'reload schema';`;
            </div>
            <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-2">Knowledge Base</h3>
            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Departmental Assets & Training Materials Pending Upload</p>
+        </div>
+      )}
+
+      {activeTab === 'Reports' && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <MinistryReportsView currentUser={null} ministryId={currentMinistryId || undefined} />
         </div>
       )}
 

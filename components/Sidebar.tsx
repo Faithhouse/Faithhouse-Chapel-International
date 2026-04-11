@@ -49,6 +49,7 @@ const menuItems: MenuItem[] = [
   { name: 'Finance', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2', roles: ['system_admin', 'general_overseer', 'admin', 'pastor', 'finance'] },
   { name: 'MINISTRIES', icon: '', isHeader: true },
   { name: 'Ministries', icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16' },
+  { name: 'Ministry Reports', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
   { 
     name: 'Youth & Children Ministry', 
     icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z',
