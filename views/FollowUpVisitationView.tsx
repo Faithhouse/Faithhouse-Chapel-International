@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import Markdown from 'react-markdown';
 import { supabase } from '../supabaseClient';
 import { toast } from 'sonner';
 import { Member, UserProfile } from '../types';
@@ -63,6 +64,7 @@ const FollowUpVisitationView: React.FC<FollowUpVisitationViewProps> = ({ setActi
   const [tableError, setTableError] = useState<string | null>(null);
   const [editingPersonnel, setEditingPersonnel] = useState<any>(null);
   const [editingResource, setEditingResource] = useState<any>(null);
+  const [selectedResource, setSelectedResource] = useState<any>(null);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   
   const fetchPersonnel = useCallback(async () => {
@@ -102,7 +104,9 @@ const FollowUpVisitationView: React.FC<FollowUpVisitationViewProps> = ({ setActi
         const defaults = [
           { title: 'First Timer Welcome Script', category: 'Script', description: 'Standard script for welcoming new visitors via phone.' },
           { title: 'Home Visitation Guidelines', category: 'Guideline', description: 'Best practices and safety protocols for home visits.' },
-          { title: 'Follow-up Email Template', category: 'Template', description: 'Professional email template for Monday morning follow-ups.' }
+          { title: 'Follow-up Email Template', category: 'Template', description: 'Professional email template for Monday morning follow-ups.' },
+          { title: 'Bereavement Support Guide', category: 'Guideline', description: 'Compassionate approach for visiting bereaved families.' },
+          { title: 'Hospital Visitation Protocol', category: 'Guideline', description: 'Safety and etiquette for hospital ministry visits.' }
         ];
         await supabase.from('visitation_resources').insert(defaults);
         const { data: refreshed } = await supabase.from('visitation_resources').select('*');
@@ -165,6 +169,7 @@ const FollowUpVisitationView: React.FC<FollowUpVisitationViewProps> = ({ setActi
         -- Visitation Personnel Table Migration/Setup
         DO $$ 
         BEGIN 
+          -- 1. Create table if not exists
           IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'visitation_personnel') THEN
             CREATE TABLE visitation_personnel (
               id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -176,11 +181,25 @@ const FollowUpVisitationView: React.FC<FollowUpVisitationViewProps> = ({ setActi
               created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
             );
           ELSE
-            -- If table exists, ensure member_id exists and user_id is removed
+            -- 2. If table exists, ensure member_id column exists
+            ALTER TABLE visitation_personnel ADD COLUMN IF NOT EXISTS member_id UUID;
+
+            -- 3. Ensure foreign key constraint exists
+            IF NOT EXISTS (
+                SELECT 1 
+                FROM information_schema.table_constraints tc 
+                JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
+                WHERE tc.table_name = 'visitation_personnel' 
+                AND kcu.column_name = 'member_id'
+                AND tc.constraint_type = 'FOREIGN KEY'
+            ) THEN
+                ALTER TABLE visitation_personnel 
+                ADD CONSTRAINT visitation_personnel_member_id_fkey 
+                FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE;
+            END IF;
+
+            -- 4. Drop old user_id column if it exists
             IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='visitation_personnel' AND column_name='user_id') THEN
-              IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='visitation_personnel' AND column_name='member_id') THEN
-                ALTER TABLE visitation_personnel ADD COLUMN member_id UUID REFERENCES members(id) ON DELETE CASCADE;
-              END IF;
               ALTER TABLE visitation_personnel DROP COLUMN user_id;
             END IF;
           END IF;
@@ -192,9 +211,58 @@ const FollowUpVisitationView: React.FC<FollowUpVisitationViewProps> = ({ setActi
           title TEXT NOT NULL,
           description TEXT,
           category TEXT NOT NULL, -- 'Template', 'Guideline', 'Script'
+          content TEXT, -- Built-in document content
           file_url TEXT,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
         );
+
+        -- Add content column if not exists
+        DO $$ 
+        BEGIN 
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='visitation_resources' AND column_name='content') THEN
+            ALTER TABLE visitation_resources ADD COLUMN content TEXT;
+          END IF;
+        END $$;
+
+        -- Seed default resources if empty
+        DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM visitation_resources LIMIT 1) THEN
+            INSERT INTO visitation_resources (title, description, category, content) VALUES
+            ('First-Time Visitor Script', 'A warm greeting script for following up with first-time visitors.', 'Script', '# First-Time Visitor Script\n\n**Greeting:** "Hello [Member Name], my name is [Your Name] from Faithhouse Chapel International. We were so glad to have you worship with us this past Sunday!"\n\n**Purpose:** "I''m just calling to say thank you for visiting and to see if you have any questions about our church or if there''s anything we can pray with you about."\n\n**Closing:** "We look forward to seeing you again soon! God bless you."'),
+            ('Sick Visit Guidelines', 'Best practices and spiritual guidance for visiting the sick.', 'Guideline', '# Sick Visit Guidelines\n\n1. **Preparation:** Pray before you go. Ask the Holy Spirit for wisdom and compassion.\n2. **Duration:** Keep visits short (15-20 minutes) unless requested otherwise.\n3. **Spiritual Care:** Read a comforting Psalm (e.g., Psalm 23, Psalm 103) and offer a brief, faith-filled prayer.\n4. **Sensitivity:** Be mindful of the patient''s energy levels and medical needs.'),
+            ('Follow-up Call Log Template', 'A template for recording details of follow-up phone calls.', 'Template', '# Follow-up Call Log\n\n- **Date:** [Date]\n- **Member Name:** [Name]\n- **Caller:** [Your Name]\n- **Response:** [Positive/Neutral/No Answer]\n- **Prayer Requests:** [Details]\n- **Action Items:** [e.g., Send to Pastor, Invite to Cell Group]'),
+            ('New Convert Discipleship Plan', 'A 4-week plan for nurturing new converts.', 'Guideline', '# New Convert Discipleship Plan\n\n**Week 1:** The Assurance of Salvation (John 3:16, 1 John 5:11-13)\n**Week 2:** The Importance of Prayer and Word (Matthew 6:9-13, Psalm 119:105)\n**Week 3:** Understanding the Holy Spirit (Acts 1:8, Galatians 5:22-23)\n**Week 4:** The Power of Fellowship and Service (Hebrews 10:24-25)');
+          END IF;
+        END $$;
+
+        -- Visitation Records Table
+        CREATE TABLE IF NOT EXISTS visitation_records (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          member_id UUID REFERENCES members(id) ON DELETE CASCADE,
+          category TEXT NOT NULL,
+          priority TEXT DEFAULT 'Medium',
+          status TEXT DEFAULT 'Pending',
+          visit_date DATE NOT NULL,
+          notes TEXT,
+          outcome TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+        );
+
+        -- Enable RLS
+        ALTER TABLE visitation_personnel ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE visitation_resources ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE visitation_records ENABLE ROW LEVEL SECURITY;
+
+        -- Create policies
+        DROP POLICY IF EXISTS "Allow all for authenticated users on visitation_personnel" ON visitation_personnel;
+        CREATE POLICY "Allow all for authenticated users on visitation_personnel" ON visitation_personnel FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+        DROP POLICY IF EXISTS "Allow all for authenticated users on visitation_resources" ON visitation_resources;
+        CREATE POLICY "Allow all for authenticated users on visitation_resources" ON visitation_resources FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+        DROP POLICY IF EXISTS "Allow all for authenticated users on visitation_records" ON visitation_records;
+        CREATE POLICY "Allow all for authenticated users on visitation_records" ON visitation_records FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
         -- Ensure visitation_records has priority and outcome if not present
         DO $$ 
@@ -206,6 +274,9 @@ const FollowUpVisitationView: React.FC<FollowUpVisitationViewProps> = ({ setActi
             ALTER TABLE visitation_records ADD COLUMN outcome TEXT;
           END IF;
         END $$;
+
+        -- FORCE SCHEMA CACHE RELOAD
+        NOTIFY pgrst, 'reload schema';
       `;
 
       const { error } = await supabase.rpc('exec_sql', { sql_string: sql });
@@ -245,6 +316,7 @@ const FollowUpVisitationView: React.FC<FollowUpVisitationViewProps> = ({ setActi
     title: '',
     description: '',
     category: 'Template',
+    content: '',
     file_url: ''
   });
 
@@ -323,6 +395,7 @@ const FollowUpVisitationView: React.FC<FollowUpVisitationViewProps> = ({ setActi
       }
       setIsResourceModalOpen(false);
       setEditingResource(null);
+      setNewResource({ title: '', description: '', category: 'Template', content: '', file_url: '' });
       fetchResources();
     } catch (error: any) {
       toast.error(error.message);
@@ -642,9 +715,10 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;`}
                       </p>
                       <pre className="bg-slate-900 text-fh-gold p-4 rounded-xl text-[10px] overflow-x-auto font-mono max-h-48">
 {`-- Run this in Supabase SQL Editor
--- 1. Ensure the table exists with member_id
+-- 1. Ensure the tables exist with RLS policies
 DO $$ 
 BEGIN 
+  -- Visitation Personnel
   IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'visitation_personnel') THEN
     CREATE TABLE visitation_personnel (
       id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -656,28 +730,62 @@ BEGIN
       created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
     );
   ELSE
+    ALTER TABLE visitation_personnel ADD COLUMN IF NOT EXISTS member_id UUID;
     IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='visitation_personnel' AND column_name='user_id') THEN
-      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='visitation_personnel' AND column_name='member_id') THEN
-        ALTER TABLE visitation_personnel ADD COLUMN member_id UUID REFERENCES members(id) ON DELETE CASCADE;
-      END IF;
       ALTER TABLE visitation_personnel DROP COLUMN user_id;
     END IF;
   END IF;
-END $$;
 
--- 2. Ensure resources table exists
-CREATE TABLE IF NOT EXISTS visitation_resources (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  title TEXT NOT NULL,
-  description TEXT,
-  category TEXT NOT NULL,
-  file_url TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
-);`}
+  -- Visitation Records
+  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'visitation_records') THEN
+    CREATE TABLE visitation_records (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      member_id UUID REFERENCES members(id) ON DELETE CASCADE,
+      category TEXT NOT NULL,
+      priority TEXT DEFAULT 'Medium',
+      status TEXT DEFAULT 'Pending',
+      visit_date DATE NOT NULL,
+      notes TEXT,
+      outcome TEXT,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+    );
+  END IF;
+
+  -- Visitation Resources
+  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'visitation_resources') THEN
+    CREATE TABLE visitation_resources (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      title TEXT NOT NULL,
+      description TEXT,
+      category TEXT NOT NULL,
+      content TEXT,
+      file_url TEXT,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+    );
+  ELSE
+    ALTER TABLE visitation_resources ADD COLUMN IF NOT EXISTS content TEXT;
+  END IF;
+
+  -- Enable RLS
+  ALTER TABLE visitation_personnel ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE visitation_resources ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE visitation_records ENABLE ROW LEVEL SECURITY;
+
+  -- Create Policies
+  DROP POLICY IF EXISTS "Allow all for authenticated users on visitation_personnel" ON visitation_personnel;
+  CREATE POLICY "Allow all for authenticated users on visitation_personnel" ON visitation_personnel FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+  DROP POLICY IF EXISTS "Allow all for authenticated users on visitation_resources" ON visitation_resources;
+  CREATE POLICY "Allow all for authenticated users on visitation_resources" ON visitation_resources FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+  DROP POLICY IF EXISTS "Allow all for authenticated users on visitation_records" ON visitation_records;
+  CREATE POLICY "Allow all for authenticated users on visitation_records" ON visitation_records FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+END $$;`}
                       </pre>
                       <button 
                         onClick={() => {
-                          const sql = `-- Run this in Supabase SQL Editor\nDO $$ \nBEGIN \n  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'visitation_personnel') THEN\n    CREATE TABLE visitation_personnel (\n      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n      member_id UUID REFERENCES members(id) ON DELETE CASCADE,\n      role TEXT NOT NULL,\n      status TEXT DEFAULT 'Active', \n      assigned_cases INTEGER DEFAULT 0,\n      completion_rate INTEGER DEFAULT 0,\n      created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())\n    );\n  ELSE\n    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='visitation_personnel' AND column_name='user_id') THEN\n      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='visitation_personnel' AND column_name='member_id') THEN\n        ALTER TABLE visitation_personnel ADD COLUMN member_id UUID REFERENCES members(id) ON DELETE CASCADE;\n      END IF;\n      ALTER TABLE visitation_personnel DROP COLUMN user_id;\n    END IF;\n  END IF;\nEND $$;\n\nCREATE TABLE IF NOT EXISTS visitation_resources (\n  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n  title TEXT NOT NULL,\n  description TEXT,\n  category TEXT NOT NULL,\n  file_url TEXT,\n  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())\n);`;
+                          const sql = `-- Run this in Supabase SQL Editor\nDO $$ \nBEGIN \n  -- Visitation Personnel\n  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'visitation_personnel') THEN\n    CREATE TABLE visitation_personnel (\n      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n      member_id UUID REFERENCES members(id) ON DELETE CASCADE,\n      role TEXT NOT NULL,\n      status TEXT DEFAULT 'Active', \n      assigned_cases INTEGER DEFAULT 0,\n      completion_rate INTEGER DEFAULT 0,\n      created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())\n    );\n  ELSE\n    ALTER TABLE visitation_personnel ADD COLUMN IF NOT EXISTS member_id UUID;\n    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='visitation_personnel' AND column_name='user_id') THEN\n      ALTER TABLE visitation_personnel DROP COLUMN user_id;\n    END IF;\n  END IF;\n\n  -- Visitation Records\n  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'visitation_records') THEN\n    CREATE TABLE visitation_records (\n      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n      member_id UUID REFERENCES members(id) ON DELETE CASCADE,\n      category TEXT NOT NULL,\n      priority TEXT DEFAULT 'Medium',\n      status TEXT DEFAULT 'Pending',\n      visit_date DATE NOT NULL,\n      notes TEXT,\n      outcome TEXT,\n      created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())\n    );\n  END IF;\n\n  -- Visitation Resources\n  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'visitation_resources') THEN\n    CREATE TABLE visitation_resources (\n      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),\n      title TEXT NOT NULL,\n      description TEXT,\n      category TEXT NOT NULL,\n      file_url TEXT,\n      created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())\n    );\n  END IF;\n\n  -- Enable RLS\n  ALTER TABLE visitation_personnel ENABLE ROW LEVEL SECURITY;\n  ALTER TABLE visitation_resources ENABLE ROW LEVEL SECURITY;\n  ALTER TABLE visitation_records ENABLE ROW LEVEL SECURITY;\n\n  -- Create Policies\n  DROP POLICY IF EXISTS "Allow all for authenticated users on visitation_personnel" ON visitation_personnel;\n  CREATE POLICY "Allow all for authenticated users on visitation_personnel" ON visitation_personnel FOR ALL TO authenticated USING (true) WITH CHECK (true);\n\n  DROP POLICY IF EXISTS "Allow all for authenticated users on visitation_resources" ON visitation_resources;\n  CREATE POLICY "Allow all for authenticated users on visitation_resources" ON visitation_resources FOR ALL TO authenticated USING (true) WITH CHECK (true);\n\n  DROP POLICY IF EXISTS "Allow all for authenticated users on visitation_records" ON visitation_records;\n  CREATE POLICY "Allow all for authenticated users on visitation_records" ON visitation_records FOR ALL TO authenticated USING (true) WITH CHECK (true);\n\nEND $$;`;
                           navigator.clipboard.writeText(sql);
                           toast.success('SQL copied to clipboard');
                         }}
@@ -906,7 +1014,7 @@ CREATE TABLE IF NOT EXISTS visitation_resources (
               <button 
                 onClick={() => {
                   setEditingResource(null);
-                  setNewResource({ title: '', description: '', category: 'Template', file_url: '' });
+                  setNewResource({ title: '', description: '', category: 'Template', content: '', file_url: '' });
                   setIsResourceModalOpen(true);
                 }}
                 className="bg-slate-900 text-fh-gold px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-800 transition-all"
@@ -925,12 +1033,12 @@ CREATE TABLE IF NOT EXISTS visitation_resources (
                         <button 
                           onClick={() => {
                             setEditingResource(res);
-                            setNewResource({ title: res.title, description: res.description, category: res.category, file_url: res.file_url });
+                            setNewResource({ title: res.title, description: res.description, category: res.category, content: res.content || '', file_url: res.file_url || '' });
                             setIsResourceModalOpen(true);
                           }}
                           className="p-1 text-slate-400 hover:text-indigo-600"
                         >
-                          <FileText className="w-3 h-3" />
+                          <Edit3 className="w-3 h-3" />
                         </button>
                         <button 
                           onClick={() => handleDeleteResource(res.id)}
@@ -941,9 +1049,22 @@ CREATE TABLE IF NOT EXISTS visitation_resources (
                       </div>
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="font-bold text-slate-900">{res.title}</h4>
-                        <a href={res.file_url} target="_blank" rel="noreferrer">
-                          <Download className="w-4 h-4 text-slate-400 group-hover:text-indigo-600" />
-                        </a>
+                        <div className="flex items-center gap-2">
+                          {res.content && (
+                            <button 
+                              onClick={() => setSelectedResource(res)}
+                              className="p-1.5 bg-white text-indigo-600 rounded-lg border border-slate-200 hover:bg-indigo-50 transition-all"
+                              title="Read Document"
+                            >
+                              <FileText className="w-4 h-4" />
+                            </button>
+                          )}
+                          {res.file_url && (
+                            <a href={res.file_url} target="_blank" rel="noreferrer" className="p-1.5 bg-white text-slate-400 rounded-lg border border-slate-200 hover:text-indigo-600 transition-all">
+                              <Download className="w-4 h-4" />
+                            </a>
+                          )}
+                        </div>
                       </div>
                       <p className="text-xs text-slate-500">{res.description}</p>
                     </div>
@@ -962,12 +1083,12 @@ CREATE TABLE IF NOT EXISTS visitation_resources (
                         <button 
                           onClick={() => {
                             setEditingResource(res);
-                            setNewResource({ title: res.title, description: res.description, category: res.category, file_url: res.file_url });
+                            setNewResource({ title: res.title, description: res.description, category: res.category, content: res.content || '', file_url: res.file_url || '' });
                             setIsResourceModalOpen(true);
                           }}
                           className="p-1 text-slate-400 hover:text-indigo-600"
                         >
-                          <FileText className="w-3 h-3" />
+                          <Edit3 className="w-3 h-3" />
                         </button>
                         <button 
                           onClick={() => handleDeleteResource(res.id)}
@@ -978,7 +1099,22 @@ CREATE TABLE IF NOT EXISTS visitation_resources (
                       </div>
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="font-bold text-slate-900">{res.title}</h4>
-                        <FileText className="w-4 h-4 text-slate-400 group-hover:text-indigo-600" />
+                        <div className="flex items-center gap-2">
+                          {res.content && (
+                            <button 
+                              onClick={() => setSelectedResource(res)}
+                              className="p-1.5 bg-white text-indigo-600 rounded-lg border border-slate-200 hover:bg-indigo-50 transition-all"
+                              title="Read Document"
+                            >
+                              <FileText className="w-4 h-4" />
+                            </button>
+                          )}
+                          {res.file_url && (
+                            <a href={res.file_url} target="_blank" rel="noreferrer" className="p-1.5 bg-white text-slate-400 rounded-lg border border-slate-200 hover:text-indigo-600 transition-all">
+                              <Download className="w-4 h-4" />
+                            </a>
+                          )}
+                        </div>
                       </div>
                       <p className="text-xs text-slate-500">{res.description}</p>
                     </div>
@@ -1808,6 +1944,63 @@ CREATE TABLE IF NOT EXISTS visitation_resources (
         )}
       </AnimatePresence>
 
+      {/* Resource Reader Modal */}
+      <AnimatePresence>
+        {selectedResource && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedResource(null)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="relative bg-white w-full max-w-3xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 mb-1 block">{selectedResource.category}</span>
+                  <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">{selectedResource.title}</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  {selectedResource.file_url && (
+                    <a 
+                      href={selectedResource.file_url} 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="p-3 bg-white text-slate-600 rounded-2xl border border-slate-200 hover:text-indigo-600 hover:border-indigo-200 transition-all flex items-center gap-2 text-xs font-bold"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download
+                    </a>
+                  )}
+                  <button onClick={() => setSelectedResource(null)} className="p-3 bg-white hover:bg-slate-100 rounded-2xl border border-slate-200 transition-all">
+                    <X className="w-5 h-5 text-slate-400" />
+                  </button>
+                </div>
+              </div>
+              <div className="p-10 overflow-y-auto prose prose-slate max-w-none prose-headings:text-slate-900 prose-headings:font-black prose-p:text-slate-600 prose-strong:text-slate-900 prose-li:text-slate-600">
+                <div className="markdown-body">
+                  <Markdown>{selectedResource.content || '*No content available for this document.*'}</Markdown>
+                </div>
+              </div>
+              <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end">
+                <button 
+                  onClick={() => setSelectedResource(null)}
+                  className="px-8 py-3 bg-slate-900 text-fh-gold rounded-2xl font-bold uppercase tracking-widest text-xs shadow-lg hover:bg-slate-800 transition-all active:scale-95"
+                >
+                  Close Reader
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Resource Modal */}
       <AnimatePresence>
         {isResourceModalOpen && (
@@ -1831,7 +2024,7 @@ CREATE TABLE IF NOT EXISTS visitation_resources (
                   <X className="w-5 h-5 text-slate-400" />
                 </button>
               </div>
-              <div className="p-8 space-y-6">
+              <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Title</label>
                   <input
@@ -1859,13 +2052,23 @@ CREATE TABLE IF NOT EXISTS visitation_resources (
                   <textarea
                     value={newResource.description}
                     onChange={e => setNewResource({...newResource, description: e.target.value})}
-                    rows={3}
+                    rows={2}
                     className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500 transition-all resize-none"
                     placeholder="Brief description of the resource..."
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">File URL / Link</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Document Content (Markdown supported)</label>
+                  <textarea
+                    value={newResource.content}
+                    onChange={e => setNewResource({...newResource, content: e.target.value})}
+                    rows={8}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-500 transition-all resize-none"
+                    placeholder="# Document Title\n\nWrite your content here..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">External File URL (Optional)</label>
                   <input
                     type="text"
                     value={newResource.file_url}
