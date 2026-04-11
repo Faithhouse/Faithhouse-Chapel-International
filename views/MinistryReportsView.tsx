@@ -10,6 +10,7 @@ import {
   BarChart3, PieChart, Layers, Briefcase
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import MinistryReportDocument from '../src/components/MinistryReportDocument';
 
 interface MinistryReport {
   id: string;
@@ -622,103 +623,13 @@ const MinistryReportsView: React.FC<MinistryReportsViewProps> = ({ currentUser, 
                 </div>
               </div>
 
-              <div className="p-16 overflow-y-auto print:p-0 scrollbar-hide">
-                <div className="max-w-4xl mx-auto">
-                  {/* Report Content */}
-                  <div className="text-center mb-16">
-                    <h1 className="text-5xl font-black text-fh-green uppercase tracking-tighter mb-4">Faithhouse Chapel International</h1>
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-[0.6em] mb-8">Ministry Performance & Accountability Report</p>
-                    <div className="inline-block px-10 py-4 bg-slate-900 text-fh-gold rounded-2xl font-black uppercase text-sm tracking-widest shadow-lg">
-                      {viewingReport.report_type} Report • {viewingReport.period} {viewingReport.year}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-12 mb-16">
-                    <div className="space-y-2">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Department Name</p>
-                      <h4 className="text-2xl font-black text-slate-900 uppercase tracking-tight">{viewingReport.ministries?.name}</h4>
-                    </div>
-                    <div className="space-y-2 text-right">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Submission Date</p>
-                      <h4 className="text-xl font-black text-slate-900">{new Date(viewingReport.created_at).toLocaleDateString('en-US', { dateStyle: 'long' })}</h4>
-                    </div>
-                  </div>
-
-                  <div className="space-y-16">
-                    <section className="space-y-6">
-                      <h5 className="text-xs font-black text-slate-900 uppercase tracking-[0.3em] border-b-2 border-slate-900 pb-3 flex items-center gap-3">
-                        <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                        Executive Summary & Achievements
-                      </h5>
-                      <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100 leading-relaxed text-slate-700 font-medium">
-                        {viewingReport.achievements || 'No achievements documented for this period.'}
-                      </div>
-                    </section>
-
-                    <section className="space-y-6">
-                      <h5 className="text-xs font-black text-slate-900 uppercase tracking-[0.3em] border-b-2 border-slate-900 pb-3 flex items-center gap-3">
-                        <AlertCircle className="w-5 h-5 text-rose-500" />
-                        Operational Challenges
-                      </h5>
-                      <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100 leading-relaxed text-slate-700 font-medium">
-                        {viewingReport.challenges || 'No challenges documented for this period.'}
-                      </div>
-                    </section>
-
-                    <section className="space-y-6">
-                      <h5 className="text-xs font-black text-slate-900 uppercase tracking-[0.3em] border-b-2 border-slate-900 pb-3 flex items-center gap-3">
-                        <TrendingUp className="w-5 h-5 text-indigo-500" />
-                        Future Objectives & Goals
-                      </h5>
-                      <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100 leading-relaxed text-slate-700 font-medium">
-                        {viewingReport.goals_next_period || 'No future goals documented for this period.'}
-                      </div>
-                    </section>
-
-                    <div className="grid grid-cols-2 gap-10">
-                      <div className="p-8 bg-slate-900 text-white rounded-[2.5rem] shadow-2xl relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
-                        <h5 className="text-[10px] font-black uppercase tracking-widest text-indigo-300 mb-6">Attendance Metrics</h5>
-                        <div className="space-y-4">
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-slate-400">Average Attendance</span>
-                            <span className="text-xl font-black">{viewingReport.attendance_summary?.average || 0}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-slate-400">Peak Attendance</span>
-                            <span className="text-xl font-black">{viewingReport.attendance_summary?.peak || 0}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="p-8 bg-fh-green text-fh-gold rounded-[2.5rem] shadow-2xl relative overflow-hidden">
-                         <div className="absolute top-0 right-0 w-32 h-32 bg-black/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
-                        <h5 className="text-[10px] font-black uppercase tracking-widest text-fh-gold/60 mb-6">Financial Overview</h5>
-                        <div className="space-y-4">
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-fh-gold/80">Total Revenue</span>
-                            <span className="text-xl font-black">GH₵{viewingReport.financial_summary?.income || 0}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-fh-gold/80">Total Expenditure</span>
-                            <span className="text-xl font-black">GH₵{viewingReport.financial_summary?.expenses || 0}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-32 pt-16 border-t-2 border-dashed border-slate-200 grid grid-cols-2 gap-24 text-center">
-                    <div className="space-y-16">
-                      <div className="h-px bg-slate-300 w-full"></div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">Ministry Leader Signature</p>
-                    </div>
-                    <div className="space-y-16">
-                      <div className="h-px bg-slate-300 w-full"></div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">General Overseer Approval</p>
-                    </div>
-                  </div>
-                </div>
+              <div className="flex-1 overflow-y-auto print:overflow-visible scrollbar-hide">
+                <MinistryReportDocument 
+                  organizationName="Faithhouse Chapel International"
+                  reportPeriod={`${viewingReport.period} ${viewingReport.year}`}
+                  dateGenerated={new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}
+                  report={viewingReport}
+                />
               </div>
             </motion.div>
           </div>

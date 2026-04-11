@@ -349,6 +349,31 @@ export interface TitheRecord {
   members?: Member;
 }
 
+export interface MinistryReport {
+  id: string;
+  ministry_id: string;
+  report_type: 'Quarterly' | 'Mid-year' | 'Annual';
+  year: number;
+  period: string;
+  achievements: string;
+  challenges: string;
+  goals_next_period: string;
+  financial_summary: {
+    income: number;
+    expenses: number;
+    balance: number;
+  };
+  attendance_summary: {
+    average: number;
+    peak: number;
+    growth: number;
+  };
+  other_metrics: any;
+  status: 'Draft' | 'Submitted' | 'Approved';
+  created_at: string;
+  ministries?: { name: string };
+}
+
 export type UserRole = 'system_admin' | 'general_overseer' | 'admin' | 'pastor' | 'finance' | 'media' | 'worker';
 
 export interface UserProfile {
