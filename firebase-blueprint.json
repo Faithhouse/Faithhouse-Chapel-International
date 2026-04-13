@@ -31,6 +31,23 @@
         "created_at": { "type": "string", "format": "date-time" }
       },
       "required": ["member_id", "amount", "payment_date", "payment_method", "recorded_by"]
+    },
+    "MinistryReport": {
+      "title": "Ministry Report",
+      "description": "A quarterly, mid-year or annual report for a ministry",
+      "type": "object",
+      "properties": {
+        "ministry_id": { "type": "string" },
+        "report_type": { "type": "string", "enum": ["Quarterly", "Mid-year", "Annual"] },
+        "year": { "type": "number" },
+        "period": { "type": "string" },
+        "achievements": { "type": "string" },
+        "challenges": { "type": "string" },
+        "goals_next_period": { "type": "string" },
+        "status": { "type": "string", "enum": ["Draft", "Submitted", "Approved"] },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ministry_id", "report_type", "year", "period", "status"]
     }
   },
   "firestore": {
@@ -41,6 +58,10 @@
     "/tithe_records/{titheId}": {
       "schema": "TitheRecord",
       "description": "Collection of tithe payment records"
+    },
+    "/ministry_reports/{reportId}": {
+      "schema": "MinistryReport",
+      "description": "Collection of ministry reports"
     }
   }
 }

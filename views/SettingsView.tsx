@@ -25,8 +25,15 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [slideshowImages, setSlideshowImages] = useState<string[]>([]);
+  const [dashboardBgs, setDashboardBgs] = useState({
+    main: '',
+    executive: '',
+    youth: ''
+  });
   const [newImageUrl, setNewImageUrl] = useState('');
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const bgInputRef = React.useRef<HTMLInputElement>(null);
+  const [activeBgTarget, setActiveBgTarget] = useState<'main' | 'executive' | 'youth' | null>(null);
 
   useEffect(() => {
     fetchSettings();
@@ -34,14 +41,31 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
 
   const fetchSettings = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch Login Slideshow
+      const { data: slideshowData } = await supabase
         .from('system_settings')
         .select('value')
         .eq('id', 'login_slideshow')
         .single();
       
-      if (data && Array.isArray(data.value)) {
-        setSlideshowImages(data.value);
+      if (slideshowData && Array.isArray(slideshowData.value)) {
+        setSlideshowImages(slideshowData.value);
+      }
+
+      // Fetch Dashboard Backgrounds
+      const { data: bgData } = await supabase
+        .from('system_settings')
+        .select('id, value')
+        .in('id', ['dashboard_bg_main', 'dashboard_bg_executive', 'dashboard_bg_youth']);
+      
+      if (bgData) {
+        const bgs = { ...dashboardBgs };
+        bgData.forEach(item => {
+          if (item.id === 'dashboard_bg_main') bgs.main = item.value;
+          if (item.id === 'dashboard_bg_executive') bgs.executive = item.value;
+          if (item.id === 'dashboard_bg_youth') bgs.youth = item.value;
+        });
+        setDashboardBgs(bgs);
       }
     } catch (err) {
       console.error('Error fetching settings:', err);
@@ -49,17 +73,15 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'slideshow' | 'main' | 'executive' | 'youth' = 'slideshow') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       toast.error('Please upload an image file');
       return;
     }
 
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       toast.error('Image size must be less than 5MB');
       return;
@@ -69,32 +91,31 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
-      const filePath = `slideshow/${fileName}`;
+      const filePath = `${target}/${fileName}`;
 
-      // Upload to 'system-assets' bucket
-      const { data, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('system-assets')
         .upload(filePath, file);
 
-      if (uploadError) {
-        // If bucket doesn't exist, we might need to create it or use public URL
-        // In this environment, we'll try to use a public bucket if possible
-        throw uploadError;
-      }
+      if (uploadError) throw uploadError;
 
-      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('system-assets')
         .getPublicUrl(filePath);
 
-      setSlideshowImages([...slideshowImages, publicUrl]);
+      if (target === 'slideshow') {
+        setSlideshowImages([...slideshowImages, publicUrl]);
+      } else {
+        setDashboardBgs(prev => ({ ...prev, [target]: publicUrl }));
+      }
       toast.success('Image uploaded successfully');
     } catch (error: any) {
       console.error('Upload error:', error);
-      toast.error(error.message || 'Failed to upload image. Ensure "system-assets" bucket exists.');
+      toast.error(error.message || 'Failed to upload image');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      if (bgInputRef.current) bgInputRef.current.value = '';
     }
   };
 
@@ -115,15 +136,27 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
   const handleSaveSettings = async () => {
     setIsSubmitting(true);
     try {
-      const { error } = await supabase
+      // Save Slideshow
+      const { error: sErr } = await supabase
         .from('system_settings')
         .upsert({
           id: 'login_slideshow',
           value: slideshowImages,
           updated_at: new Date().toISOString()
         });
+      if (sErr) throw sErr;
 
-      if (error) throw error;
+      // Save Dashboard BGs
+      const bgPromises = [
+        supabase.from('system_settings').upsert({ id: 'dashboard_bg_main', value: dashboardBgs.main, updated_at: new Date().toISOString() }),
+        supabase.from('system_settings').upsert({ id: 'dashboard_bg_executive', value: dashboardBgs.executive, updated_at: new Date().toISOString() }),
+        supabase.from('system_settings').upsert({ id: 'dashboard_bg_youth', value: dashboardBgs.youth, updated_at: new Date().toISOString() })
+      ];
+      
+      const results = await Promise.all(bgPromises);
+      const firstError = results.find(r => r.error);
+      if (firstError) throw firstError.error;
+
       toast.success('System settings updated successfully');
     } catch (error: any) {
       console.error('Error saving settings:', error);
@@ -135,7 +168,14 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
 
   const [showRepair, setShowRepair] = useState(false);
 
-  const repairSQL = `-- 1. CREATE STORAGE BUCKET
+  const repairSQL = `-- 1. CREATE SYSTEM SETTINGS TABLE
+CREATE TABLE IF NOT EXISTS public.system_settings (
+  id TEXT PRIMARY KEY,
+  value JSONB,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- 2. CREATE STORAGE BUCKET
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('system-assets', 'system-assets', true)
 ON CONFLICT (id) DO NOTHING;
@@ -319,6 +359,67 @@ CREATE POLICY "Allow public manage settings" ON system_settings FOR ALL TO publi
                 )}
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Dashboard Backgrounds Management */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 rounded-xl bg-fh-gold/10 text-fh-gold flex items-center justify-center">
+                <ImageIcon className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-black text-slate-900">Dashboard Backgrounds</h2>
+                <p className="text-xs text-slate-500 font-medium">Customize the faded background images for each module</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {([
+                { id: 'main', label: 'Main Dashboard', current: dashboardBgs.main },
+                { id: 'executive', label: 'Executive Oversight', current: dashboardBgs.executive },
+                { id: 'youth', label: 'Youth & Children', current: dashboardBgs.youth }
+              ] as const).map((bg) => (
+                <div key={bg.id} className="space-y-4">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{bg.label}</p>
+                  <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-50 border border-slate-100 group">
+                    {bg.current ? (
+                      <img src={bg.current} alt={bg.label} className="w-full h-full object-cover opacity-40 group-hover:opacity-60 transition-opacity" referrerPolicy="no-referrer" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-300">
+                        <ImageIcon className="w-8 h-8" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/40">
+                      <button 
+                        onClick={() => {
+                          setActiveBgTarget(bg.id);
+                          bgInputRef.current?.click();
+                        }}
+                        className="p-3 bg-white text-slate-900 rounded-xl shadow-xl hover:scale-110 transition-all"
+                      >
+                        <Upload className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                  <input
+                    type="text"
+                    value={bg.current}
+                    onChange={(e) => setDashboardBgs(prev => ({ ...prev, [bg.id]: e.target.value }))}
+                    placeholder="Image URL..."
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-medium focus:ring-2 focus:ring-fh-gold/20"
+                  />
+                </div>
+              ))}
+            </div>
+            <input 
+              type="file" 
+              ref={bgInputRef} 
+              onChange={(e) => activeBgTarget && handleFileUpload(e, activeBgTarget)} 
+              className="hidden" 
+              accept="image/*"
+            />
           </div>
         </div>
 

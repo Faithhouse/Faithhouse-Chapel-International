@@ -11,7 +11,7 @@ import EventsView from './views/EventsView';
 import FinanceView from './views/FinanceView';
 import BranchesView from './views/BranchesView';
 import MinistriesView from './views/MinistriesView';
-import LeadershipView from './views/LeadershipView';
+import LeadershipDevelopmentView from './views/LeadershipDevelopmentView';
 import VisitationView from './views/VisitationView';
 import MinistryModuleView from './views/MinistryModuleView';
 import CellMeetingView from './views/CellMeetingView';
@@ -222,7 +222,9 @@ const App: React.FC = () => {
         
         case 'Leadership Registry':
         case 'Church Leadership':
-          return <LeadershipView />;
+        case 'Ministerial & Leadership':
+        case 'Leadership & Development':
+          return <LeadershipDevelopmentView currentUser={currentUser} />;
         
         case 'Ministries':
           return <MinistriesView setActiveItem={handleSetActiveItem as any} />;

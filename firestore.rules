@@ -27,6 +27,14 @@ service cloud.firestore {
     //   - notes: string (optional)
     //   - created_at: timestamp (optional)
     //
+    // Collection: ministry_reports
+    // Fields:
+    //   - ministry_id: string (required)
+    //   - report_type: string (required, enum: Quarterly, Mid-year, Annual)
+    //   - year: number (required)
+    //   - period: string (required)
+    //   - status: string (required, enum: Draft, Submitted, Approved)
+    //
     // ===============================================================
 
     // Helper Functions
@@ -63,6 +71,14 @@ service cloud.firestore {
              data.recorded_by == request.auth.uid;
     }
 
+    function isValidMinistryReport(data) {
+      return data.ministry_id is string &&
+             data.report_type in ['Quarterly', 'Mid-year', 'Annual'] &&
+             data.year is number &&
+             data.period is string &&
+             data.status in ['Draft', 'Submitted', 'Approved'];
+    }
+
     match /members/{memberId} {
       allow read: if isAuthenticated();
       allow create, update: if isAdmin() && isValidMember(request.resource.data);
@@ -73,6 +89,12 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && isValidTithe(request.resource.data);
       allow update: if isAdmin() && isValidTithe(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /ministry_reports/{reportId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && isValidMinistryReport(request.resource.data);
       allow delete: if isAdmin();
     }
     

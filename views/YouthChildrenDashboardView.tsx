@@ -28,10 +28,25 @@ const YouthChildrenDashboardView: React.FC<YouthChildrenDashboardViewProps> = ()
   });
 
   const [attendanceData, setAttendanceData] = useState<any[]>([]);
+  const [bgImage, setBgImage] = useState<string>('https://picsum.photos/seed/sunday-school/1920/1080?blur=6');
 
   useEffect(() => {
     fetchCombinedStats();
+    fetchBgImage();
   }, []);
+
+  const fetchBgImage = async () => {
+    try {
+      const { data } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('id', 'dashboard_bg_youth')
+        .single();
+      if (data?.value) setBgImage(data.value);
+    } catch (err) {
+      console.error('Error fetching bg image:', err);
+    }
+  };
 
   const fetchCombinedStats = async () => {
     setIsLoading(true);
@@ -248,8 +263,41 @@ NOTIFY pgrst, 'reload schema';`;
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700">
-      {/* Header */}
+    <div className="relative min-h-screen">
+      {/* Faded Background Layer */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-50/10 via-white/40 to-white z-10" />
+        
+        {/* Primary Church Backdrop */}
+        <img 
+          src={bgImage} 
+          alt="" 
+          className="absolute inset-0 w-full h-full object-cover opacity-[0.25]"
+          referrerPolicy="no-referrer"
+        />
+
+        {/* Floating Decorative Blobs */}
+        <motion.div 
+          animate={{ 
+            scale: [1, 1.1, 1],
+            rotate: [0, 45, 0],
+            x: [0, 30, 0]
+          }}
+          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-[10%] left-[5%] w-[400px] h-[400px] bg-blue-500/10 rounded-full blur-[100px]" 
+        />
+        <motion.div 
+          animate={{ 
+            scale: [1.1, 1, 1.1],
+            rotate: [0, -45, 0],
+            x: [0, -30, 0]
+          }}
+          transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute bottom-[20%] right-[5%] w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-[120px]" 
+        />
+      </div>
+
+      <div className="relative z-10 space-y-8 animate-in fade-in duration-700 pb-24">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
           <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Youth & Children Ministry</h1>
@@ -446,7 +494,8 @@ NOTIFY pgrst, 'reload schema';`;
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 };
 
 export default YouthChildrenDashboardView;

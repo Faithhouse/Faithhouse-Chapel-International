@@ -210,6 +210,7 @@ export interface Ministry {
   id: string;
   name: string;
   leader_name?: string;
+  email?: string;
   description?: string;
   meeting_schedule?: string;
   status: 'Active' | 'Inactive';
@@ -372,6 +373,37 @@ export interface MinistryReport {
   status: 'Draft' | 'Submitted' | 'Approved';
   created_at: string;
   ministries?: { name: string };
+}
+
+export interface MinisterialAppraisal {
+  id: string;
+  leader_id: string;
+  appraiser_id: string;
+  period: string;
+  spiritual_growth_score: number;
+  leadership_score: number;
+  operational_efficiency_score: number;
+  pastoral_care_score: number;
+  strengths: string;
+  areas_for_improvement: string;
+  recommendations: string;
+  status: 'Draft' | 'Submitted' | 'Reviewed';
+  created_at: string;
+  leadership?: { first_name: string, last_name: string, position: string };
+  appraiser?: { full_name: string };
+}
+
+export interface LeadershipPipeline {
+  id: string;
+  member_id: string;
+  current_level: string;
+  progress_percentage: number;
+  mentor_id?: string;
+  notes?: string;
+  status: 'Active' | 'Graduated' | 'Dropped';
+  updated_at: string;
+  members?: Member;
+  mentor?: { full_name: string };
 }
 
 export type UserRole = 'system_admin' | 'general_overseer' | 'admin' | 'pastor' | 'finance' | 'media' | 'worker';

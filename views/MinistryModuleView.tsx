@@ -26,18 +26,22 @@ interface MinistryModuleViewProps {
 const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName }) => {
   const [activeTab, setActiveTab] = useState<'Overview' | 'Leadership' | 'Personnel' | 'Operations' | 'Resources' | 'Attendance' | 'Visitation' | 'Curriculum' | 'Reports'>('Overview');
   const [currentMinistryId, setCurrentMinistryId] = useState<string | null>(null);
+  const [ministryEmail, setMinistryEmail] = useState<string | null>(null);
 
   useEffect(() => {
     setActiveTab('Overview');
-    const fetchMinistryId = async () => {
+    const fetchMinistryDetails = async () => {
       const { data } = await supabase
         .from('ministries')
-        .select('id')
+        .select('id, email')
         .eq('name', ministryName)
         .single();
-      if (data) setCurrentMinistryId(data.id);
+      if (data) {
+        setCurrentMinistryId(data.id);
+        setMinistryEmail(data.email);
+      }
     };
-    fetchMinistryId();
+    fetchMinistryDetails();
   }, [ministryName]);
 
   const [ministryMembers, setMinistryMembers] = useState<Member[]>([]);
@@ -1867,6 +1871,11 @@ NOTIFY pgrst, 'reload schema';`;
                <span className="text-[10px] font-black text-fh-gold uppercase tracking-[0.2em]">Oversight Active</span>
             </div>
             <h2 className="text-4xl font-black text-fh-green tracking-tighter uppercase leading-none">{ministryName}</h2>
+            {ministryEmail && (
+              <p className="text-[10px] font-black text-fh-green mt-1 opacity-60 tracking-widest uppercase">
+                Official Email: {ministryEmail}
+              </p>
+            )}
           </div>
         </div>
 

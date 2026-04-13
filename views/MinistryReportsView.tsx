@@ -60,6 +60,7 @@ const MinistryReportsView: React.FC<MinistryReportsViewProps> = ({ currentUser, 
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [viewingReport, setViewingReport] = useState<MinistryReport | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const repairSQL = `
     CREATE TABLE IF NOT EXISTS public.ministry_reports (
@@ -180,12 +181,13 @@ const MinistryReportsView: React.FC<MinistryReportsViewProps> = ({ currentUser, 
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this report?")) return;
+  const handleDelete = async () => {
+    if (!deletingId) return;
     try {
-      const { error } = await supabase.from('ministry_reports').delete().eq('id', id);
+      const { error } = await supabase.from('ministry_reports').delete().eq('id', deletingId);
       if (error) throw error;
       toast.success("Report deleted");
+      setDeletingId(null);
       fetchInitialData();
     } catch (error: any) {
       toast.error(error.message);
@@ -380,7 +382,7 @@ const MinistryReportsView: React.FC<MinistryReportsViewProps> = ({ currentUser, 
                   <Edit3 className="w-4 h-4" />
                 </button>
                 <button 
-                  onClick={() => handleDelete(report.id)}
+                  onClick={() => setDeletingId(report.id)}
                   className="p-2 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-rose-500 transition-all shadow-sm active:scale-90"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -399,6 +401,47 @@ const MinistryReportsView: React.FC<MinistryReportsViewProps> = ({ currentUser, 
           <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-slate-100 shadow-inner italic text-slate-300 font-black uppercase tracking-widest text-xs">No reports submitted yet.</div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {deletingId && (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+              onClick={() => setDeletingId(null)}
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative bg-white p-10 rounded-[3rem] shadow-2xl max-w-sm w-full text-center border-b-[12px] border-rose-500"
+            >
+              <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-inner">
+                <Trash2 className="w-10 h-10" />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter mb-4">Confirm Deletion</h3>
+              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-10 leading-relaxed">Are you absolutely sure you want to remove this report? This action cannot be undone.</p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setDeletingId(null)}
+                  className="flex-1 py-4 bg-slate-100 text-slate-400 rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleDelete}
+                  className="flex-1 py-4 bg-rose-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-rose-200 active:scale-95 transition-all"
+                >
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Report Modal */}
       <AnimatePresence>

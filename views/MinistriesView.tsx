@@ -17,10 +17,12 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
     leader_name: '',
+    email: '',
     description: '',
     meeting_schedule: '',
     status: 'Active' as 'Active' | 'Inactive',
@@ -68,6 +70,65 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem }) => {
     }
   };
 
+  const generateOfficialEmails = async () => {
+    if (!confirm('This will generate official @faithhouse.church emails for all ministries that don\'t have one. Continue?')) return;
+    
+    setIsGenerating(true);
+    try {
+      const { data: currentMinistries } = await supabase.from('ministries').select('*');
+      if (!currentMinistries) return;
+
+      const updates = currentMinistries.map(min => {
+        if (min.email) return null;
+        
+        // Create slug from name
+        const slug = min.name
+          .toLowerCase()
+          .replace(/ ministry/g, '')
+          .replace(/ department/g, '')
+          .replace(/[^a-z0-9]/g, '');
+          
+        return {
+          ...min,
+          email: `${slug}@faithhouse.church`
+        };
+      }).filter(Boolean);
+
+      if (updates.length > 0) {
+        const { error } = await supabase.from('ministries').upsert(updates);
+        if (error) throw error;
+
+        // Also add these emails to the profiles table so they can be managed as users
+        const profileUpdates = updates.map(min => ({
+          email: min.email,
+          full_name: min.name,
+          role: 'worker' // Default role for ministry accounts
+        }));
+
+        // Use upsert on profiles based on email to avoid duplicates
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert(profileUpdates, { onConflict: 'email' });
+
+        if (profileError) {
+          console.warn('Could not sync all emails to profiles:', profileError);
+          toast.info("Emails generated, but user profile sync had issues.");
+        } else {
+          toast.success(`Generated ${updates.length} official emails and synced to User Directory!`);
+        }
+        
+        await fetchMinistries();
+      } else {
+        toast.info("All ministries already have official emails.");
+      }
+    } catch (err: any) {
+      console.error('Generation error:', err);
+      toast.error("Failed to generate emails. Check database schema.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -82,6 +143,7 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem }) => {
       const payload = { 
         name: formData.name.trim(),
         leader_name: formData.leader_name.trim() || null,
+        email: formData.email.trim() || null,
         description: formData.description.trim() || null,
         meeting_schedule: formData.meeting_schedule.trim() || null,
         status: formData.status
@@ -97,6 +159,15 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem }) => {
       }
 
       if (error) throw error;
+
+      // Sync to profiles if email exists
+      if (payload.email) {
+        await supabase.from('profiles').upsert({
+          email: payload.email,
+          full_name: payload.name,
+          role: 'worker'
+        }, { onConflict: 'email' });
+      }
 
       setIsModalOpen(false);
       setEditingId(null);
@@ -117,6 +188,7 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem }) => {
     setFormData({
       name: '',
       leader_name: '',
+      email: '',
       description: '',
       meeting_schedule: '',
       status: 'Active',
@@ -128,6 +200,7 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem }) => {
     setFormData({
       name: ministry.name,
       leader_name: ministry.leader_name || '',
+      email: ministry.email || '',
       description: ministry.description || '',
       meeting_schedule: ministry.meeting_schedule || '',
       status: ministry.status,
@@ -152,6 +225,7 @@ CREATE TABLE IF NOT EXISTS public.ministries (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
   leader_name TEXT,
+  email TEXT,
   description TEXT,
   meeting_schedule TEXT,
   status TEXT DEFAULT 'Active',
@@ -211,6 +285,14 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
           <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.4em]">Operational Oversight Hub</p>
         </div>
         <div className="flex gap-4">
+          <button 
+            onClick={generateOfficialEmails}
+            disabled={isGenerating}
+            className="px-6 py-4 bg-white border border-slate-200 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-3 hover:bg-slate-50 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+          >
+            <svg className={`w-5 h-5 text-fh-green ${isGenerating ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+            {isGenerating ? 'Generating...' : 'Generate Emails'}
+          </button>
           <button onClick={() => setActiveItem('Ministry Reports')} className="px-8 py-4 bg-white border border-slate-200 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-3 hover:bg-slate-50 transition-all shadow-sm active:scale-95">
             <svg className="w-5 h-5 text-fh-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
             Ministry Reports
@@ -256,6 +338,13 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
               </div>
               
               <h3 className="text-xs font-black text-slate-900 mb-1 group-hover:text-fh-green transition-colors uppercase truncate">{min.name}</h3>
+              
+              {min.email && (
+                <p className="text-[8px] font-black text-fh-green mb-1 truncate opacity-80">
+                  {min.email}
+                </p>
+              )}
+
               <p className="text-[9px] text-slate-400 line-clamp-2 h-6 font-medium mb-3 leading-relaxed">
                 {min.description || 'Ministry operational scope.'}
               </p>
@@ -302,6 +391,7 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Ministry Name *</label><input type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-fh-gold/5 font-bold text-slate-800 shadow-inner" placeholder="e.g. Media Ministry" required /></div>
                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Leader</label><input type="text" name="leader_name" value={formData.leader_name} onChange={handleInputChange} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-fh-gold/5 font-bold text-slate-800 shadow-inner" placeholder="Leader Name" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Ministry Email</label><input type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-fh-gold/5 font-bold text-slate-800 shadow-inner" placeholder="e.g. music@faithhouse.church" /></div>
                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Meeting Schedule</label><input type="text" name="meeting_schedule" value={formData.meeting_schedule} onChange={handleInputChange} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-fh-gold/5 font-bold text-slate-800 shadow-inner" placeholder="e.g. Sundays 4PM" /></div>
                 <div className="md:col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Description</label><textarea name="description" value={formData.description} onChange={handleInputChange} rows={3} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-fh-gold/5 font-bold text-slate-800 shadow-inner resize-none" placeholder="Brief mission statement..." /></div>
               </div>

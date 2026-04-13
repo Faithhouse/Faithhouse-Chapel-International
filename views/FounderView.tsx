@@ -57,10 +57,25 @@ const FounderView: React.FC<FounderViewProps> = ({ setActiveItem }) => {
   const [branchDistribution, setBranchDistribution] = useState<any[]>([]);
   const [ministryPerformance, setMinistryPerformance] = useState<any[]>([]);
   const [recentGlobalActivity, setRecentGlobalActivity] = useState<any[]>([]);
+  const [bgImage, setBgImage] = useState<string>('https://picsum.photos/seed/church-interior/1920/1080?blur=6');
 
   useEffect(() => {
     fetchGlobalSummary();
+    fetchBgImage();
   }, []);
+
+  const fetchBgImage = async () => {
+    try {
+      const { data } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('id', 'dashboard_bg_executive')
+        .single();
+      if (data?.value) setBgImage(data.value);
+    } catch (err) {
+      console.error('Error fetching bg image:', err);
+    }
+  };
 
   const fetchGlobalSummary = async () => {
     setIsLoading(true);
@@ -184,6 +199,7 @@ const FounderView: React.FC<FounderViewProps> = ({ setActiveItem }) => {
           
           return {
             name: min.name,
+            email: min.email,
             members: ministryMembers.length,
             contribution: totalContribution,
             score: Math.min(100, (ministryMembers.length * 5) + (totalContribution / 100)) // Simple performance score
@@ -233,8 +249,56 @@ const FounderView: React.FC<FounderViewProps> = ({ setActiveItem }) => {
   const COLORS = ['#20c997', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
   return (
-    <div className="space-y-8 pb-24">
-      {/* Header */}
+    <div className="relative min-h-screen">
+      {/* Faded Background Layer */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-50/10 via-white/40 to-white z-10" />
+        
+        {/* Primary Church Backdrop */}
+        <img 
+          src={bgImage} 
+          alt="" 
+          className="absolute inset-0 w-full h-full object-cover opacity-[0.25]"
+          referrerPolicy="no-referrer"
+        />
+
+        {/* Secondary Decorative Elements */}
+        <img 
+          src="https://picsum.photos/seed/altar/800/800?blur=10" 
+          alt="" 
+          className="absolute top-0 left-0 w-1/2 h-1/2 object-cover opacity-[0.1] rounded-full -translate-y-1/4 -translate-x-1/4"
+          referrerPolicy="no-referrer"
+        />
+        
+        <img 
+          src="https://picsum.photos/seed/cross/800/800?blur=10" 
+          alt="" 
+          className="absolute bottom-0 right-0 w-1/2 h-1/2 object-cover opacity-[0.1] rounded-full translate-y-1/4 translate-x-1/4"
+          referrerPolicy="no-referrer"
+        />
+
+        {/* Floating Decorative Blobs */}
+        <motion.div 
+          animate={{ 
+            scale: [1, 1.1, 1],
+            rotate: [0, 45, 0],
+            x: [0, 30, 0]
+          }}
+          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-[10%] right-[5%] w-[400px] h-[400px] bg-fh-green/10 rounded-full blur-[100px]" 
+        />
+        <motion.div 
+          animate={{ 
+            scale: [1.1, 1, 1.1],
+            rotate: [0, -45, 0],
+            x: [0, -30, 0]
+          }}
+          transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute bottom-[20%] left-[5%] w-[500px] h-[500px] bg-fh-gold/10 rounded-full blur-[120px]" 
+        />
+      </div>
+
+      <div className="relative z-10 space-y-8 pb-24">
       <div className="flex flex-col items-center text-center gap-4 mb-12">
         <div className="w-20 h-20 bg-slate-900 text-fh-gold rounded-[2rem] flex items-center justify-center shadow-2xl mb-4">
           <ShieldCheck className="w-10 h-10" />
@@ -328,7 +392,10 @@ const FounderView: React.FC<FounderViewProps> = ({ setActiveItem }) => {
                   </div>
                 </div>
 
-                <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-4 truncate">{min.name}</h4>
+                <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-1 truncate">{min.name}</h4>
+                {min.email && (
+                  <p className="text-[9px] font-black text-fh-green mb-4 truncate opacity-60">{min.email}</p>
+                )}
 
                 <div className="space-y-3 relative z-10">
                   <div className="flex justify-between items-center">
@@ -541,7 +608,8 @@ const FounderView: React.FC<FounderViewProps> = ({ setActiveItem }) => {
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 };
 
 const ExecutiveCard = ({ title, value, trend, icon, color, isLoading, onClick }: any) => {

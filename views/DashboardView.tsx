@@ -75,9 +75,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
   const [error, setError] = useState<string | null>(null);
   const [tableMissing, setTableMissing] = useState(false);
   const [missingTableName, setMissingTableName] = useState<string | null>(null);
+  const [bgImage, setBgImage] = useState<string>('https://picsum.photos/seed/cathedral/1920/1080?blur=6');
 
   useEffect(() => {
     fetchDashboardData();
+    fetchBgImage();
 
     const channel = supabase
       .channel('dashboard-updates')
@@ -277,6 +279,19 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
     }
   };
 
+  const fetchBgImage = async () => {
+    try {
+      const { data } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('id', 'dashboard_bg_main')
+        .single();
+      if (data?.value) setBgImage(data.value);
+    } catch (err) {
+      console.error('Error fetching bg image:', err);
+    }
+  };
+
   const getRelativeTime = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -464,8 +479,56 @@ NOTIFY pgrst, 'reload schema';`;
   }
 
   return (
-    <div className="space-y-8 pb-24 relative">
-      
+    <div className="relative min-h-screen">
+      {/* Faded Background Layer */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-50/10 via-white/40 to-white z-10" />
+        
+        {/* Primary Church Backdrop */}
+        <img 
+          src={bgImage} 
+          alt="" 
+          className="absolute inset-0 w-full h-full object-cover opacity-[0.25]"
+          referrerPolicy="no-referrer"
+        />
+
+        {/* Secondary Decorative Elements */}
+        <img 
+          src="https://picsum.photos/seed/stained-glass/800/800?blur=10" 
+          alt="" 
+          className="absolute top-0 right-0 w-1/2 h-1/2 object-cover opacity-[0.1] rounded-full -translate-y-1/4 translate-x-1/4"
+          referrerPolicy="no-referrer"
+        />
+        
+        <img 
+          src="https://picsum.photos/seed/worship/800/800?blur=10" 
+          alt="" 
+          className="absolute bottom-0 left-0 w-1/2 h-1/2 object-cover opacity-[0.1] rounded-full translate-y-1/4 -translate-x-1/4"
+          referrerPolicy="no-referrer"
+        />
+
+        {/* Floating Decorative Blobs */}
+        <motion.div 
+          animate={{ 
+            scale: [1, 1.1, 1],
+            rotate: [0, 45, 0],
+            x: [0, 30, 0]
+          }}
+          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-[10%] left-[5%] w-[400px] h-[400px] bg-fh-green/10 rounded-full blur-[100px]" 
+        />
+        <motion.div 
+          animate={{ 
+            scale: [1.1, 1, 1.1],
+            rotate: [0, -45, 0],
+            x: [0, -30, 0]
+          }}
+          transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute bottom-[20%] right-[5%] w-[500px] h-[500px] bg-fh-gold/10 rounded-full blur-[120px]" 
+        />
+      </div>
+
+      <div className="relative z-10 space-y-8 pb-24">
       {/* 1. Header Section */}
       <div className="flex flex-col items-center text-center gap-6 mb-10 pt-4">
         <div className="space-y-3 max-w-4xl">
@@ -977,7 +1040,8 @@ NOTIFY pgrst, 'reload schema';`;
       </div>
 
     </div>
-  );
+  </div>
+);
 };
 
 // Helper Components
