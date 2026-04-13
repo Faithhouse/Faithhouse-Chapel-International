@@ -36,17 +36,87 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'All'>('All');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [ministries, setMinistries] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
     email: '',
     full_name: '',
     role: 'worker' as UserRole,
-    password: ''
+    password: '',
+    ministry_id: ''
   });
 
   useEffect(() => {
     fetchUsers();
+    fetchMinistries();
   }, []);
+
+  const fetchMinistries = async () => {
+    const { data } = await supabase.from('ministries').select('*').order('name');
+    setMinistries(data || []);
+  };
+
+  const generateOfficialEmails = async () => {
+    if (!confirm('This will generate official @faithhouse.church emails for all ministries that don\'t have one. Continue?')) return;
+    
+    setIsGenerating(true);
+    try {
+      const { data: currentMinistries } = await supabase.from('ministries').select('*');
+      if (!currentMinistries) return;
+
+      const updates = currentMinistries.map(min => {
+        if (min.email) return null;
+        
+        const slug = min.name
+          .toLowerCase()
+          .replace(/ ministry/g, '')
+          .replace(/ department/g, '')
+          .replace(/[^a-z0-9]/g, '');
+          
+        return {
+          ...min,
+          email: `${slug}@faithhouse.church`
+        };
+      }).filter(Boolean);
+
+      if (updates.length > 0) {
+        const { error } = await supabase.from('ministries').upsert(updates);
+        if (error) throw error;
+      }
+
+      // Now sync ALL ministries that have emails to the profiles table
+      const { data: allMinistries } = await supabase.from('ministries').select('*').not('email', 'is', null);
+      
+      if (allMinistries && allMinistries.length > 0) {
+        const profileUpdates = allMinistries.map(min => ({
+          email: min.email,
+          full_name: min.name,
+          role: min.name, // Set role to ministry name
+          temp_password: 'FaithHouse2026!'
+        }));
+
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert(profileUpdates, { onConflict: 'email' });
+
+        if (profileError) {
+          console.warn('Profile sync error:', profileError);
+          toast.info("Emails updated, but user directory sync had issues.");
+        } else {
+          toast.success(`Provisioned ${allMinistries.length} ministry accounts with login credentials!`);
+        }
+      }
+      
+      fetchUsers();
+      fetchMinistries();
+    } catch (err: any) {
+      console.error('Generation error:', err);
+      toast.error("Failed to generate emails.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const fetchUsers = async () => {
     setIsLoading(true);
@@ -117,7 +187,7 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
       }
       setIsModalOpen(false);
       setEditingUser(null);
-      setFormData({ email: '', full_name: '', role: 'worker', password: '' });
+      setFormData({ email: '', full_name: '', role: 'worker', password: '', ministry_id: '' });
     } catch (error: any) {
       console.error('Error saving user:', error);
       toast.error(error.message || 'Failed to save user');
@@ -206,13 +276,24 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
           <p className="text-slate-500 font-medium">Manage church staff and system access roles</p>
         </div>
         
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center justify-center gap-2 bg-slate-900 text-fh-gold px-6 py-3 rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
-        >
-          <UserPlus className="w-5 h-5" />
-          Add New User
-        </button>
+        <div className="flex flex-col sm:flex-row gap-4">
+          <button
+            onClick={generateOfficialEmails}
+            disabled={isGenerating}
+            className="flex items-center justify-center gap-2 bg-indigo-50 text-indigo-700 px-6 py-3 rounded-2xl font-bold hover:bg-indigo-100 transition-all border border-indigo-200 shadow-sm disabled:opacity-50"
+          >
+            {isGenerating ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Mail className="w-5 h-5" />}
+            Sync Ministry Emails
+          </button>
+          
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center justify-center gap-2 bg-slate-900 text-fh-gold px-6 py-3 rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
+          >
+            <UserPlus className="w-5 h-5" />
+            Add New User
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -252,6 +333,15 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
         >
           <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
           Refresh
+        </button>
+
+        <button
+          onClick={generateOfficialEmails}
+          disabled={isGenerating}
+          className="flex items-center justify-center gap-2 bg-indigo-50 border border-indigo-100 text-indigo-600 px-4 py-4 rounded-2xl font-bold hover:bg-indigo-100 transition-all disabled:opacity-50"
+        >
+          <Mail className={`w-5 h-5 ${isGenerating ? 'animate-spin' : ''}`} />
+          {isGenerating ? 'Syncing...' : 'Sync Ministry Emails'}
         </button>
       </div>
 
@@ -370,7 +460,8 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
                               email: user.email,
                               full_name: user.full_name,
                               role: user.role,
-                              password: ''
+                              password: '',
+                              ministry_id: '' // We don't store ministry_id yet, but we can infer it if needed
                             });
                             setIsModalOpen(true);
                           }}
@@ -412,7 +503,7 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
                   onClick={() => {
                     setIsModalOpen(false);
                     setEditingUser(null);
-                    setFormData({ email: '', full_name: '', role: 'worker', password: '' });
+                    setFormData({ email: '', full_name: '', role: 'worker', password: '', ministry_id: '' });
                   }}
                   className="p-2 hover:bg-white rounded-xl transition-colors text-slate-400"
                 >
@@ -421,44 +512,49 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
               </div>
 
               <form onSubmit={handleCreateUser} className="p-8 space-y-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
-                  <div className="relative">
-                    <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input
-                      required
-                      type="text"
-                      value={formData.full_name}
-                      onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                      className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-fh-gold/20 focus:border-fh-gold transition-all font-medium"
-                      placeholder="e.g. John Doe"
-                    />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
+                    <div className="relative">
+                      <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <input
+                        required
+                        type="text"
+                        value={formData.full_name}
+                        onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-fh-gold/20 focus:border-fh-gold transition-all font-medium"
+                        placeholder="e.g. John Doe"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-black text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
+                    <div className="relative">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <input
+                        required
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-fh-gold/20 focus:border-fh-gold transition-all font-medium"
+                        placeholder="staff@faithhouse.church"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-black text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
-                  <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input
-                      required
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-fh-gold/20 focus:border-fh-gold transition-all font-medium"
-                      placeholder="staff@faithhouse.church"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-sm font-black text-slate-400 uppercase tracking-widest ml-1">System Role</label>
                     <div className="relative">
                       <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                       <select
                         value={formData.role}
-                        onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
+                        onChange={(e) => {
+                          const newRole = e.target.value;
+                          setFormData({ ...formData, role: newRole as UserRole });
+                        }}
                         className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-fh-gold/20 focus:border-fh-gold transition-all font-medium appearance-none"
                       >
                         <option value="worker">Worker</option>
@@ -468,23 +564,53 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
                         <option value="admin">Admin</option>
                         <option value="general_overseer">General Overseer</option>
                         <option value="system_admin">System Admin</option>
-                        <option value="Ministry">Ministry</option>
+                        <option value="Ministry">Ministry Account</option>
                       </select>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-black text-slate-400 uppercase tracking-widest ml-1">{editingUser ? 'New Password' : 'Temp Password'}</label>
+                    <label className="text-sm font-black text-slate-400 uppercase tracking-widest ml-1">Associate with Ministry</label>
                     <div className="relative">
-                      <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                      <input
-                        type="text"
-                        value={formData.password}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-fh-gold/20 focus:border-fh-gold transition-all font-medium"
-                        placeholder={editingUser ? "Leave blank to keep" : "Optional"}
-                      />
+                      <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <select
+                        value={formData.ministry_id}
+                        onChange={(e) => {
+                          const minId = e.target.value;
+                          const min = ministries.find(m => m.id === minId);
+                          if (min) {
+                            setFormData({ 
+                              ...formData, 
+                              ministry_id: minId,
+                              role: min.name,
+                              full_name: formData.full_name || min.name
+                            });
+                          } else {
+                            setFormData({ ...formData, ministry_id: minId });
+                          }
+                        }}
+                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-fh-gold/20 focus:border-fh-gold transition-all font-medium appearance-none"
+                      >
+                        <option value="">None / Staff Only</option>
+                        {ministries.map(min => (
+                          <option key={min.id} value={min.id}>{min.name}</option>
+                        ))}
+                      </select>
                     </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-black text-slate-400 uppercase tracking-widest ml-1">{editingUser ? 'New Password' : 'Temp Password'}</label>
+                  <div className="relative">
+                    <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <input
+                      type="text"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-fh-gold/20 focus:border-fh-gold transition-all font-medium"
+                      placeholder={editingUser ? "Leave blank to keep" : "Optional (Default: FaithHouse2026)"}
+                    />
                   </div>
                 </div>
 
