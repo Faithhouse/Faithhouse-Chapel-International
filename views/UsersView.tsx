@@ -174,7 +174,10 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
     const matchesSearch = 
       name.toLowerCase().includes(search) ||
       email.toLowerCase().includes(search);
-    const matchesRole = roleFilter === 'All' || u.role === roleFilter;
+    const standardRoles = ['system_admin', 'general_overseer', 'admin', 'pastor', 'finance', 'media', 'worker'];
+    const matchesRole = 
+      roleFilter === 'All' || 
+      (roleFilter === 'ministry' ? !standardRoles.includes(u.role) : u.role === roleFilter);
     return matchesSearch && matchesRole;
   });
 
@@ -187,7 +190,8 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
       case 'finance': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
       case 'media': return 'bg-blue-100 text-blue-700 border-blue-200';
       case 'worker': return 'bg-slate-100 text-slate-700 border-slate-200';
-      default: return 'bg-slate-100 text-slate-700 border-slate-200';
+      default: 
+        return 'bg-indigo-100 text-indigo-700 border-indigo-200';
     }
   };
 
@@ -238,6 +242,7 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
             <option value="finance">Finance Officers</option>
             <option value="media">Media Team</option>
             <option value="worker">Church Workers</option>
+            <option value="ministry">Ministries</option>
           </select>
         </div>
 
@@ -463,6 +468,7 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
                         <option value="admin">Admin</option>
                         <option value="general_overseer">General Overseer</option>
                         <option value="system_admin">System Admin</option>
+                        <option value="Ministry">Ministry</option>
                       </select>
                     </div>
                   </div>

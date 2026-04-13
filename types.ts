@@ -406,7 +406,7 @@ export interface LeadershipPipeline {
   mentor?: { full_name: string };
 }
 
-export type UserRole = 'system_admin' | 'general_overseer' | 'admin' | 'pastor' | 'finance' | 'media' | 'worker';
+export type UserRole = 'system_admin' | 'general_overseer' | 'admin' | 'pastor' | 'finance' | 'media' | 'worker' | string;
 
 export interface UserProfile {
   id: string;

@@ -107,7 +107,7 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem }) => {
         const profileUpdates = allMinistries.map(min => ({
           email: min.email,
           full_name: min.name,
-          role: 'worker',
+          role: min.name, // Set role to ministry name
           temp_password: 'FaithHouse2026!'
         }));
 
@@ -168,7 +168,7 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem }) => {
         await supabase.from('profiles').upsert({
           email: payload.email,
           full_name: payload.name,
-          role: 'worker',
+          role: payload.name, // Set role to ministry name
           temp_password: 'FaithHouse2026!'
         }, { onConflict: 'email' });
       }
