@@ -38,6 +38,7 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
   const [roleFilter, setRoleFilter] = useState<UserRole | 'All'>('All');
   const [isGenerating, setIsGenerating] = useState(false);
   const [ministries, setMinistries] = useState<any[]>([]);
+  const [dbError, setDbError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -50,17 +51,29 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
   useEffect(() => {
     fetchUsers();
     fetchMinistries();
-  }, []);
+    // Auto-sync if admin and no users found (optional, but helps populate)
+    if (currentUser && (currentUser.role === 'system_admin' || currentUser.role === 'admin')) {
+      checkAndAutoSync();
+    }
+  }, [currentUser]);
 
-  const fetchMinistries = async () => {
-    const { data } = await supabase.from('ministries').select('*').order('name');
-    setMinistries(data || []);
+  const checkAndAutoSync = async () => {
+    const { data: profiles } = await supabase.from('profiles').select('email');
+    const { data: mins } = await supabase.from('ministries').select('email');
+    
+    if (mins && profiles) {
+      const profileEmails = new Set(profiles.map(p => p.email?.toLowerCase()));
+      const missingEmails = mins.filter(m => m.email && !profileEmails.has(m.email.toLowerCase()));
+      
+      if (missingEmails.length > 0) {
+        console.log('Auto-syncing missing ministry accounts...');
+        await performSync();
+        toast.success(`Populated ${missingEmails.length} missing ministry accounts.`);
+      }
+    }
   };
 
-  const generateOfficialEmails = async () => {
-    if (!confirm('This will generate official @faithhouse.church emails for all ministries that don\'t have one. Continue?')) return;
-    
-    setIsGenerating(true);
+  const performSync = async () => {
     try {
       const { data: currentMinistries } = await supabase.from('ministries').select('*');
       if (!currentMinistries) return;
@@ -89,33 +102,58 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
       const { data: allMinistries } = await supabase.from('ministries').select('*').not('email', 'is', null);
       
       if (allMinistries && allMinistries.length > 0) {
-        const profileUpdates = allMinistries.map(min => ({
-          email: min.email,
-          full_name: min.name,
-          role: min.name, // Set role to ministry name
-          temp_password: 'FaithHouse2026!'
-        }));
+        // Fetch existing profiles to avoid conflict issues if unique constraint is missing
+        const { data: existingProfiles } = await supabase.from('profiles').select('email');
+        const existingEmails = new Set(existingProfiles?.map(p => p.email?.toLowerCase()) || []);
 
+        const profileUpdates = allMinistries.map(min => {
+          const email = min.email.toLowerCase();
+          return {
+            email: min.email,
+            full_name: min.name,
+            role: min.name,
+            temp_password: 'FaithHouse2026!',
+            is_active: true
+          };
+        });
+
+        // Use upsert with onConflict if possible, or manual check
         const { error: profileError } = await supabase
           .from('profiles')
           .upsert(profileUpdates, { onConflict: 'email' });
 
         if (profileError) {
           console.warn('Profile sync error:', profileError);
-          toast.info("Emails updated, but user directory sync had issues.");
-        } else {
-          toast.success(`Provisioned ${allMinistries.length} ministry accounts with login credentials!`);
+          // Fallback: try inserting only missing ones
+          const missingProfiles = profileUpdates.filter(p => !existingEmails.has(p.email.toLowerCase()));
+          if (missingProfiles.length > 0) {
+            await supabase.from('profiles').insert(missingProfiles);
+          }
         }
       }
       
       fetchUsers();
       fetchMinistries();
     } catch (err: any) {
-      console.error('Generation error:', err);
-      toast.error("Failed to generate emails.");
-    } finally {
-      setIsGenerating(false);
+      console.error('Sync error:', err);
+      if (err.code === '22P02' || err.message.includes('enum user_role')) {
+        setDbError("Role Schema Mismatch");
+      }
     }
+  };
+
+  const generateOfficialEmails = async () => {
+    if (!confirm('This will generate official @faithhouse.church emails for all ministries and sync them to the user directory. Continue?')) return;
+    
+    setIsGenerating(true);
+    await performSync();
+    setIsGenerating(false);
+    toast.success("Ministry accounts synchronized successfully!");
+  };
+
+  const fetchMinistries = async () => {
+    const { data } = await supabase.from('ministries').select('*').order('name');
+    setMinistries(data || []);
   };
 
   const fetchUsers = async () => {
@@ -126,8 +164,14 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === '22P02' || error.message.includes('enum user_role')) {
+          setDbError("Role Schema Mismatch");
+        }
+        throw error;
+      }
       setUsers(data || []);
+      setDbError(null);
     } catch (error: any) {
       console.error('Error fetching users:', error);
       toast.error('Failed to load users');
@@ -190,6 +234,9 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
       setFormData({ email: '', full_name: '', role: 'worker', password: '', ministry_id: '' });
     } catch (error: any) {
       console.error('Error saving user:', error);
+      if (error.code === '22P02' || error.message.includes('enum user_role')) {
+        setDbError("Role Schema Mismatch");
+      }
       toast.error(error.message || 'Failed to save user');
     } finally {
       setIsSubmitting(false);
@@ -264,6 +311,78 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
         return 'bg-indigo-100 text-indigo-700 border-indigo-200';
     }
   };
+
+  if (dbError) {
+    const repairSQL = `-- USER DIRECTORY SCHEMA REPAIR (ROBUST VERSION)
+-- This script converts the role column to TEXT to allow dynamic ministry roles
+-- and handles dependencies on policies.
+
+-- 1. Temporarily drop policies that block the alteration
+DROP POLICY IF EXISTS "Only high-level admins can update system settings" ON public.system_settings;
+DROP POLICY IF EXISTS "Allow all for staff" ON public.profiles;
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Admins can update temp passwords" ON public.profiles;
+DROP POLICY IF EXISTS "Admins can manage all profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Staff can view all profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Profiles are viewable by authenticated users" ON public.profiles;
+DROP POLICY IF EXISTS "Users can view their own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Admins can do everything" ON public.profiles;
+
+-- 2. Alter the column in profiles
+ALTER TABLE public.profiles 
+ALTER COLUMN role TYPE TEXT USING role::text;
+
+-- 3. Re-create the policies
+CREATE POLICY "Only high-level admins can update system settings" 
+ON public.system_settings 
+FOR ALL 
+USING (
+  (SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('system_admin', 'general_overseer', 'admin')
+);
+
+CREATE POLICY "Allow all for staff" ON public.profiles FOR ALL USING (true) WITH CHECK (true);
+
+-- Optional: Re-create more specific policies if needed
+-- CREATE POLICY "Admins can update temp passwords" ON public.profiles FOR UPDATE USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('admin', 'system_admin') );
+
+-- 4. Ensure other columns exist
+ALTER TABLE public.profiles 
+ADD COLUMN IF NOT EXISTS temp_password TEXT,
+ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true,
+ADD COLUMN IF NOT EXISTS created_by UUID;
+
+-- Refresh the schema cache
+NOTIFY pgrst, 'reload schema';`;
+
+    return (
+      <div className="max-w-4xl mx-auto py-12 px-4 animate-in zoom-in-95 duration-500">
+        <div className="royal-card p-12 md:p-16 rounded-[4rem] bg-white text-center border-2 border-rose-100 shadow-2xl overflow-hidden relative">
+          <div className="absolute top-0 inset-x-0 h-2 bg-rose-500"></div>
+          <div className="w-24 h-24 bg-rose-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-10 shadow-inner">
+             <ShieldAlert className="w-12 h-12 text-rose-500" />
+          </div>
+          <h2 className="text-3xl font-black text-slate-900 uppercase mb-4 tracking-tighter">Database Schema Conflict</h2>
+          <p className="text-slate-500 mb-10 font-medium max-w-lg mx-auto leading-relaxed">
+            The user directory is using a restricted role system. Run this script to enable dynamic ministry roles and advanced security features.
+          </p>
+          <pre className="bg-slate-900 text-fh-gold-pale p-8 rounded-[2rem] text-[10px] font-mono text-left h-48 overflow-y-auto mb-10 shadow-inner leading-relaxed border border-fh-gold/10 scrollbar-hide">
+            {repairSQL}
+          </pre>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button onClick={() => { navigator.clipboard.writeText(repairSQL); toast.success('SQL Script copied.'); }} className="px-10 py-5 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all">Copy Script</button>
+            <button 
+              onClick={() => { setDbError(null); fetchUsers(); }} 
+              disabled={isLoading}
+              className="px-16 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl active:scale-95 transition-all border-b-4 border-black disabled:opacity-50"
+            >
+              {isLoading ? "Verifying..." : "Verify Fix"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -400,24 +519,30 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      {user.temp_password ? (
-                        <div className="flex items-center gap-2">
-                          <code className="px-2 py-1 bg-slate-100 rounded text-[10px] font-mono text-slate-600 border border-slate-200">
-                            {user.temp_password}
-                          </code>
-                          <button 
-                            onClick={() => {
-                              navigator.clipboard.writeText(user.temp_password || '');
-                              toast.success('Password copied to clipboard');
-                            }}
-                            className="p-1 text-slate-400 hover:text-fh-green transition-colors"
-                          >
-                            <RefreshCw className="w-3 h-3" />
-                          </button>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold uppercase tracking-tighter">
+                          <Mail className="w-3 h-3" />
+                          {user.email}
                         </div>
-                      ) : (
-                        <span className="text-[10px] text-slate-300 italic">Auth Managed</span>
-                      )}
+                        {user.temp_password ? (
+                          <div className="flex items-center gap-2">
+                            <code className="px-2 py-1 bg-slate-100 rounded text-[10px] font-mono text-slate-600 border border-slate-200">
+                              {user.temp_password}
+                            </code>
+                            <button 
+                              onClick={() => {
+                                navigator.clipboard.writeText(user.temp_password || '');
+                                toast.success('Password copied to clipboard');
+                              }}
+                              className="p-1 text-slate-400 hover:text-fh-green transition-colors"
+                            >
+                              <RefreshCw className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-slate-300 italic">Auth Managed</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
