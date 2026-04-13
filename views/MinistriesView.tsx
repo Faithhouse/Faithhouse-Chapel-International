@@ -104,7 +104,8 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem }) => {
         const profileUpdates = updates.map(min => ({
           email: min.email,
           full_name: min.name,
-          role: 'worker' // Default role for ministry accounts
+          role: 'worker', // Default role for ministry accounts
+          temp_password: 'FaithHouse2026!' // Default temporary password
         }));
 
         // Use upsert on profiles based on email to avoid duplicates
@@ -167,7 +168,8 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem }) => {
         await supabase.from('profiles').upsert({
           email: payload.email,
           full_name: payload.name,
-          role: 'worker'
+          role: 'worker',
+          temp_password: 'FaithHouse2026!'
         }, { onConflict: 'email' });
       }
 
@@ -236,6 +238,9 @@ CREATE TABLE IF NOT EXISTS public.ministries (
 ALTER TABLE public.ministries ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow all for staff" ON public.ministries;
 CREATE POLICY "Allow all for staff" ON public.ministries FOR ALL USING (true) WITH CHECK (true);
+
+-- Ensure profiles table has temp_password column
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS temp_password TEXT;
 
 -- Create ministry_members table for roles
 CREATE TABLE IF NOT EXISTS public.ministry_members (
@@ -397,7 +402,7 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
               Generate professional @faithhouse.church email addresses for all ministries. This will also sync these accounts to the User Directory for centralized management.
             </p>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10 text-left">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10 text-left">
               <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
                 <p className="text-[10px] font-black text-fh-green uppercase tracking-widest mb-2">Naming Convention</p>
                 <p className="text-xs text-slate-600 font-bold">ministryname@faithhouse.church</p>
@@ -405,6 +410,10 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
               <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
                 <p className="text-[10px] font-black text-fh-gold uppercase tracking-widest mb-2">User Sync</p>
                 <p className="text-xs text-slate-600 font-bold">Automatic Profile Creation</p>
+              </div>
+              <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-2">Temp Password</p>
+                <p className="text-xs text-slate-600 font-bold">FaithHouse2026!</p>
               </div>
             </div>
 

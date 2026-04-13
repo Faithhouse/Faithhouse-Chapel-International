@@ -414,6 +414,7 @@ export interface UserProfile {
   full_name: string;
   role: UserRole;
   is_active: boolean;
+  temp_password?: string;
   created_by?: string;
   created_at?: string;
 }

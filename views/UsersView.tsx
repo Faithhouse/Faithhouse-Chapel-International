@@ -257,6 +257,7 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
               <tr className="bg-slate-50 border-bottom border-slate-200">
                 <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">User</th>
                 <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Role</th>
+                <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Credentials</th>
                 <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Status</th>
                 <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest">Joined</th>
                 <th className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
@@ -302,6 +303,26 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
                       <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase border ${getRoleBadgeColor(user.role)}`}>
                         {user.role}
                       </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {user.temp_password ? (
+                        <div className="flex items-center gap-2">
+                          <code className="px-2 py-1 bg-slate-100 rounded text-[10px] font-mono text-slate-600 border border-slate-200">
+                            {user.temp_password}
+                          </code>
+                          <button 
+                            onClick={() => {
+                              navigator.clipboard.writeText(user.temp_password || '');
+                              toast.success('Password copied to clipboard');
+                            }}
+                            className="p-1 text-slate-400 hover:text-fh-green transition-colors"
+                          >
+                            <RefreshCw className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-slate-300 italic">Auth Managed</span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
