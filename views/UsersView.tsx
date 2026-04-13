@@ -102,12 +102,7 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
       const { data: allMinistries } = await supabase.from('ministries').select('*').not('email', 'is', null);
       
       if (allMinistries && allMinistries.length > 0) {
-        // Fetch existing profiles to avoid conflict issues if unique constraint is missing
-        const { data: existingProfiles } = await supabase.from('profiles').select('email');
-        const existingEmails = new Set(existingProfiles?.map(p => p.email?.toLowerCase()) || []);
-
         const profileUpdates = allMinistries.map(min => {
-          const email = min.email.toLowerCase();
           return {
             email: min.email,
             full_name: min.name,
@@ -117,17 +112,23 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
           };
         });
 
-        // Use upsert with onConflict if possible, or manual check
+        // Try to sync profiles. 
         const { error: profileError } = await supabase
           .from('profiles')
           .upsert(profileUpdates, { onConflict: 'email' });
 
         if (profileError) {
           console.warn('Profile sync error:', profileError);
-          // Fallback: try inserting only missing ones
-          const missingProfiles = profileUpdates.filter(p => !existingEmails.has(p.email.toLowerCase()));
-          if (missingProfiles.length > 0) {
-            await supabase.from('profiles').insert(missingProfiles);
+          if (profileError.code === '23502') {
+            const { data: existing } = await supabase.from('profiles').select('id, email');
+            const emailToId = new Map(existing?.map(e => [e.email.toLowerCase(), e.id]) || []);
+            
+            const manualUpdates = profileUpdates.map(p => ({
+              ...p,
+              id: emailToId.get(p.email.toLowerCase()) || crypto.randomUUID()
+            }));
+            
+            await supabase.from('profiles').upsert(manualUpdates, { onConflict: 'email' });
           }
         }
       }
@@ -139,6 +140,18 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
       if (err.code === '22P02' || err.message.includes('enum user_role')) {
         setDbError("Role Schema Mismatch");
       }
+    }
+  };
+
+  const handleResetAllMinistryPasswords = async () => {
+    if (!confirm('This will reset ALL ministry accounts to the default password (FaithHouse2026!). Continue?')) return;
+    
+    setIsGenerating(true);
+    try {
+      await performSync();
+      toast.success("All ministry passwords have been reset to FaithHouse2026!");
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -218,7 +231,7 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
             full_name: formData.full_name,
             role: formData.role,
             is_active: true,
-            temp_password: formData.password || 'FaithHouse2026',
+            temp_password: formData.password || 'FaithHouse2026!',
             created_by: currentUser.id
           }])
           .select()
@@ -226,7 +239,7 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
 
         if (error) throw error;
 
-        toast.success(`Account created for ${formData.full_name}. Temporary password: ${formData.password || 'FaithHouse2026'}`);
+        toast.success(`Account created for ${formData.full_name}. Temporary password: ${formData.password || 'FaithHouse2026!'}`);
         setUsers([data, ...users]);
       }
       setIsModalOpen(false);
@@ -346,7 +359,10 @@ CREATE POLICY "Allow all for staff" ON public.profiles FOR ALL USING (true) WITH
 -- Optional: Re-create more specific policies if needed
 -- CREATE POLICY "Admins can update temp passwords" ON public.profiles FOR UPDATE USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('admin', 'system_admin') );
 
--- 4. Ensure other columns exist
+-- 4. Ensure other columns and defaults exist
+ALTER TABLE public.profiles 
+ALTER COLUMN id SET DEFAULT gen_random_uuid();
+
 ALTER TABLE public.profiles 
 ADD COLUMN IF NOT EXISTS temp_password TEXT,
 ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true,
@@ -396,6 +412,16 @@ NOTIFY pgrst, 'reload schema';`;
         </div>
         
         <div className="flex flex-col sm:flex-row gap-4">
+          <button
+            onClick={handleResetAllMinistryPasswords}
+            disabled={isGenerating}
+            className="flex items-center justify-center gap-2 bg-rose-50 text-rose-700 px-6 py-3 rounded-2xl font-bold hover:bg-rose-100 transition-all border border-rose-200 shadow-sm disabled:opacity-50"
+            title="Reset all ministry passwords to default"
+          >
+            <Key className="w-5 h-5" />
+            Reset Ministry Passwords
+          </button>
+
           <button
             onClick={generateOfficialEmails}
             disabled={isGenerating}
@@ -734,7 +760,7 @@ NOTIFY pgrst, 'reload schema';`;
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-fh-gold/20 focus:border-fh-gold transition-all font-medium"
-                      placeholder={editingUser ? "Leave blank to keep" : "Optional (Default: FaithHouse2026)"}
+                      placeholder={editingUser ? "Leave blank to keep" : "Optional (Default: FaithHouse2026!)"}
                     />
                   </div>
                 </div>
