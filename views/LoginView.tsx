@@ -110,7 +110,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
-          .eq('email', email)
+          .ilike('email', email.trim())
           .eq('temp_password', password)
           .single();
 
@@ -119,6 +119,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             toast.error('This account has been deactivated. Please contact the administrator.');
             return;
           }
+          localStorage.setItem('fh_cms_user', JSON.stringify(profile));
           toast.success(`Welcome back, ${profile.full_name}`);
           onLoginSuccess(profile);
           return;

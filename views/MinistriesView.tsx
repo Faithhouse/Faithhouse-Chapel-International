@@ -83,7 +83,6 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem }) => {
       const updates = currentMinistries.map(min => {
         if (min.email) return null;
         
-        // Create slug from name
         const slug = min.name
           .toLowerCase()
           .replace(/ ministry/g, '')
@@ -99,31 +98,32 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem }) => {
       if (updates.length > 0) {
         const { error } = await supabase.from('ministries').upsert(updates);
         if (error) throw error;
+      }
 
-        // Also add these emails to the profiles table so they can be managed as users
-        const profileUpdates = updates.map(min => ({
+      // Now sync ALL ministries that have emails to the profiles table
+      const { data: allMinistries } = await supabase.from('ministries').select('*').not('email', 'is', null);
+      
+      if (allMinistries && allMinistries.length > 0) {
+        const profileUpdates = allMinistries.map(min => ({
           email: min.email,
           full_name: min.name,
-          role: 'worker', // Default role for ministry accounts
-          temp_password: 'FaithHouse2026!' // Default temporary password
+          role: 'worker',
+          temp_password: 'FaithHouse2026!'
         }));
 
-        // Use upsert on profiles based on email to avoid duplicates
         const { error: profileError } = await supabase
           .from('profiles')
           .upsert(profileUpdates, { onConflict: 'email' });
 
         if (profileError) {
-          console.warn('Could not sync all emails to profiles:', profileError);
-          toast.info("Emails generated, but user profile sync had issues.");
+          console.warn('Profile sync error:', profileError);
+          toast.info("Emails updated, but user directory sync had issues.");
         } else {
-          toast.success(`Generated ${updates.length} official emails and synced to User Directory!`);
+          toast.success(`Provisioned ${allMinistries.length} ministry accounts with login credentials!`);
         }
-        
-        await fetchMinistries();
-      } else {
-        toast.info("All ministries already have official emails.");
       }
+      
+      await fetchMinistries();
     } catch (err: any) {
       console.error('Generation error:', err);
       toast.error("Failed to generate emails. Check database schema.");

@@ -88,6 +88,15 @@ const App: React.FC = () => {
     const checkAuth = async () => {
       setIsAuthLoading(true);
       try {
+        // Check for persisted local user first (for temp password logins)
+        const savedUser = localStorage.getItem('fh_cms_user');
+        if (savedUser) {
+          setCurrentUser(JSON.parse(savedUser));
+          setIsDemoMode(true);
+          setIsAuthLoading(false);
+          return;
+        }
+
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user) {
@@ -149,6 +158,7 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     try {
+      localStorage.removeItem('fh_cms_user');
       if (isDemoMode) {
         setIsDemoMode(false);
         setCurrentUser(null);
