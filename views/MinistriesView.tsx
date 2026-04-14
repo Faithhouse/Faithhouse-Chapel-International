@@ -1,14 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Ministry, NavItem } from '../types';
+import { Ministry, NavItem, UserProfile } from '../types';
 import { toast } from 'sonner';
 
 interface MinistriesViewProps {
   setActiveItem: (item: NavItem | string) => void;
+  currentUser: UserProfile | null;
 }
 
-const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem }) => {
+const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem, currentUser }) => {
   const [ministries, setMinistries] = useState<Ministry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -33,6 +34,13 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem }) => {
 
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
+  const isMinistryRole = (role: string) => {
+    const standardRoles = ['system_admin', 'general_overseer', 'admin', 'pastor', 'finance', 'media', 'worker'];
+    return !standardRoles.includes(role);
+  };
+
+  const isReadOnly = currentUser && isMinistryRole(currentUser.role);
+
   const fetchMinistries = async () => {
     setIsLoading(true);
     try {
@@ -43,6 +51,11 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem }) => {
 
       if (searchTerm) {
         query = query.or(`name.ilike.%${searchTerm}%,leader_name.ilike.%${searchTerm}%`);
+      }
+
+      // If ministry account, restrict to their own ministry
+      if (currentUser && isMinistryRole(currentUser.role)) {
+        query = query.ilike('name', currentUser.role);
       }
 
       const { data, error } = await query;
@@ -239,13 +252,15 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <button 
-            onClick={() => { resetForm(); setEditingId(null); setIsModalOpen(true); }}
-            className="flex items-center justify-center gap-3 px-8 py-4 bg-fh-green text-fh-gold rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl active:scale-95 transition-all border-b-4 border-black/30"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-            Provision Ministry
-          </button>
+          {!isReadOnly && (
+            <button 
+              onClick={() => { resetForm(); setEditingId(null); setIsModalOpen(true); }}
+              className="flex items-center justify-center gap-3 px-8 py-4 bg-fh-green text-fh-gold rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl active:scale-95 transition-all border-b-4 border-black/30"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+              Provision Ministry
+            </button>
+          )}
         </div>
       </div>
 
@@ -288,12 +303,16 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
 
             <div className="px-4 py-2.5 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-300">
                <div className="flex gap-1.5">
-                 <button onClick={() => handleEdit(min)} className="p-2 lg:p-1 bg-white border border-slate-200 rounded-md text-slate-400 hover:text-fh-green transition-all shadow-sm active:scale-90">
-                   <svg className="w-4 h-4 lg:w-3 lg:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                 </button>
-                 <button onClick={() => deleteMinistry(min.id)} className="p-2 lg:p-1 bg-white border border-slate-200 rounded-md text-slate-400 hover:text-rose-500 transition-all shadow-sm active:scale-90">
-                   <svg className="w-4 h-4 lg:w-3 lg:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                 </button>
+                 {!isReadOnly && (
+                   <>
+                     <button onClick={() => handleEdit(min)} className="p-2 lg:p-1 bg-white border border-slate-200 rounded-md text-slate-400 hover:text-fh-green transition-all shadow-sm active:scale-90">
+                       <svg className="w-4 h-4 lg:w-3 lg:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                     </button>
+                     <button onClick={() => deleteMinistry(min.id)} className="p-2 lg:p-1 bg-white border border-slate-200 rounded-md text-slate-400 hover:text-rose-500 transition-all shadow-sm active:scale-90">
+                       <svg className="w-4 h-4 lg:w-3 lg:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                     </button>
+                   </>
+                 )}
                </div>
                <button 
                   onClick={() => setActiveItem(min.name)}

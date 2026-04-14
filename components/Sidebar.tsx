@@ -70,11 +70,37 @@ const Sidebar: React.FC<SidebarProps> = ({ activeItem, setActiveItem, isOpen, to
   // Direct download link format for Google Drive images
   const logoUrl = "https://lh3.googleusercontent.com/d/1la57sO6NOuNEZaqa9zDxuxRnWPBavkjH";
 
+  const isMinistryRole = (role: string) => {
+    const standardRoles = ['system_admin', 'general_overseer', 'admin', 'pastor', 'finance', 'media', 'worker'];
+    return !standardRoles.includes(role);
+  };
+
   const filteredMenuItems = menuItems.filter(item => {
-    if (!item.roles) return true;
     if (!currentUser) return false;
+    
+    const role = currentUser.role;
     const godRoles = ['system_admin', 'general_overseer'];
-    return item.roles.includes(currentUser.role) || godRoles.includes(currentUser.role) || currentUser.email === 'systemadmin@faithhouse.church';
+    const isAdmin = godRoles.includes(role) || currentUser.email === 'systemadmin@faithhouse.church';
+
+    // If admin, show everything
+    if (isAdmin) return true;
+
+    // If it's a ministry role (dynamic)
+    if (isMinistryRole(role)) {
+      const allowedForMinistries = ['Dashboard', 'Members', 'Ministries', 'Upcoming Events', 'Recurring Tasks', role];
+      
+      if (allowedForMinistries.includes(item.name)) return true;
+      if (item.roles?.includes(role)) return true;
+
+      if (item.isHeader) {
+        return ['CHURCH DETAILS', 'MINISTRIES', 'SYSTEM', 'OUTREACH'].includes(item.name);
+      }
+      return false;
+    }
+
+    // Standard role filtering
+    if (!item.roles) return true;
+    return item.roles.includes(role);
   });
 
   return (

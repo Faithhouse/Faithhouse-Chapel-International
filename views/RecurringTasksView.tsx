@@ -6,9 +6,10 @@ import { Plus, Trash2, CheckCircle2, Clock, Settings2, ShieldAlert } from 'lucid
 import { toast } from 'sonner';
 
 interface RecurringTasksViewProps {
+  currentUser?: any;
 }
 
-const RecurringTasksView: React.FC<RecurringTasksViewProps> = () => {
+const RecurringTasksView: React.FC<RecurringTasksViewProps> = ({ currentUser }) => {
   const [templates, setTemplates] = useState<RecurringTaskTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -21,6 +22,13 @@ const RecurringTasksView: React.FC<RecurringTasksViewProps> = () => {
     service_type: 'All' as RecurringTaskTemplate['service_type'],
     assigned_ministry: ''
   });
+
+  const isMinistryRole = (role: string) => {
+    const standardRoles = ['system_admin', 'general_overseer', 'admin', 'pastor', 'finance', 'media', 'worker'];
+    return !standardRoles.includes(role);
+  };
+
+  const isReadOnly = currentUser && isMinistryRole(currentUser.role);
 
   useEffect(() => {
     fetchTemplates();
@@ -178,13 +186,15 @@ CREATE POLICY "Allow all for staff" ON public.events FOR ALL USING (true) WITH C
           <h2 className="text-3xl font-black text-fh-green tracking-tighter uppercase">Recurring Tasks</h2>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Automated Service Checklists</p>
         </div>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="px-8 py-4 bg-fh-green text-fh-gold rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          New Template
-        </button>
+        {!isReadOnly && (
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="px-8 py-4 bg-fh-green text-fh-gold rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            New Template
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -196,12 +206,14 @@ CREATE POLICY "Allow all for staff" ON public.events FOR ALL USING (true) WITH C
               <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[9px] font-black uppercase tracking-widest">
                 {t.service_type}
               </span>
-              <button 
-                onClick={() => handleDeleteTemplate(t.id)}
-                className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              {!isReadOnly && (
+                <button 
+                  onClick={() => handleDeleteTemplate(t.id)}
+                  className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
             </div>
             <h3 className="text-lg font-black text-slate-800 mb-2">{t.title}</h3>
             <p className="text-xs text-slate-500 mb-6 line-clamp-2">{t.description || 'No description provided.'}</p>

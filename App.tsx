@@ -222,7 +222,7 @@ const App: React.FC = () => {
           return <AttendanceView />;
         
         case 'Upcoming Events':
-          return <EventsView />;
+          return <EventsView currentUser={currentUser} />;
         
         case 'Finance':
           return <FinanceView currentUser={currentUser} />;
@@ -237,7 +237,7 @@ const App: React.FC = () => {
           return <LeadershipDevelopmentView currentUser={currentUser} />;
         
         case 'Ministries':
-          return <MinistriesView setActiveItem={handleSetActiveItem as any} />;
+          return <MinistriesView setActiveItem={handleSetActiveItem as any} currentUser={currentUser} />;
         
         case 'Ministry Reports':
           return <MinistryReportsView currentUser={currentUser} />;
@@ -255,7 +255,7 @@ const App: React.FC = () => {
           return <FollowUpMapView currentUser={currentUser} />;
 
         case 'Recurring Tasks':
-          return <RecurringTasksView />;
+          return <RecurringTasksView currentUser={currentUser} />;
 
         case 'Cell Meeting':
           return <CellMeetingView />;

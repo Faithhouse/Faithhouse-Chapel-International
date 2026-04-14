@@ -77,6 +77,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
   const [missingTableName, setMissingTableName] = useState<string | null>(null);
   const [bgImage, setBgImage] = useState<string>('https://picsum.photos/seed/cathedral/1920/1080?blur=6');
 
+  const isMinistryRole = (role: string) => {
+    const standardRoles = ['system_admin', 'general_overseer', 'admin', 'pastor', 'finance', 'media', 'worker'];
+    return !standardRoles.includes(role);
+  };
+
+  const isReadOnly = currentUser && isMinistryRole(currentUser.role);
+
   useEffect(() => {
     fetchDashboardData();
     fetchBgImage();
@@ -820,8 +827,8 @@ NOTIFY pgrst, 'reload schema';`;
               {todayTasks.length > 0 ? todayTasks.map((task, i) => (
                 <div 
                   key={i} 
-                  onClick={() => toggleTaskStatus(task.id, task.status)}
-                  className={`flex items-center gap-4 p-4 rounded-2xl border transition-all cursor-pointer group ${task.status === 'Completed' ? 'bg-emerald-50/30 border-emerald-100 opacity-60' : 'bg-white border-slate-100 hover:border-fh-green hover:shadow-md'}`}
+                  onClick={() => !isReadOnly && toggleTaskStatus(task.id, task.status)}
+                  className={`flex items-center gap-4 p-4 rounded-2xl border transition-all cursor-pointer group ${task.status === 'Completed' ? 'bg-emerald-50/30 border-emerald-100 opacity-60' : 'bg-white border-slate-100 hover:border-fh-green hover:shadow-md'} ${isReadOnly ? 'cursor-default' : ''}`}
                 >
                   <div className={`w-6 h-6 rounded-lg flex items-center justify-center border-2 transition-all ${task.status === 'Completed' ? 'bg-fh-green border-fh-green text-fh-gold' : 'border-slate-200 group-hover:border-fh-green'}`}>
                     {task.status === 'Completed' && <CheckCircle2 className="w-4 h-4" />}
