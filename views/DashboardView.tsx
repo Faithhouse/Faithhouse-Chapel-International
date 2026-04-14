@@ -1041,7 +1041,7 @@ NOTIFY pgrst, 'reload schema';`;
         {/* Quick Actions Menu */}
         <div className="flex flex-col items-end gap-3 opacity-0 translate-y-10 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto transition-all duration-300">
           <ActionButton icon={<UserPlus className="w-4 h-4" />} label="Add Member" onClick={() => setActiveItem('Members')} />
-          <ActionButton icon={<CheckSquare className="w-4 h-4" />} label="Record Attendance" onClick={() => setActiveItem('Events' as any)} />
+          <ActionButton icon={<CheckSquare className="w-4 h-4" />} label="Record Attendance" onClick={() => setActiveItem('Attendance' as any)} />
           <ActionButton icon={<Calendar className="w-4 h-4" />} label="Add Programme" onClick={() => setActiveItem('Upcoming Events' as any)} />
         </div>
       </div>

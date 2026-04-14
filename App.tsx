@@ -222,6 +222,7 @@ const App: React.FC = () => {
           return <AttendanceView />;
         
         case 'Upcoming Events':
+        case 'Events':
           return <EventsView currentUser={currentUser} />;
         
         case 'Finance':
