@@ -219,7 +219,7 @@ const App: React.FC = () => {
           );
         
         case 'Attendance':
-          return <AttendanceView />;
+          return <AttendanceView currentUser={currentUser} />;
         
         case 'Upcoming Events':
         case 'Events':

@@ -75,7 +75,7 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
     return !standardRoles.includes(role);
   };
 
-  const isReadOnly = currentUser && isMinistryRole(currentUser.role);
+  const isReadOnly = currentUser && isMinistryRole(currentUser.role) && !currentUser.role.toLowerCase().includes('ushering');
 
   useEffect(() => {
     fetchInitialData();
@@ -617,59 +617,59 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
       )}
 
       {/* Module Header */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4 md:gap-6">
         <div className="space-y-1 text-center md:text-left">
-          <h2 className="text-4xl font-black text-fh-green tracking-tighter uppercase leading-none">Membership Registry</h2>
-          <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">Global Identity • Branch Distribution Active</p>
+          <h2 className="text-xl md:text-4xl font-black text-fh-green tracking-tighter uppercase leading-none">Membership Registry</h2>
+          <p className="text-[7px] md:text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-1 md:mt-2">Global Identity • Branch Distribution Active</p>
         </div>
-        <div className="flex flex-wrap justify-center md:justify-end gap-4">
+        <div className="flex flex-wrap justify-center md:justify-end gap-2 md:gap-4">
            {(currentUser?.role === 'system_admin' || currentUser?.role === 'general_overseer' || currentUser?.role === 'admin' || currentUser?.role === 'pastor' || currentUser?.email === 'systemadmin@faithhouse.church') && (
              <>
-               <button onClick={findRegistryDuplicates} className="px-6 py-5 bg-white border border-slate-200 text-rose-500 rounded-[1.75rem] font-black uppercase text-[10px] tracking-widest shadow-sm hover:bg-rose-50 active:scale-95 transition-all flex items-center gap-3">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+               <button onClick={findRegistryDuplicates} className="px-3 md:px-6 py-2 md:py-5 bg-white border border-slate-200 text-rose-500 rounded-lg md:rounded-[1.75rem] font-black uppercase text-[7px] md:text-[10px] tracking-widest shadow-sm hover:bg-rose-50 active:scale-95 transition-all flex items-center gap-1.5 md:gap-3">
+                  <svg className="w-2.5 h-2.5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                   Resolve Conflicts
                </button>
-               <button onClick={() => setIsImportModalOpen(true)} className="px-6 py-5 bg-white border border-slate-200 text-slate-600 rounded-[1.75rem] font-black uppercase text-[10px] tracking-widest shadow-sm hover:bg-slate-50 active:scale-95 transition-all flex items-center gap-3">
-                  <svg className="w-4 h-4 text-fh-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+               <button onClick={() => setIsImportModalOpen(true)} className="px-3 md:px-6 py-2 md:py-5 bg-white border border-slate-200 text-slate-600 rounded-lg md:rounded-[1.75rem] font-black uppercase text-[7px] md:text-[10px] tracking-widest shadow-sm hover:bg-slate-50 active:scale-95 transition-all flex items-center gap-1.5 md:gap-3">
+                  <svg className="w-2.5 h-2.5 md:w-4 md:h-4 text-fh-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                   Bulk Import
                </button>
              </>
            )}
            {selectedIds.length > 0 && !isReadOnly && (
-             <button onClick={() => { setMessengerIndex(0); setTemplateType('Service Reminder'); applyTemplate('Service Reminder'); setIsMessengerOpen(true); }} className="px-8 py-5 bg-emerald-500 text-white rounded-[1.75rem] font-black uppercase text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30 flex items-center gap-3">
-               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 448 512"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-5.5-2.8-23.2-8.5-44.2-27.1-16.4-14.6-27.4-32.6-30.6-37.9-3.2-5.5-.3-8.5 2.5-11.2 2.5-2.5 5.5-6.5 8.3-9.7 2.8-3.3 3.7-5.6 5.6-9.3 1.8-3.7 .9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 13.3 5.7 23.6 9.2 31.7 11.7 13.3 4.2 25.5 3.6 35.1 2.2 10.7-1.5 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/></svg>
+             <button onClick={() => { setMessengerIndex(0); setTemplateType('Service Reminder'); applyTemplate('Service Reminder'); setIsMessengerOpen(true); }} className="px-4 md:px-8 py-2 md:py-5 bg-emerald-500 text-white rounded-lg md:rounded-[1.75rem] font-black uppercase text-[7px] md:text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all border-b-2 md:border-b-4 border-black/30 flex items-center gap-1.5 md:gap-3">
+               <svg className="w-2.5 h-2.5 md:w-4 md:h-4" fill="currentColor" viewBox="0 0 448 512"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-5.5-2.8-23.2-8.5-44.2-27.1-16.4-14.6-27.4-32.6-30.6-37.9-3.2-5.5-.3-8.5 2.5-11.2 2.5-2.5 5.5-6.5 8.3-9.7 2.8-3.3 3.7-5.6 5.6-9.3 1.8-3.7 .9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 13.3 5.7 23.6 9.2 31.7 11.7 13.3 4.2 25.5 3.6 35.1 2.2 10.7-1.5 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/></svg>
                Broadcast ({selectedIds.length})
              </button>
            )}
            {!isReadOnly && (
              <>
-               <button onClick={openVisitorIntake} className="px-8 py-5 bg-cms-purple text-white rounded-[1.75rem] font-black uppercase text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30">
+               <button onClick={openVisitorIntake} className="px-4 md:px-8 py-2 md:py-5 bg-cms-purple text-white rounded-lg md:rounded-[1.75rem] font-black uppercase text-[7px] md:text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all border-b-2 md:border-b-4 border-black/30">
                 + Visitor Intake
-              </button>
-              <button onClick={() => { resetForm('Active'); setIsModalOpen(true); }} className="px-10 py-5 bg-fh-green text-fh-gold rounded-[1.75rem] font-black uppercase text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30">
+               </button>
+               <button onClick={() => { resetForm('Active'); setIsModalOpen(true); }} className="px-5 md:px-10 py-2 md:py-5 bg-fh-green text-fh-gold rounded-lg md:rounded-[1.75rem] font-black uppercase text-[7px] md:text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all border-b-2 md:border-b-4 border-black/30">
                 + Register Member
-              </button>
+               </button>
              </>
            )}
         </div>
       </div>
 
       {/* Unified Search & Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         <div className="relative group">
-          <svg className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          <svg className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 w-4 md:w-5 h-4 md:h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input
             type="text"
             placeholder="Search Identity or GPS Registry..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            className="w-full pl-16 pr-6 py-6 bg-white border border-slate-100 rounded-[2rem] font-black text-xs uppercase tracking-tight focus:ring-8 focus:ring-fh-gold/5 focus:border-fh-gold outline-none transition-all shadow-sm"
+            className="w-full pl-12 md:pl-16 pr-4 md:pr-6 py-4 md:py-6 bg-white border border-slate-100 rounded-xl md:rounded-[2rem] font-black text-[10px] md:text-xs uppercase tracking-tight focus:ring-8 focus:ring-fh-gold/5 focus:border-fh-gold outline-none transition-all shadow-sm"
           />
         </div>
         <select
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value)}
-          className="px-8 py-6 bg-white border border-slate-100 rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] outline-none transition-all shadow-sm cursor-pointer hover:bg-slate-50 appearance-none text-slate-800"
+          className="px-6 md:px-8 py-4 md:py-6 bg-white border border-slate-100 rounded-xl md:rounded-[2rem] font-black text-[10px] md:text-xs uppercase tracking-[0.2em] outline-none transition-all shadow-sm cursor-pointer hover:bg-slate-50 appearance-none text-slate-800"
         >
           <option value="All">All Membership Tiers</option>
           <option>Active</option>
@@ -680,24 +680,24 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
       </div>
 
       {/* Registry Ledger */}
-      <div className="cms-card cms-card-blue bg-white rounded-[3.5rem] overflow-hidden border-none shadow-sm">
-        <div className="p-10 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
-           <div className="flex items-center gap-6">
+      <div className="cms-card cms-card-blue bg-white rounded-[2rem] md:rounded-[3.5rem] overflow-hidden border-none shadow-sm">
+        <div className="p-5 md:p-10 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
+           <div className="flex items-center gap-3 md:gap-6">
              <input 
                type="checkbox" 
                checked={selectedIds.length === members.length && members.length > 0} 
                onChange={toggleSelectAll}
-               className="w-6 h-6 rounded-lg border-2 border-slate-200 text-fh-green focus:ring-fh-green cursor-pointer"
+               className="w-4 h-4 md:w-6 md:h-6 rounded-md md:rounded-lg border-2 border-slate-200 text-fh-green focus:ring-fh-green cursor-pointer"
              />
-             <h3 className="text-sm font-black text-fh-green uppercase tracking-widest leading-none">Member Data Repository</h3>
+             <h3 className="text-[10px] md:text-sm font-black text-fh-green uppercase tracking-widest leading-none">Member Data Repository</h3>
            </div>
-           <span className="px-5 py-1.5 bg-white border border-slate-200 rounded-full text-[9px] font-black text-fh-green uppercase shadow-sm">{members.length} Logged</span>
+           <span className="px-3 md:px-5 py-1 md:py-1.5 bg-white border border-slate-200 rounded-full text-[7px] md:text-[9px] font-black text-fh-green uppercase shadow-sm">{members.length} Logged</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
-            <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] border-b border-slate-100">
+            <thead className="bg-slate-50 text-[8px] md:text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] border-b border-slate-100">
               <tr>
-                <th className="px-10 py-6">Select</th>
+                <th className="px-4 md:px-10 py-4 md:py-6">Select</th>
                 <th className="px-10 py-6">Identity Profile</th>
                 <th className="px-10 py-6">Relay Contact</th>
                 <th className="px-10 py-6">GPS / Location</th>

@@ -161,7 +161,6 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
     setIsGenerating(true);
     await performSync();
     setIsGenerating(false);
-    toast.success("Ministry accounts synchronized successfully!");
   };
 
   const fetchMinistries = async () => {
@@ -403,12 +402,12 @@ NOTIFY pgrst, 'reload schema';`;
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 flex items-center gap-3">
-            <Shield className="w-8 h-8 text-fh-gold" />
+        <div className="text-center md:text-left">
+          <h1 className="text-xl md:text-3xl font-black text-slate-900 flex items-center justify-center md:justify-start gap-2 md:gap-3 uppercase tracking-tighter">
+            <Shield className="w-6 h-6 md:w-8 md:h-8 text-fh-gold" />
             User Management
           </h1>
-          <p className="text-slate-500 font-medium">Manage church staff and system access roles</p>
+          <p className="text-[7px] md:text-base text-slate-500 font-black uppercase tracking-[0.4em] mt-1">Manage church staff and system access roles</p>
         </div>
         
         <div className="flex flex-col sm:flex-row gap-4">

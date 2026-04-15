@@ -729,21 +729,21 @@ NOTIFY pgrst, 'reload schema';`;
 
         {/* Center: Heading */}
         <div className="text-center order-1 lg:order-2">
-          <h2 className="text-3xl font-black text-fh-green tracking-tighter uppercase leading-none">Church Finance Overview</h2>
-          <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">Authorized Entries Only</p>
+          <h2 className="text-xl md:text-3xl font-black text-fh-green tracking-tighter uppercase leading-none">Church Finance Overview</h2>
+          <p className="text-[7px] md:text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-1 md:mt-2">Authorized Entries Only</p>
         </div>
 
         {/* Right: Actions */}
-        <div className="flex items-center justify-end gap-4 order-3">
+        <div className="flex items-center justify-center lg:justify-end gap-2 md:gap-4 order-3 w-full lg:w-auto">
           {/* Dropdown Menu for Reports */}
           <div className="relative">
             <button 
               onClick={() => setIsReportDropdownOpen(!isReportDropdownOpen)}
-              className="px-8 py-5 bg-white border border-slate-200 rounded-[1.75rem] font-black uppercase text-[10px] tracking-widest flex items-center gap-3 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+              className="px-4 md:px-8 py-3 md:py-5 bg-white border border-slate-200 rounded-xl md:rounded-[1.75rem] font-black uppercase text-[8px] md:text-[10px] tracking-widest flex items-center gap-2 md:gap-3 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
             >
-              <FileText className="w-5 h-5 text-fh-gold" />
+              <FileText className="w-4 h-4 md:w-5 md:h-5 text-fh-gold" />
               Reports
-              <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isReportDropdownOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-3 h-3 md:w-4 md:h-4 transition-transform duration-300 ${isReportDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
 
             <AnimatePresence>
@@ -825,23 +825,23 @@ NOTIFY pgrst, 'reload schema';`;
               });
               setIsTitheModalOpen(true);
             }
-          }} className="px-10 py-5 bg-fh-green text-fh-gold rounded-[1.75rem] font-black uppercase text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30">
+          }} className="px-5 md:px-10 py-3 md:py-5 bg-fh-green text-fh-gold rounded-xl md:rounded-[1.75rem] font-black uppercase text-[8px] md:text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all border-b-2 md:border-b-4 border-black/30">
             {activeTab === 'Statements' ? '+ Provision Entry' : '+ Record Tithe'}
           </button>
         </div>
       </div>
 
       {/* Tab Switcher */}
-      <div className="flex bg-slate-100 p-1 rounded-2xl w-fit no-print">
+      <div className="flex bg-slate-100 p-1 rounded-xl md:rounded-2xl w-fit no-print">
         <button 
           onClick={() => setActiveTab('Statements')}
-          className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'Statements' ? 'bg-white text-fh-green shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+          className={`px-4 md:px-8 py-2 md:py-3 rounded-lg md:rounded-xl text-[8px] md:text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'Statements' ? 'bg-white text-fh-green shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
         >
           Financial Statements
         </button>
         <button 
           onClick={() => setActiveTab('Tithers')}
-          className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'Tithers' ? 'bg-white text-fh-green shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+          className={`px-4 md:px-8 py-2 md:py-3 rounded-lg md:rounded-xl text-[8px] md:text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'Tithers' ? 'bg-white text-fh-green shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
         >
           Tithers Registry
         </button>
@@ -853,71 +853,71 @@ NOTIFY pgrst, 'reload schema';`;
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         
         {/* Row 1: Income (Solid bold colors like Dashboard) */}
-        <div className="bg-cms-blue rounded-xl shadow-md p-6 text-white flex items-center justify-between group overflow-hidden relative">
+        <div className="bg-cms-blue rounded-xl shadow-md p-3 md:p-6 text-white flex items-center justify-between group overflow-hidden relative">
           <div className="relative z-10">
-            <h2 className="text-3xl font-black">{formatGHS(sum('tithes'))}</h2>
-            <p className="text-[11px] font-bold uppercase tracking-widest opacity-80 mt-1">Total Tithes</p>
+            <h2 className="text-lg md:text-3xl font-black">{formatGHS(sum('tithes'))}</h2>
+            <p className="text-[8px] md:text-[11px] font-bold uppercase tracking-widest opacity-80 mt-1">Total Tithes</p>
           </div>
-          <svg className="w-12 h-12 text-white opacity-20 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
+          <svg className="w-7 h-7 md:w-12 md:h-12 text-white opacity-20 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
         </div>
 
-        <div className="bg-cms-purple rounded-xl shadow-md p-6 text-white flex items-center justify-between group overflow-hidden relative">
+        <div className="bg-cms-purple rounded-xl shadow-md p-3 md:p-6 text-white flex items-center justify-between group overflow-hidden relative">
           <div className="relative z-10">
-            <h2 className="text-3xl font-black">{formatGHS(sum('offerings'))}</h2>
-            <p className="text-[11px] font-bold uppercase tracking-widest opacity-80 mt-1">Total Offerings</p>
+            <h2 className="text-lg md:text-3xl font-black">{formatGHS(sum('offerings'))}</h2>
+            <p className="text-[8px] md:text-[11px] font-bold uppercase tracking-widest opacity-80 mt-1">Total Offerings</p>
           </div>
-          <svg className="w-12 h-12 text-white opacity-20 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.31-8.86c-1.77-.45-2.34-.94-2.34-1.67 0-.84.79-1.39 2.1-1.39 1.47 0 2.01.73 2.06 1.6h1.72c-.05-1.56-1.05-2.55-2.57-2.93V4h-2.34v2.71c-1.51.32-2.72 1.28-2.72 2.81 0 1.79 1.49 2.69 3.66 3.21 1.95.46 2.34 1.15 2.34 1.87 0 .53-.38 1.39-2.1 1.39-1.6 0-2.23-.72-2.32-1.64H8.04c.1 1.7 1.36 2.66 2.89 2.97V20h2.34v-2.71c1.52-.29 2.72-1.16 2.72-2.75 0-2.21-1.91-2.97-3.68-3.4z"/></svg>
+          <svg className="w-7 h-7 md:w-12 md:h-12 text-white opacity-20 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.31-8.86c-1.77-.45-2.34-.94-2.34-1.67 0-.84.79-1.39 2.1-1.39 1.47 0 2.01.73 2.06 1.6h1.72c-.05-1.56-1.05-2.55-2.57-2.93V4h-2.34v2.71c-1.51.32-2.72 1.28-2.72 2.81 0 1.79 1.49 2.69 3.66 3.21 1.95.46 2.34 1.15 2.34 1.87 0 .53-.38 1.39-2.1 1.39-1.6 0-2.23-.72-2.32-1.64H8.04c.1 1.7 1.36 2.66 2.89 2.97V20h2.34v-2.71c1.52-.29 2.72-1.16 2.72-2.75 0-2.21-1.91-2.97-3.68-3.4z"/></svg>
         </div>
 
-        <div className="bg-cms-emerald rounded-xl shadow-md p-6 text-white flex items-center justify-between group overflow-hidden relative">
+        <div className="bg-cms-emerald rounded-xl shadow-md p-3 md:p-6 text-white flex items-center justify-between group overflow-hidden relative">
           <div className="relative z-10">
-            <h2 className="text-3xl font-black">{formatGHS(sum('seed'))}</h2>
-            <p className="text-[11px] font-bold uppercase tracking-widest opacity-80 mt-1">Seeds & Pledges</p>
+            <h2 className="text-lg md:text-3xl font-black">{formatGHS(sum('seed'))}</h2>
+            <p className="text-[8px] md:text-[11px] font-bold uppercase tracking-widest opacity-80 mt-1">Seeds & Pledges</p>
           </div>
-          <svg className="w-12 h-12 text-white opacity-20 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/></svg>
+          <svg className="w-7 h-7 md:w-12 md:h-12 text-white opacity-20 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/></svg>
         </div>
 
-        <div className="bg-slate-700 rounded-xl shadow-md p-6 text-white flex items-center justify-between group overflow-hidden relative">
+        <div className="bg-slate-700 rounded-xl shadow-md p-3 md:p-6 text-white flex items-center justify-between group overflow-hidden relative">
           <div className="relative z-10">
-            <h2 className="text-3xl font-black">{formatGHS(sum('other_income'))}</h2>
-            <p className="text-[11px] font-bold uppercase tracking-widest opacity-80 mt-1">Other Income</p>
+            <h2 className="text-lg md:text-3xl font-black">{formatGHS(sum('other_income'))}</h2>
+            <p className="text-[8px] md:text-[11px] font-bold uppercase tracking-widest opacity-80 mt-1">Other Income</p>
           </div>
-          <svg className="w-12 h-12 text-white opacity-20 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          <svg className="w-7 h-7 md:w-12 md:h-12 text-white opacity-20 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
         </div>
 
         {/* Row 2: Balances & Outbound */}
-        <div className="bg-cms-rose rounded-xl shadow-md p-6 text-white flex items-center justify-between group overflow-hidden relative">
+        <div className="bg-cms-rose rounded-xl shadow-md p-3 md:p-6 text-white flex items-center justify-between group overflow-hidden relative">
           <div className="relative z-10">
-            <h2 className="text-3xl font-black">{formatGHS(sum('expenses'))}</h2>
-            <p className="text-[11px] font-bold uppercase tracking-widest opacity-80 mt-1">Expenses</p>
+            <h2 className="text-lg md:text-3xl font-black">{formatGHS(sum('expenses'))}</h2>
+            <p className="text-[8px] md:text-[11px] font-bold uppercase tracking-widest opacity-80 mt-1">Expenses</p>
           </div>
-          <svg className="w-12 h-12 text-white opacity-20 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13H5v-2h14v2z"/></svg>
+          <svg className="w-7 h-7 md:w-12 md:h-12 text-white opacity-20 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13H5v-2h14v2z"/></svg>
         </div>
 
-        <div className="bg-cms-blue rounded-xl shadow-md p-6 text-white flex items-center justify-between group overflow-hidden relative">
+        <div className="bg-cms-blue rounded-xl shadow-md p-3 md:p-6 text-white flex items-center justify-between group overflow-hidden relative">
           <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rotate-45 translate-x-1/2 -translate-y-1/2"></div>
           <div className="relative z-10">
-            <h2 className="text-3xl font-black">{formatGHS(sum('bank_balance'))}</h2>
-            <p className="text-[11px] font-bold uppercase tracking-widest opacity-80 mt-1">Bank Holdings</p>
+            <h2 className="text-lg md:text-3xl font-black">{formatGHS(sum('bank_balance'))}</h2>
+            <p className="text-[8px] md:text-[11px] font-bold uppercase tracking-widest opacity-80 mt-1">Bank Holdings</p>
           </div>
-          <svg className="w-12 h-12 text-white opacity-20 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24"><path d="M4 10v7h3v-7H4zm6 0v7h3v-7h-3zM2 22h19v-3H2v3zm14-12v7h3v-7h-3zm-4.5-9L2 6v2h19V6l-9.5-5z"/></svg>
+          <svg className="w-7 h-7 md:w-12 md:h-12 text-white opacity-20 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24"><path d="M4 10v7h3v-7H4zm6 0v7h3v-7h-3zM2 22h19v-3H2v3zm14-12v7h3v-7h-3zm-4.5-9L2 6v2h19V6l-9.5-5z"/></svg>
         </div>
 
-        <div className="bg-cms-emerald rounded-xl shadow-md p-6 text-white flex items-center justify-between group overflow-hidden relative">
+        <div className="bg-cms-emerald rounded-xl shadow-md p-3 md:p-6 text-white flex items-center justify-between group overflow-hidden relative">
           <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rotate-45 translate-x-1/2 -translate-y-1/2"></div>
           <div className="relative z-10">
-            <h2 className="text-3xl font-black">{formatGHS(sum('momo_balance'))}</h2>
-            <p className="text-[11px] font-bold uppercase tracking-widest opacity-80 mt-1">MoMo Balance</p>
+            <h2 className="text-lg md:text-3xl font-black">{formatGHS(sum('momo_balance'))}</h2>
+            <p className="text-[8px] md:text-[11px] font-bold uppercase tracking-widest opacity-80 mt-1">MoMo Balance</p>
           </div>
-          <svg className="w-12 h-12 text-white opacity-20 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24"><path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/></svg>
+          <svg className="w-7 h-7 md:w-12 md:h-12 text-white opacity-20 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24"><path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/></svg>
         </div>
 
-        <div className="bg-slate-900 rounded-xl shadow-md p-6 text-fh-gold flex items-center justify-between group overflow-hidden relative border border-white/10">
+        <div className="bg-slate-900 rounded-xl shadow-md p-3 md:p-6 text-fh-gold flex items-center justify-between group overflow-hidden relative border border-white/10">
           <div className="relative z-10">
-            <h2 className="text-3xl font-black">{formatGHS(netBalance)}</h2>
-            <p className="text-[11px] font-bold uppercase tracking-widest opacity-60 mt-1">Total Net Balance</p>
+            <h2 className="text-lg md:text-3xl font-black">{formatGHS(netBalance)}</h2>
+            <p className="text-[8px] md:text-[11px] font-bold uppercase tracking-widest opacity-60 mt-1">Total Net Balance</p>
           </div>
-          <svg className="w-12 h-12 text-fh-gold opacity-20 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-1.13 2.4-1.61 0-.97-.69-1.61-2.57-2.06-2.14-.51-3.92-1.25-3.92-3.5 0-1.85 1.5-3.18 3.27-3.56V4h2.67v1.86c1.47.31 2.67 1.3 2.82 2.83h-1.96c-.09-.85-.68-1.5-2.22-1.5-1.54 0-2.03.74-2.03 1.48 0 .82.66 1.34 2.53 1.77 2.13.5 3.96 1.25 3.96 3.65 0 2.11-1.58 3.25-3.41 3.59z"/></svg>
+          <svg className="w-7 h-7 md:w-12 md:h-12 text-fh-gold opacity-20 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-1.13 2.4-1.61 0-.97-.69-1.61-2.57-2.06-2.14-.51-3.92-1.25-3.92-3.5 0-1.85 1.5-3.18 3.27-3.56V4h2.67v1.86c1.47.31 2.67 1.3 2.82 2.83h-1.96c-.09-.85-.68-1.5-2.22-1.5-1.54 0-2.03.74-2.03 1.48 0 .82.66 1.34 2.53 1.77 2.13.5 3.96 1.25 3.96 3.65 0 2.11-1.58 3.25-3.41 3.59z"/></svg>
         </div>
       </div>
 

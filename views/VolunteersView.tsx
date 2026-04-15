@@ -51,7 +51,6 @@ const VolunteersView: React.FC<VolunteersViewProps> = () => {
       } else {
         setTableMissing(false);
         setVolunteers(vData || []);
-        if (isLoading) toast.success("Volunteers synced successfully!");
       }
     } catch (err) {
       console.error(err);
@@ -115,12 +114,12 @@ create policy "Allow all on volunteers" on volunteers for all using (true) with 
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-black text-slate-800 tracking-tight">Ministry Volunteers</h2>
-          <p className="text-slate-500 font-medium">Relational deployment of church human resources.</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="text-center md:text-left">
+          <h2 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight leading-none">Ministry Volunteers</h2>
+          <p className="text-slate-500 text-[7px] md:text-sm font-medium mt-1 md:mt-2">Relational deployment of church human resources.</p>
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="px-8 py-3.5 bg-emerald-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-emerald-100 active:scale-95 transition-all hover:bg-emerald-700">Add Volunteer</button>
+        <button onClick={() => setIsModalOpen(true)} className="px-6 md:px-8 py-3 md:py-3.5 bg-emerald-600 text-white rounded-xl md:rounded-2xl font-black text-[10px] md:text-sm uppercase tracking-widest shadow-xl shadow-emerald-100 active:scale-95 transition-all hover:bg-emerald-700">Add Volunteer</button>
       </div>
 
       <div className="bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-sm">

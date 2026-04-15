@@ -60,7 +60,6 @@ const BranchesView: React.FC<BranchesViewProps> = () => {
       } else {
         setTableError(null);
         setBranches(data || []);
-        if (isLoading) toast.success("Branches synced successfully!");
       }
     } catch (err) {
       console.error('System error:', err);
@@ -214,36 +213,36 @@ create policy "Allow all actions for now" on branches for all using (true) with 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Branches Management</h2>
-          <p className="text-slate-500 text-sm font-medium">Maintain a registry of all church locations and site leadership.</p>
+        <div className="text-center md:text-left">
+          <h2 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight leading-none">Branches Management</h2>
+          <p className="text-slate-500 text-[7px] md:text-sm font-medium mt-1 md:mt-2">Maintain a registry of all church locations and site leadership.</p>
         </div>
         <button 
           onClick={() => { resetForm(); setEditingId(null); setIsModalOpen(true); }}
-          className="flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all"
+          className="flex items-center justify-center gap-2 px-5 md:px-6 py-2.5 md:py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-[10px] md:text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+          <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
           Add New Branch
         </button>
       </div>
 
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-4">
+      <div className="bg-white p-3 md:p-4 rounded-xl md:rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-3 md:gap-4">
         <div className="relative flex-1 w-full">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input 
             type="text" 
             placeholder="Search by branch name or location..." 
-            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-sm font-medium"
+            className="w-full pl-9 md:pl-10 pr-4 py-2 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg md:rounded-xl outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-[10px] md:text-sm font-medium"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
         <button 
           onClick={fetchBranches}
-          className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm active:scale-95"
+          className="p-2 md:p-2.5 bg-white border border-slate-200 rounded-lg md:rounded-xl text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm active:scale-95"
           title="Reload Data"
         >
-          <svg className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+          <svg className={`w-4 h-4 md:w-5 md:h-5 ${isLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
         </button>
       </div>
 

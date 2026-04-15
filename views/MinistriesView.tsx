@@ -73,7 +73,6 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem, currentU
       } else {
         setTableError(null);
         setMinistries(data || []);
-        if (isLoading) toast.success("Ministries synced successfully!");
       }
     } catch (err) {
       console.error('System error:', err);
@@ -236,18 +235,18 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <h2 className="text-3xl font-black text-fh-green tracking-tighter uppercase leading-none">Ministries</h2>
-          <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.4em]">Operational Oversight Hub</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
+        <div className="space-y-1 text-center md:text-left">
+          <h2 className="text-xl md:text-3xl font-black text-fh-green tracking-tighter uppercase leading-none">Ministries</h2>
+          <p className="text-slate-400 font-bold text-[7px] md:text-[10px] uppercase tracking-[0.4em]">Operational Oversight Hub</p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1 min-w-[300px]">
-            <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+        <div className="flex flex-col sm:flex-row gap-2 md:gap-4">
+          <div className="relative flex-1 min-w-full md:min-w-[300px]">
+            <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 md:w-4 md:h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             <input 
               type="text" 
               placeholder="Search ministries..." 
-              className="w-full pl-10 pr-4 py-4 bg-white border border-slate-200 rounded-2xl outline-none focus:border-fh-gold transition-all text-sm font-bold text-slate-800 shadow-sm"
+              className="w-full pl-10 pr-4 py-3 md:py-4 bg-white border border-slate-200 rounded-xl md:rounded-2xl outline-none focus:border-fh-gold transition-all text-[10px] md:text-sm font-bold text-slate-800 shadow-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -255,9 +254,9 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
           {!isReadOnly && (
             <button 
               onClick={() => { resetForm(); setEditingId(null); setIsModalOpen(true); }}
-              className="flex items-center justify-center gap-3 px-8 py-4 bg-fh-green text-fh-gold rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl active:scale-95 transition-all border-b-4 border-black/30"
+              className="flex items-center justify-center gap-2 md:gap-3 px-6 md:px-8 py-3 md:py-4 bg-fh-green text-fh-gold rounded-xl md:rounded-2xl font-black text-[8px] md:text-xs uppercase tracking-widest shadow-2xl active:scale-95 transition-all border-b-2 md:border-b-4 border-black/30"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+              <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
               Provision Ministry
             </button>
           )}

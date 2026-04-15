@@ -87,8 +87,13 @@ const Sidebar: React.FC<SidebarProps> = ({ activeItem, setActiveItem, isOpen, to
 
     // If it's a ministry role (dynamic)
     if (isMinistryRole(role)) {
-      const allowedForMinistries = ['Dashboard', 'Members', 'Ministries', 'Upcoming Events', 'Recurring Tasks', role];
+      const allowedForMinistries = ['Dashboard', 'Members', 'Ministries', 'Upcoming Events', 'Recurring Tasks', 'Cell Meeting', role];
       
+      // Ushering Ministry specific access
+      if (role.toLowerCase().includes('ushering')) {
+        allowedForMinistries.push('Attendance');
+      }
+
       if (allowedForMinistries.includes(item.name)) return true;
       if (item.roles?.includes(role)) return true;
 

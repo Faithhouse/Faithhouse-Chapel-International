@@ -198,6 +198,32 @@ const ChildrenMinistryView: React.FC<ChildrenMinistryViewProps> = () => {
     }
   };
 
+  const purgeAllChildren = async () => {
+    if (!window.confirm("CRITICAL ACTION: This will permanently delete EVERY child record and all associated attendance/logs. This cannot be undone. Proceed?")) return;
+    
+    setIsLoading(true);
+    try {
+      // Delete from dependent tables first to avoid FK violations
+      await supabase.from('children_attendance').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('check_in_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('medical_records').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('incident_reports').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      
+      // Finally delete children
+      const { error } = await supabase.from('children').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      
+      if (error) throw error;
+      
+      toast.success('All child records have been purged from the system.');
+      fetchData();
+    } catch (error: any) {
+      console.error('Purge error:', error);
+      toast.error(`Purge failed: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleCheckOut = async (childId: string) => {
     if (!activeService) return;
 
@@ -465,30 +491,30 @@ NOTIFY pgrst, 'reload schema';`;
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-20">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-1">
-          <h1 className="text-4xl font-black text-fh-green tracking-tighter uppercase leading-none">Children's Ministry</h1>
-          <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em]">Faithhouse Chapel International • Sunday School System</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
+        <div className="space-y-1 text-center md:text-left">
+          <h1 className="text-xl md:text-4xl font-black text-fh-green tracking-tighter uppercase leading-none">Children's Ministry</h1>
+          <p className="text-[7px] md:text-[10px] text-slate-400 font-black uppercase tracking-[0.4em]">Faithhouse Chapel International • Sunday School System</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex justify-center md:justify-end gap-2 md:gap-3">
           <button 
             onClick={() => setIsRegisterModalOpen(true)}
-            className="px-8 py-4 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl active:scale-95 transition-all border-b-4 border-black/30 flex items-center gap-2"
+            className="px-5 md:px-8 py-3 md:py-4 bg-fh-green text-fh-gold rounded-xl md:rounded-2xl font-black uppercase text-[8px] md:text-[10px] tracking-widest shadow-xl active:scale-95 transition-all border-b-2 md:border-b-4 border-black/30 flex items-center gap-1.5 md:gap-2"
           >
-            <UserPlus className="w-4 h-4" />
+            <UserPlus className="w-3.5 h-3.5 md:w-4 md:h-4" />
             Register Child
           </button>
           <button 
             onClick={() => window.print()}
-            className="p-4 bg-white border border-slate-200 rounded-2xl shadow-sm hover:bg-slate-50 transition-all text-slate-400 hover:text-fh-green"
+            className="p-3 md:p-4 bg-white border border-slate-200 rounded-xl md:rounded-2xl shadow-sm hover:bg-slate-50 transition-all text-slate-400 hover:text-fh-green"
           >
-            <Printer className="w-5 h-5" />
+            <Printer className="w-4 h-4 md:w-5 md:h-5" />
           </button>
         </div>
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex flex-wrap gap-2 bg-slate-100/50 p-1.5 rounded-[2rem] w-fit">
+      <div className="flex flex-wrap justify-center md:justify-start gap-1.5 md:gap-2 bg-slate-100/50 p-1 md:p-1.5 rounded-xl md:rounded-[2rem] w-fit mx-auto md:mx-0">
         {[
           { id: 'dashboard', label: 'Overview', icon: ClipboardList },
           { id: 'children', label: 'Children Register', icon: Baby },
@@ -499,13 +525,13 @@ NOTIFY pgrst, 'reload schema';`;
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-2 px-6 py-3 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all ${
+            className={`flex items-center gap-1.5 md:gap-2 px-3 md:px-6 py-2 md:py-3 rounded-lg md:rounded-[1.5rem] text-[7px] md:text-[10px] font-black uppercase tracking-widest transition-all ${
               activeTab === tab.id 
                 ? 'bg-fh-green text-fh-gold shadow-lg' 
                 : 'text-slate-500 hover:bg-white hover:text-fh-green'
             }`}
           >
-            <tab.icon className="w-4 h-4" />
+            <tab.icon className="w-3 h-3 md:w-4 md:h-4" />
             {tab.label}
           </button>
         ))}
@@ -513,42 +539,42 @@ NOTIFY pgrst, 'reload schema';`;
 
       {/* Dashboard Overview */}
       {activeTab === 'dashboard' && (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center gap-6">
-              <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-[1.5rem] flex items-center justify-center shadow-inner">
-                <Baby className="w-8 h-8" />
+        <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
+            <div className="bg-white p-4 md:p-8 rounded-2xl md:rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col md:flex-row items-center md:items-center gap-3 md:gap-6 text-center md:text-left">
+              <div className="w-10 h-10 md:w-16 md:h-16 bg-blue-50 text-blue-500 rounded-xl md:rounded-[1.5rem] flex items-center justify-center shadow-inner">
+                <Baby className="w-5 h-5 md:w-8 md:h-8" />
               </div>
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Children</p>
-                <p className="text-3xl font-black text-slate-900">{stats.totalChildren}</p>
+                <p className="text-[7px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Children</p>
+                <p className="text-xl md:text-3xl font-black text-slate-900">{stats.totalChildren}</p>
               </div>
             </div>
-            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center gap-6">
-              <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-[1.5rem] flex items-center justify-center shadow-inner">
-                <Users className="w-8 h-8" />
+            <div className="bg-white p-4 md:p-8 rounded-2xl md:rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col md:flex-row items-center md:items-center gap-3 md:gap-6 text-center md:text-left">
+              <div className="w-10 h-10 md:w-16 md:h-16 bg-emerald-50 text-emerald-500 rounded-xl md:rounded-[1.5rem] flex items-center justify-center shadow-inner">
+                <Users className="w-5 h-5 md:w-8 md:h-8" />
               </div>
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Classes</p>
-                <p className="text-3xl font-black text-slate-900">{stats.activeClasses}</p>
+                <p className="text-[7px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Classes</p>
+                <p className="text-xl md:text-3xl font-black text-slate-900">{stats.activeClasses}</p>
               </div>
             </div>
-            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center gap-6">
-              <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-[1.5rem] flex items-center justify-center shadow-inner">
-                <ShieldCheck className="w-8 h-8" />
+            <div className="bg-white p-4 md:p-8 rounded-2xl md:rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col md:flex-row items-center md:items-center gap-3 md:gap-6 text-center md:text-left">
+              <div className="w-10 h-10 md:w-16 md:h-16 bg-amber-50 text-amber-500 rounded-xl md:rounded-[1.5rem] flex items-center justify-center shadow-inner">
+                <ShieldCheck className="w-5 h-5 md:w-8 md:h-8" />
               </div>
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Teachers</p>
-                <p className="text-3xl font-black text-slate-900">{stats.totalTeachers}</p>
+                <p className="text-[7px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">Teachers</p>
+                <p className="text-xl md:text-3xl font-black text-slate-900">{stats.totalTeachers}</p>
               </div>
             </div>
-            <div className="bg-fh-green p-8 rounded-[2.5rem] shadow-xl flex items-center gap-6 border-b-8 border-black/20">
-              <div className="w-16 h-16 bg-white/20 text-fh-gold rounded-[1.5rem] flex items-center justify-center shadow-inner">
-                <CheckCircle2 className="w-8 h-8" />
+            <div className="bg-fh-green p-4 md:p-8 rounded-2xl md:rounded-[2.5rem] shadow-xl flex flex-col md:flex-row items-center md:items-center gap-3 md:gap-6 text-center md:text-left border-b-4 md:border-b-8 border-black/20">
+              <div className="w-10 h-10 md:w-16 md:h-16 bg-white/20 text-fh-gold rounded-xl md:rounded-[1.5rem] flex items-center justify-center shadow-inner">
+                <CheckCircle2 className="w-5 h-5 md:w-8 md:h-8" />
               </div>
               <div>
-                <p className="text-[10px] font-black text-fh-gold/60 uppercase tracking-widest">Today's Attendance</p>
-                <p className="text-3xl font-black text-fh-gold">{stats.todayAttendance}</p>
+                <p className="text-[7px] md:text-[10px] font-black text-fh-gold/60 uppercase tracking-widest leading-tight">Today's Attendance</p>
+                <p className="text-xl md:text-3xl font-black text-fh-gold">{stats.todayAttendance}</p>
               </div>
             </div>
           </div>
@@ -976,6 +1002,26 @@ NOTIFY pgrst, 'reload schema';`;
                 </div>
               </button>
             ))}
+          </div>
+
+          <div className="mt-12 p-10 bg-rose-50 rounded-[3rem] border border-rose-100">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+              <div className="flex items-center gap-6">
+                <div className="w-16 h-16 bg-rose-500 text-white rounded-[1.5rem] flex items-center justify-center shadow-lg">
+                  <Trash2 className="w-8 h-8" />
+                </div>
+                <div>
+                  <h4 className="text-xl font-black text-rose-900 uppercase tracking-tighter">System Maintenance</h4>
+                  <p className="text-[10px] font-bold text-rose-600 uppercase tracking-widest mt-1">Permanently clear all children ministry records</p>
+                </div>
+              </div>
+              <button 
+                onClick={purgeAllChildren}
+                className="px-10 py-5 bg-rose-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-rose-600 active:scale-95 transition-all border-b-4 border-black/20"
+              >
+                Purge All Records
+              </button>
+            </div>
           </div>
         </div>
       )}

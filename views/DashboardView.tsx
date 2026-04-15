@@ -272,7 +272,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
       setUpcomingAnniversaries(upcomingAnnis);
 
       setTableMissing(false);
-      if (isLoading) toast.success("Dashboard data synced successfully!");
     } catch (err: any) {
       console.error("Dashboard Data Sync Error:", err);
       if (err.code === '42P01' || err.code === 'PGRST205') {
@@ -537,13 +536,13 @@ NOTIFY pgrst, 'reload schema';`;
 
       <div className="relative z-10 space-y-8 pb-24">
       {/* 1. Header Section */}
-      <div className="flex flex-col items-center text-center gap-6 mb-10 pt-4">
-        <div className="space-y-3 max-w-4xl">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter uppercase leading-none">
+      <div className="flex flex-col items-center text-center gap-3 mb-6 pt-2">
+        <div className="space-y-1 max-w-4xl">
+          <h1 className="text-xl md:text-4xl lg:text-5xl font-black text-slate-900 tracking-tighter uppercase leading-none">
             Church Governance & Insight
           </h1>
-          <p className="text-base md:text-lg lg:text-xl text-slate-500 font-medium italic tracking-wide leading-relaxed">
-            "Know the state of your flocks, and put your heart into caring for your herds." – Proverbs 27:23
+          <p className="text-[10px] md:text-base lg:text-lg text-slate-500 font-medium italic tracking-wide leading-relaxed">
+            "Know the state of your flocks, and put your heart into caring for your herds." <span className="text-[8px] md:text-sm lg:text-base block mt-0.5 not-italic font-black text-slate-400 opacity-60">— Proverbs 27:23</span>
           </p>
         </div>
         
@@ -1064,19 +1063,19 @@ const KPICard = ({ title, value, trend, icon, status, sparkline, isLoading }: an
   const trendColor = status === 'growth' ? 'text-emerald-600' : status === 'attention' ? 'text-rose-600' : status === 'warning' ? 'text-amber-600' : 'text-blue-600';
 
   return (
-    <div className="bg-white p-6 rounded-[2rem] border border-slate-200/50 shadow-sm hover:shadow-md transition-all group">
-      <div className="flex justify-between items-start mb-4">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${statusClasses[status]}`}>
-          {icon}
+    <div className="bg-white p-3 md:p-6 rounded-[1.25rem] md:rounded-[2rem] border border-slate-200/50 shadow-sm hover:shadow-md transition-all group">
+      <div className="flex justify-between items-start mb-2 md:mb-4">
+        <div className={`w-7 h-7 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center ${statusClasses[status]}`}>
+          {React.cloneElement(icon as React.ReactElement<any>, { className: 'w-3.5 h-3.5 md:w-5 md:h-5' })}
         </div>
-        <div className={`flex items-center gap-1 text-[10px] font-black uppercase tracking-tighter ${trendColor}`}>
-          {isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+        <div className={`flex items-center gap-0.5 md:gap-1 text-[7px] md:text-[10px] font-black uppercase tracking-tighter ${trendColor}`}>
+          {isPositive ? <ArrowUpRight className="w-2 h-2 md:w-3 md:h-3" /> : <ArrowDownRight className="w-2 h-2 md:w-3 md:h-3" />}
           {Math.abs(trend)}%
         </div>
       </div>
       <div>
-        <h2 className="text-2xl font-black text-slate-900 tracking-tighter">{isLoading ? '...' : value}</h2>
-        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mt-1">{title}</p>
+        <h2 className="text-lg md:text-2xl font-black text-slate-900 tracking-tighter">{isLoading ? '...' : value}</h2>
+        <p className="text-[7px] md:text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mt-0.5 md:mt-1">{title}</p>
       </div>
       <div className="mt-4 h-8 w-full opacity-30 group-hover:opacity-60 transition-opacity">
         <ResponsiveContainer width="100%" height="100%">
@@ -1092,11 +1091,11 @@ const KPICard = ({ title, value, trend, icon, status, sparkline, isLoading }: an
 const ActionButton = ({ icon, label, onClick }: any) => (
   <button 
     onClick={onClick}
-    className="flex items-center gap-3 px-4 py-2.5 bg-white border border-slate-200 rounded-2xl shadow-xl hover:bg-slate-50 transition-all group"
+    className="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-2.5 bg-white border border-slate-200 rounded-xl md:rounded-2xl shadow-xl hover:bg-slate-50 transition-all group"
   >
-    <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 group-hover:text-fh-green">{label}</span>
-    <div className="w-8 h-8 bg-slate-900 text-fh-gold rounded-xl flex items-center justify-center">
-      {icon}
+    <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-slate-600 group-hover:text-fh-green">{label}</span>
+    <div className="w-6 h-6 md:w-8 md:h-8 bg-slate-900 text-fh-gold rounded-lg md:rounded-xl flex items-center justify-center">
+      {React.cloneElement(icon as React.ReactElement<any>, { className: 'w-3 h-3 md:w-4 md:h-4' })}
     </div>
   </button>
 );

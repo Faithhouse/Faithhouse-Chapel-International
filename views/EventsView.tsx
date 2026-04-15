@@ -67,7 +67,7 @@ const EventsView: React.FC<EventsViewProps> = ({ currentUser }) => {
     return !standardRoles.includes(role);
   };
 
-  const isReadOnly = currentUser && isMinistryRole(currentUser.role);
+  const isReadOnly = currentUser && isMinistryRole(currentUser.role) && !currentUser.role.toLowerCase().includes('ushering');
 
   useEffect(() => {
     fetchInitialData();
@@ -126,7 +126,6 @@ const EventsView: React.FC<EventsViewProps> = ({ currentUser }) => {
       }
       setEvents(eventData || []);
       setTableMissing(false);
-      if (isLoading) toast.success("Events synced successfully!");
     } catch (err: any) {
       console.error("Sync Error:", err);
       const errorMessage = err.message === 'Failed to fetch' || err.name === 'TypeError' 
@@ -370,32 +369,32 @@ NOTIFY pgrst, 'reload schema';`;
       )}
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-black text-fh-green tracking-tighter uppercase">Upcoming Events</h2>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Programmes & Vitality Management</p>
+        <div className="text-center md:text-left">
+          <h2 className="text-xl md:text-3xl font-black text-fh-green tracking-tighter uppercase leading-none">Upcoming Events</h2>
+          <p className="text-[7px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 md:mt-2">Programmes & Vitality Management</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap justify-center md:justify-end items-center gap-2 md:gap-3">
           <button 
             onClick={runDiagnostic} 
             disabled={isDiagnosticRunning}
-            className="p-4 bg-white border border-slate-200 text-amber-500 rounded-2xl hover:bg-amber-50 transition-all"
+            className="p-3 md:p-4 bg-white border border-slate-200 text-amber-500 rounded-xl md:rounded-2xl hover:bg-amber-50 transition-all shadow-sm"
             title="Run System Diagnostic"
           >
-            <svg className={`w-5 h-5 ${isDiagnosticRunning ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+            <svg className={`w-4 h-4 md:w-5 md:h-5 ${isDiagnosticRunning ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
           </button>
-          <div className="flex bg-white border border-slate-200 rounded-2xl overflow-hidden">
-            <button onClick={() => setViewMode('list')} className={`p-4 ${viewMode === 'list' ? 'bg-fh-green text-fh-gold' : 'text-slate-400'}`}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" /></svg>
+          <div className="flex bg-white border border-slate-200 rounded-xl md:rounded-2xl overflow-hidden shadow-sm">
+            <button onClick={() => setViewMode('list')} className={`p-3 md:p-4 ${viewMode === 'list' ? 'bg-fh-green text-fh-gold' : 'text-slate-400'}`}>
+              <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" /></svg>
             </button>
-            <button onClick={() => setViewMode('calendar')} className={`p-4 ${viewMode === 'calendar' ? 'bg-fh-green text-fh-gold' : 'text-slate-400'}`}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+            <button onClick={() => setViewMode('calendar')} className={`p-3 md:p-4 ${viewMode === 'calendar' ? 'bg-fh-green text-fh-gold' : 'text-slate-400'}`}>
+              <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
             </button>
           </div>
-          <button onClick={fetchInitialData} className="p-4 bg-white border border-slate-200 text-slate-400 rounded-2xl hover:bg-slate-50 transition-all">
-            <svg className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+          <button onClick={fetchInitialData} className="p-3 md:p-4 bg-white border border-slate-200 text-slate-400 rounded-xl md:rounded-2xl hover:bg-slate-50 transition-all shadow-sm">
+            <svg className={`w-4 h-4 md:w-5 md:h-5 ${isLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
           </button>
           {!isReadOnly && (
-            <button onClick={() => setIsModalOpen(true)} className="px-8 py-4 bg-fh-green text-fh-gold rounded-2xl font-black text-xs uppercase shadow-xl border-b-4 border-black/20">
+            <button onClick={() => setIsModalOpen(true)} className="px-5 md:px-8 py-3 md:py-4 bg-fh-green text-fh-gold rounded-xl md:rounded-2xl font-black text-[8px] md:text-xs uppercase shadow-xl border-b-2 md:border-b-4 border-black/20 active:scale-95 transition-all">
               Schedule Programme
             </button>
           )}
@@ -424,15 +423,15 @@ NOTIFY pgrst, 'reload schema';`;
                 <option>Communion Service</option>
               </select>
             </div>
-            <div className="flex flex-wrap items-center gap-3 pt-2">
-              <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl">
+            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 pt-1 md:pt-2">
+              <div className="flex flex-wrap items-center justify-center gap-1.5 bg-slate-50 p-1 rounded-xl">
                 {months.map((month, index) => (
-                  <button key={month} onClick={() => setSelectedMonth(index)} className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase transition-all ${selectedMonth === index ? 'bg-fh-green text-fh-gold' : 'text-slate-400'}`}>
+                  <button key={month} onClick={() => setSelectedMonth(index)} className={`px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg text-[7px] md:text-[9px] font-black uppercase transition-all ${selectedMonth === index ? 'bg-fh-green text-fh-gold' : 'text-slate-400'}`}>
                     {month.substring(0, 3)}
                   </button>
                 ))}
               </div>
-              <select className="px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[10px] font-black uppercase" value={selectedYear} onChange={(e) => setSelectedYear(parseInt(e.target.value))}>
+              <select className="px-3 md:px-4 py-1.5 md:py-2 bg-slate-50 border border-slate-100 rounded-lg md:rounded-xl text-[8px] md:text-[10px] font-black uppercase" value={selectedYear} onChange={(e) => setSelectedYear(parseInt(e.target.value))}>
                 {years.map(year => <option key={year} value={year}>{year}</option>)}
               </select>
             </div>
