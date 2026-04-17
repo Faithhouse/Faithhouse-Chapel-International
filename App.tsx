@@ -46,6 +46,24 @@ const App: React.FC = () => {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [lastActivity, setLastActivity] = useState(Date.now());
+  const [isCellLeader, setIsCellLeader] = useState(false);
+
+  useEffect(() => {
+    const checkCellLeadership = async () => {
+      if (!currentUser) return;
+      try {
+        const { data } = await supabase
+          .from('cell_groups')
+          .select('id')
+          .ilike('leader', `%${currentUser.full_name}%`)
+          .limit(1);
+        setIsCellLeader(!!(data && data.length > 0));
+      } catch (err) {
+        console.error('Cell check error:', err);
+      }
+    };
+    checkCellLeadership();
+  }, [currentUser]);
 
   useEffect(() => {
     if (!currentUser && !isDemoMode) return;
@@ -259,7 +277,16 @@ const App: React.FC = () => {
           return <RecurringTasksView currentUser={currentUser} />;
 
         case 'Cell Meeting':
-          return <CellMeetingView />;
+          {
+            const role = currentUser?.role || '';
+            const standardRoles = ['system_admin', 'general_overseer', 'admin', 'pastor', 'finance', 'media', 'worker'];
+            const hasAccess = standardRoles.includes(role) || isCellLeader;
+            
+            if (hasAccess) {
+              return <CellMeetingView />;
+            }
+            return <PlaceholderView title="Access Restricted" />;
+          }
 
         case 'Users':
           return <UsersView currentUser={currentUser} />;

@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { supabase } from '../supabaseClient';
 import { NavItem, UserProfile } from '../types';
 import { ChevronDown, ChevronRight, Baby, Zap, Shield, Users as UsersIcon, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -69,6 +70,27 @@ const menuItems: MenuItem[] = [
 const Sidebar: React.FC<SidebarProps> = ({ activeItem, setActiveItem, isOpen, toggleSidebar, currentUser, onLogout }) => {
   // Direct download link format for Google Drive images
   const logoUrl = "https://lh3.googleusercontent.com/d/1la57sO6NOuNEZaqa9zDxuxRnWPBavkjH";
+  const [isCellLeader, setIsCellLeader] = useState(false);
+
+  React.useEffect(() => {
+    const checkCellLeadership = async () => {
+      if (!currentUser) return;
+      try {
+        const { data, error } = await supabase
+          .from('cell_groups')
+          .select('id')
+          .ilike('leader', `%${currentUser.full_name}%`)
+          .limit(1);
+        
+        if (data && data.length > 0) {
+          setIsCellLeader(true);
+        }
+      } catch (err) {
+        console.error('Error checking cell leadership:', err);
+      }
+    };
+    checkCellLeadership();
+  }, [currentUser]);
 
   const isMinistryRole = (role: string) => {
     const standardRoles = ['system_admin', 'general_overseer', 'admin', 'pastor', 'finance', 'media', 'worker'];
@@ -87,8 +109,12 @@ const Sidebar: React.FC<SidebarProps> = ({ activeItem, setActiveItem, isOpen, to
 
     // If it's a ministry role (dynamic)
     if (isMinistryRole(role)) {
-      const allowedForMinistries = ['Dashboard', 'Members', 'Ministries', 'Upcoming Events', 'Recurring Tasks', 'Cell Meeting', role];
+      const allowedForMinistries = ['Dashboard', 'Members', 'Ministries', 'Upcoming Events', 'Recurring Tasks', role];
       
+      if (isCellLeader) {
+        allowedForMinistries.push('Cell Meeting');
+      }
+
       // Ushering Ministry specific access
       if (role.toLowerCase().includes('ushering')) {
         allowedForMinistries.push('Attendance');

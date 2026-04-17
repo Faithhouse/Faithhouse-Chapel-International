@@ -75,7 +75,7 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
     return !standardRoles.includes(role);
   };
 
-  const isReadOnly = currentUser && isMinistryRole(currentUser.role) && !currentUser.role.toLowerCase().includes('ushering');
+  const isReadOnly = currentUser && isMinistryRole(currentUser.role);
 
   useEffect(() => {
     fetchInitialData();
