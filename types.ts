@@ -52,6 +52,12 @@ export interface Member {
   ministry?: string;
   role?: string;
   gps_address?: string;
+  location_area?: string;
+  landmark?: string;
+  marital_status?: string;
+  invited_by?: string;
+  prayer_request?: string;
+  visitor_type?: 'First-time' | 'Returning visitor' | 'Member of another church';
   emergency_contact_name?: string;
   emergency_contact_phone?: string;
   notify_birthday?: boolean;

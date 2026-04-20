@@ -67,7 +67,13 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
     status: 'Active' as Member['status'],
     follow_up_status: 'Pending' as Member['follow_up_status'],
     latitude: 0,
-    longitude: 0
+    longitude: 0,
+    location_area: '',
+    landmark: '',
+    marital_status: 'Single',
+    invited_by: '',
+    prayer_request: '',
+    visitor_type: 'First-time' as Member['visitor_type']
   });
 
   const isMinistryRole = (role: string) => {
@@ -105,7 +111,13 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
           status: memberToEdit.status,
           follow_up_status: memberToEdit.follow_up_status || 'Pending',
           latitude: memberToEdit.latitude || 0,
-          longitude: memberToEdit.longitude || 0
+          longitude: memberToEdit.longitude || 0,
+          location_area: memberToEdit.location_area || '',
+          landmark: memberToEdit.landmark || '',
+          marital_status: memberToEdit.marital_status || 'Single',
+          invited_by: memberToEdit.invited_by || '',
+          prayer_request: memberToEdit.prayer_request || '',
+          visitor_type: memberToEdit.visitor_type || 'First-time'
         });
         setIsModalOpen(true);
       }
@@ -204,8 +216,24 @@ CREATE TABLE IF NOT EXISTS public.members (
   emergency_contact_phone TEXT,
   notify_birthday BOOLEAN DEFAULT true,
   notify_events BOOLEAN DEFAULT true,
+  wedding_anniversary DATE,
+  location_area TEXT,
+  landmark TEXT,
+  marital_status TEXT,
+  invited_by TEXT,
+  prayer_request TEXT,
+  visitor_type TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
+
+-- Ensure all columns exist for visitors
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS wedding_anniversary DATE;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS location_area TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS landmark TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS marital_status TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS invited_by TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS prayer_request TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS visitor_type TEXT;
 
 CREATE TABLE IF NOT EXISTS public.tithe_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -429,7 +457,8 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
       first_name: '', last_name: '', gender: 'Male', phone: '', email: '', gps_address: '', dob: '',
       date_joined: new Date().toISOString().split('T')[0], branch_id: branches[0]?.id || '', ministry: 'N/A',
       emergency_contact_name: '', emergency_contact_phone: '', notify_birthday: true, notify_events: true, 
-      wedding_anniversary: '', status, follow_up_status: 'Pending', latitude: 0, longitude: 0
+      wedding_anniversary: '', status, follow_up_status: 'Pending', latitude: 0, longitude: 0,
+      location_area: '', landmark: '', marital_status: 'Single', invited_by: '', prayer_request: '', visitor_type: 'First-time'
     });
   };
 
@@ -438,7 +467,7 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
     if (!formData.branch_id) return showNotify('Branch assignment is mandatory.', 'error');
     setIsSubmitting(true);
     try {
-      const payload = {
+      let payload: any = {
         ...formData,
         email: formData.email.trim() || null,
         dob: formData.dob || null,
@@ -446,6 +475,19 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
         date_joined: formData.date_joined || null,
         gps_address: formData.gps_address.trim() || null,
       };
+
+      // Special Handling for Visitors (Full Name splitting and clearing excluded fields)
+      if (formData.status === 'Visitor') {
+        const names = formData.first_name.trim().split(/\s+/);
+        payload.first_name = names[0] || 'Visitor';
+        payload.last_name = names.slice(1).join(' ') || '';
+        
+        // Excluded fields as per request
+        payload.dob = null;
+        payload.wedding_anniversary = null;
+        payload.latitude = 0;
+        payload.longitude = 0;
+      }
 
       let error;
       if (editingId) {
@@ -790,7 +832,13 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
                                   follow_up_status: m.follow_up_status || 'Pending',
                                   latitude: m.latitude || 0,
                                   longitude: m.longitude || 0,
-                                  wedding_anniversary: m.wedding_anniversary || ''
+                                  wedding_anniversary: m.wedding_anniversary || '',
+                                  location_area: m.location_area || '',
+                                  landmark: m.landmark || '',
+                                  marital_status: m.marital_status || 'Single',
+                                  invited_by: m.invited_by || '',
+                                  prayer_request: m.prayer_request || '',
+                                  visitor_type: m.visitor_type || 'First-time'
                                 }); 
                                 setIsModalOpen(true); 
                               }} className="p-3 bg-slate-100 hover:bg-slate-900 text-slate-500 hover:text-fh-gold rounded-xl shadow-sm"><svg className="w-5 h-5 lg:w-4 lg:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
@@ -1081,37 +1129,70 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
 
             <form onSubmit={handleSubmit} className="p-12 space-y-8 max-h-[70vh] overflow-y-auto scrollbar-hide">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                 <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">First Name *</label><input required name="first_name" value={formData.first_name} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
-                 <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Last Name *</label><input required name="last_name" value={formData.last_name} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
-                 <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Gender</label><select name="gender" value={formData.gender} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner"><option>Male</option><option>Female</option></select></div>
-                 <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Phone Relay</label><input name="phone" value={formData.phone} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
-                 <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Email Entry</label><input type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
-                 <div className="space-y-1">
-                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Date of Birth</label>
-                   <input type="date" name="dob" value={formData.dob} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" />
-                 </div>
-                 <div className="space-y-1">
-                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Wedding Anniversary</label>
-                   <input type="date" name="wedding_anniversary" value={formData.wedding_anniversary} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" />
-                 </div>
-                 <div className="space-y-1">
-                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Branch Site *</label>
-                   <select required name="branch_id" value={formData.branch_id} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner">
-                      <option value="">Select Target...</option>
-                      {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                   </select>
-                 </div>
-                 <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Follow-Up Status</label>
-                    <select name="follow_up_status" value={formData.follow_up_status} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner">
-                       <option value="Pending">Pending</option>
-                       <option value="Contacted">Contacted</option>
-                       <option value="Visited">Visited</option>
-                       <option value="Completed">Completed</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Latitude</label><input type="number" step="any" name="latitude" value={formData.latitude} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
-                  <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Longitude</label><input type="number" step="any" name="longitude" value={formData.longitude} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                {formData.status === 'Visitor' ? (
+                  <>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Full Name *</label><input required name="first_name" value={formData.first_name} onChange={handleInputChange} placeholder="e.g. John Doe" className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Phone Number *</label><input required name="phone" value={formData.phone} onChange={handleInputChange} placeholder="+233..." className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Location / Area</label><input name="location_area" value={formData.location_area} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Landmark</label><input name="landmark" value={formData.landmark} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Marital Status</label><select name="marital_status" value={formData.marital_status} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner"><option>Single</option><option>Married</option><option>Widowed</option><option>Divorced</option></select></div>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Date of Visit</label><input type="date" name="date_joined" value={formData.date_joined} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Who Invited You?</label><input name="invited_by" value={formData.invited_by} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Visitor Type</label>
+                      <select name="visitor_type" value={formData.visitor_type} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner">
+                        <option value="First-time">1. First-time</option>
+                        <option value="Returning visitor">2. Returning visitor</option>
+                        <option value="Member of another church">3. Member of another church</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Branch Site *</label>
+                      <select required name="branch_id" value={formData.branch_id} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner">
+                        <option value="">Select Target...</option>
+                        {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1 md:col-span-2 lg:col-span-3">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Prayer Request</label>
+                      <textarea name="prayer_request" value={formData.prayer_request} onChange={handleInputChange} rows={3} placeholder="Any specific prayer needs..." className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-bold text-slate-600 shadow-inner leading-relaxed resize-none" />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">First Name *</label><input required name="first_name" value={formData.first_name} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Last Name *</label><input required name="last_name" value={formData.last_name} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Gender</label><select name="gender" value={formData.gender} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner"><option>Male</option><option>Female</option></select></div>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Phone Relay</label><input name="phone" value={formData.phone} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Email Entry</label><input type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Date of Birth</label>
+                      <input type="date" name="dob" value={formData.dob} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Wedding Anniversary</label>
+                      <input type="date" name="wedding_anniversary" value={formData.wedding_anniversary} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Branch Site *</label>
+                      <select required name="branch_id" value={formData.branch_id} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner">
+                        <option value="">Select Target...</option>
+                        {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Follow-Up Status</label>
+                       <select name="follow_up_status" value={formData.follow_up_status} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner">
+                          <option value="Pending">Pending</option>
+                          <option value="Contacted">Contacted</option>
+                          <option value="Visited">Visited</option>
+                          <option value="Completed">Completed</option>
+                       </select>
+                     </div>
+                     <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Latitude</label><input type="number" step="any" name="latitude" value={formData.latitude} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                     <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Longitude</label><input type="number" step="any" name="longitude" value={formData.longitude} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                  </>
+                )}
               </div>
               <button type="submit" disabled={isSubmitting} className="w-full py-6 bg-fh-green text-fh-gold rounded-[2.5rem] font-black uppercase text-xs tracking-[0.4em] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30">
                  {isSubmitting ? <div className="w-5 h-5 border-2 border-fh-gold/50 border-t-fh-gold animate-spin rounded-full" /> : 'Authorize Identity Commit'}

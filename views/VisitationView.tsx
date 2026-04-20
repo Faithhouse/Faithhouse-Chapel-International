@@ -9,7 +9,7 @@ import FirstTimersView from './FirstTimersView';
 interface VisitationViewProps { }
 
 const VisitationView: React.FC<VisitationViewProps> = () => {
-  const [activeTab, setActiveTab] = useState<'Registry' | 'AbsenteeRadar' | 'WhatsAppHub' | 'FirstTimers'>('AbsenteeRadar');
+  const [activeTab, setActiveTab] = useState<'Registry' | 'AbsenteeRadar' | 'WhatsAppHub' | 'Visitors'>('AbsenteeRadar');
   const [records, setRecords] = useState<VisitationRecord[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [attendanceEvents, setAttendanceEvents] = useState<AttendanceEvent[]>([]);
@@ -198,17 +198,17 @@ const VisitationView: React.FC<VisitationViewProps> = () => {
         <div className="space-y-2">
           <h2 className="text-3xl font-black text-fh-green tracking-tighter uppercase leading-none">
             {activeTab === 'WhatsAppHub' ? 'Visitation WhatsApp Hub' : 
-             activeTab === 'FirstTimers' ? 'First Timers & Visitors' : 'Pastoral Care & Outreach'}
+             activeTab === 'Visitors' ? 'Visitors & Guests' : 'Pastoral Care & Outreach'}
           </h2>
           <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em]">
             {activeTab === 'WhatsAppHub' ? 'Specialized Care & Follow-up Center' : 
-             activeTab === 'FirstTimers' ? 'Guest Intake & Reception' : 'Retention & Follow-up'}
+             activeTab === 'Visitors' ? 'Guest Intake & Reception' : 'Retention & Follow-up'}
           </p>
         </div>
         <div className="flex bg-white p-2 rounded-[2rem] border border-slate-100 shadow-sm overflow-x-auto scrollbar-hide">
           <button onClick={() => setActiveTab('AbsenteeRadar')} className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'AbsenteeRadar' ? 'bg-cms-blue text-white shadow-xl' : 'text-slate-400 hover:text-cms-blue'}`}>Detection Radar</button>
           <button onClick={() => setActiveTab('Registry')} className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'Registry' ? 'bg-cms-blue text-white shadow-xl' : 'text-slate-400 hover:text-cms-blue'}`}>Care Registry</button>
-          <button onClick={() => setActiveTab('FirstTimers')} className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'FirstTimers' ? 'bg-cms-blue text-white shadow-xl' : 'text-slate-400 hover:text-cms-blue'}`}>First Timers</button>
+          <button onClick={() => setActiveTab('Visitors')} className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'Visitors' ? 'bg-cms-blue text-white shadow-xl' : 'text-slate-400 hover:text-cms-blue'}`}>Visitors</button>
           <button onClick={() => setActiveTab('WhatsAppHub')} className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'WhatsAppHub' ? 'bg-cms-blue text-white shadow-xl' : 'text-slate-400 hover:text-cms-blue'}`}>WhatsApp Hub</button>
         </div>
       </div>

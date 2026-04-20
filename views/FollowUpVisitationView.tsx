@@ -46,7 +46,7 @@ const FollowUpVisitationView: React.FC<FollowUpVisitationViewProps> = ({ setActi
   
   const [selectedSession, setSelectedSession] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'Overview' | 'Visitation' | 'Personnel' | 'Operations' | 'Resources'>('Overview');
-  const [visitationSubTab, setVisitationSubTab] = useState<'Radar' | 'Registry' | 'WhatsApp' | 'FirstTimers'>('Radar');
+  const [visitationSubTab, setVisitationSubTab] = useState<'Radar' | 'Registry' | 'WhatsApp' | 'Visitors'>('Radar');
   const [filter, setFilter] = useState('All');
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [zoneFilter, setZoneFilter] = useState('');
@@ -123,9 +123,13 @@ const FollowUpVisitationView: React.FC<FollowUpVisitationViewProps> = ({ setActi
     first_name: '',
     last_name: '',
     phone: '',
-    email: '',
-    gender: 'Male',
-    ministry: 'Visitation',
+    location_area: '',
+    landmark: '',
+    marital_status: 'Single',
+    invited_by: '',
+    visitor_type: 'First-time',
+    prayer_request: '',
+    date_joined: new Date().toISOString().split('T')[0],
     status: 'Visitor' as const
   });
 
@@ -425,12 +429,18 @@ const FollowUpVisitationView: React.FC<FollowUpVisitationViewProps> = ({ setActi
     e.preventDefault();
     setIsLoading(true);
     try {
-      const { error } = await supabase.from('members').insert([regForm]);
+      const { error } = await supabase.from('members').insert([{
+        ...regForm,
+        // Ensure email/gender aren't sent if they were removed from form
+      }]);
       if (error) throw error;
       toast.success('Visitor registered successfully');
       setIsRegisterModalOpen(false);
       setRegForm({
-        first_name: '', last_name: '', phone: '', email: '', gender: 'Male', ministry: 'Visitation', status: 'Visitor'
+        first_name: '', last_name: '', phone: '', location_area: '', landmark: '', 
+        marital_status: 'Single', invited_by: '', visitor_type: 'First-time', 
+        prayer_request: '', date_joined: new Date().toISOString().split('T')[0], 
+        status: 'Visitor'
       });
       // Refresh members
       const { data: membersData } = await supabase.from('members').select('*');
@@ -1136,7 +1146,7 @@ END $$;`}
                 { id: 'Radar', label: 'Detection Radar', icon: <Activity className="w-4 h-4" /> },
                 { id: 'Registry', label: 'Care Registry', icon: <ClipboardList className="w-4 h-4" /> },
                 { id: 'WhatsApp', label: 'WhatsApp Hub', icon: <MessageSquare className="w-4 h-4" /> },
-                { id: 'FirstTimers', label: 'First Timers', icon: <Users className="w-4 h-4" /> }
+                { id: 'Visitors', label: 'Visitors', icon: <Users className="w-4 h-4" /> }
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -1276,10 +1286,10 @@ END $$;`}
               </div>
             )}
 
-            {visitationSubTab === 'FirstTimers' && (
+            {visitationSubTab === 'Visitors' && (
               <div className="space-y-6">
                 <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
-                  <h3 className="text-lg font-bold text-slate-900 mb-2">First Timer Follow-up</h3>
+                  <h3 className="text-lg font-bold text-slate-900 mb-2">Visitor Follow-up</h3>
                   <p className="text-sm text-slate-500 mb-6">New visitors who joined in the last 30 days and need a welcome visit.</p>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1804,27 +1814,26 @@ END $$;`}
                   <X className="w-5 h-5 text-violet-400" />
                 </button>
               </div>
-              <form onSubmit={handleRegisterVisitor} className="p-8 grid grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">First Name</label>
+              <form onSubmit={handleRegisterVisitor} className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Full Name</label>
                   <input
                     required
                     type="text"
                     value={regForm.first_name}
-                    onChange={e => setRegForm({...regForm, first_name: e.target.value})}
+                    onChange={e => {
+                      const names = e.target.value.trim().split(' ');
+                      setRegForm({
+                        ...regForm, 
+                        first_name: names[0],
+                        last_name: names.slice(1).join(' ')
+                      });
+                    }}
+                    placeholder="e.g. John Doe"
                     className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Last Name</label>
-                  <input
-                    required
-                    type="text"
-                    value={regForm.last_name}
-                    onChange={e => setRegForm({...regForm, last_name: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                  />
-                </div>
+                
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Phone Number</label>
                   <input
@@ -1832,30 +1841,89 @@ END $$;`}
                     type="tel"
                     value={regForm.phone}
                     onChange={e => setRegForm({...regForm, phone: e.target.value})}
+                    placeholder="+233..."
                     className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                   />
                 </div>
+
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Email (Optional)</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Location / Area</label>
                   <input
-                    type="email"
-                    value={regForm.email}
-                    onChange={e => setRegForm({...regForm, email: e.target.value})}
+                    type="text"
+                    value={regForm.location_area}
+                    onChange={e => setRegForm({...regForm, location_area: e.target.value})}
                     className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                   />
                 </div>
+
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Gender</label>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Landmark</label>
+                  <input
+                    type="text"
+                    value={regForm.landmark}
+                    onChange={e => setRegForm({...regForm, landmark: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Marital Status</label>
                   <select
-                    value={regForm.gender}
-                    onChange={e => setRegForm({...regForm, gender: e.target.value as any})}
+                    value={regForm.marital_status}
+                    onChange={e => setRegForm({...regForm, marital_status: e.target.value})}
                     className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500 transition-all"
                   >
-                    <option>Male</option>
-                    <option>Female</option>
+                    <option>Single</option>
+                    <option>Married</option>
+                    <option>Widowed</option>
+                    <option>Divorced</option>
                   </select>
                 </div>
-                <div className="col-span-2 pt-4">
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Date of Visit</label>
+                  <input
+                    type="date"
+                    value={regForm.date_joined}
+                    onChange={e => setRegForm({...regForm, date_joined: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Who Invited You?</label>
+                  <input
+                    type="text"
+                    value={regForm.invited_by}
+                    onChange={e => setRegForm({...regForm, invited_by: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                  />
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Visitor Type</label>
+                  <select
+                    value={regForm.visitor_type}
+                    onChange={e => setRegForm({...regForm, visitor_type: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                  >
+                    <option value="First-time">1. First-time</option>
+                    <option value="Returning visitor">2. Returning visitor</option>
+                    <option value="Member of another church">3. Member of another church</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Prayer Request</label>
+                  <textarea
+                    rows={3}
+                    value={regForm.prayer_request}
+                    onChange={e => setRegForm({...regForm, prayer_request: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500 transition-all resize-none italic"
+                    placeholder="Any specific needs..."
+                  />
+                </div>
+                <div className="md:col-span-2 pt-4">
                   <button
                     type="submit"
                     disabled={isLoading}

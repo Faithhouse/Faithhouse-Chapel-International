@@ -5,14 +5,16 @@ import { Branch } from '../types';
 
 interface FirstTimer {
   id: string;
-  first_name: string;
-  last_name: string;
+  full_name: string;
   phone: string;
   email: string;
-  gender: string;
+  location_area: string;
+  landmark: string;
+  marital_status: string;
   invited_by: string;
-  prayer_request: string;
   visit_date: string;
+  prayer_request: string;
+  visitor_type: 'First-time' | 'Returning visitor' | 'Member of another church';
   status: 'New' | 'Followed Up' | 'Member';
   created_at: string;
 }
@@ -29,14 +31,15 @@ const FirstTimersView: React.FC<FirstTimersViewProps> = () => {
   const [tableMissing, setTableMissing] = useState(false);
 
   const [formData, setFormData] = useState({
-    first_name: '',
-    last_name: '',
+    full_name: '',
     phone: '',
-    email: '',
-    gender: 'Male',
+    location_area: '',
+    landmark: '',
+    marital_status: 'Single',
     invited_by: '',
-    prayer_request: '',
     visit_date: new Date().toISOString().split('T')[0],
+    prayer_request: '',
+    visitor_type: 'First-time' as FirstTimer['visitor_type'],
     status: 'New' as FirstTimer['status']
   });
 
@@ -71,24 +74,36 @@ const FirstTimersView: React.FC<FirstTimersViewProps> = () => {
 
   const handleCreateVisitor = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.first_name || !formData.last_name || !formData.phone) return alert("Name and Phone are mandatory.");
+    if (!formData.full_name || !formData.phone) return alert("Name and Phone are mandatory.");
 
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.from('first_timers').insert([formData]);
+      const { error } = await supabase.from('first_timers').insert([{
+        full_name: formData.full_name,
+        phone: formData.phone,
+        location_area: formData.location_area,
+        landmark: formData.landmark,
+        marital_status: formData.marital_status,
+        invited_by: formData.invited_by,
+        visit_date: formData.visit_date,
+        prayer_request: formData.prayer_request,
+        visitor_type: formData.visitor_type,
+        status: formData.status
+      }]);
       if (error) throw error;
       
-      alert(`Successfully logged first timer: ${formData.first_name}`);
+      alert(`Successfully logged visitor: ${formData.full_name}`);
       setIsModalOpen(false);
       setFormData({
-        first_name: '',
-        last_name: '',
+        full_name: '',
         phone: '',
-        email: '',
-        gender: 'Male',
+        location_area: '',
+        landmark: '',
+        marital_status: 'Single',
         invited_by: '',
-        prayer_request: '',
         visit_date: new Date().toISOString().split('T')[0],
+        prayer_request: '',
+        visitor_type: 'First-time',
         status: 'New'
       });
       fetchInitialData();
@@ -110,20 +125,29 @@ const FirstTimersView: React.FC<FirstTimersViewProps> = () => {
   };
 
   const convertToMember = async (visitor: FirstTimer) => {
-    if (!confirm(`Convert ${visitor.first_name} to a full member?`)) return;
+    if (!confirm(`Convert ${visitor.full_name} to a full member?`)) return;
     
     setIsSubmitting(true);
     try {
       // 1. Insert into members table
+      const names = visitor.full_name.split(' ');
+      const firstName = names[0];
+      const lastName = names.slice(1).join(' ') || '[Visitor]';
+
       const { error: insertError } = await supabase.from('members').insert([{
-        first_name: visitor.first_name,
-        last_name: visitor.last_name,
+        first_name: firstName,
+        last_name: lastName,
         phone: visitor.phone,
         email: visitor.email,
-        gender: visitor.gender,
-        date_joined: new Date().toISOString().split('T')[0],
+        date_joined: visitor.visit_date || new Date().toISOString().split('T')[0],
         branch_id: branches[0]?.id || '',
-        status: 'Active'
+        status: 'Active',
+        location_area: visitor.location_area,
+        landmark: visitor.landmark,
+        marital_status: visitor.marital_status,
+        invited_by: visitor.invited_by,
+        prayer_request: visitor.prayer_request,
+        visitor_type: visitor.visitor_type
       }]);
 
       if (insertError) throw insertError;
@@ -132,7 +156,7 @@ const FirstTimersView: React.FC<FirstTimersViewProps> = () => {
       const { error: updateError } = await supabase.from('first_timers').update({ status: 'Member' }).eq('id', visitor.id);
       if (updateError) throw updateError;
 
-      alert(`${visitor.first_name} has been successfully registered as a member.`);
+      alert(`${visitor.full_name} has been successfully registered as a member.`);
       fetchInitialData();
     } catch (err: any) {
       alert(`Conversion Failed: ${err.message}`);
@@ -153,16 +177,17 @@ const FirstTimersView: React.FC<FirstTimersViewProps> = () => {
   };
 
   if (tableMissing) {
-    const repairSQL = `-- FIRST TIMERS REGISTRY REPAIR
+    const repairSQL = `-- VISITORS REGISTRY REPAIR
 CREATE TABLE IF NOT EXISTS public.first_timers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  first_name TEXT NOT NULL,
-  last_name TEXT NOT NULL,
+  full_name TEXT NOT NULL,
   phone TEXT NOT NULL,
-  email TEXT,
-  gender TEXT DEFAULT 'Male',
+  location_area TEXT,
+  landmark TEXT,
+  marital_status TEXT,
   invited_by TEXT,
   prayer_request TEXT,
+  visitor_type TEXT DEFAULT 'First-time',
   visit_date DATE NOT NULL DEFAULT CURRENT_DATE,
   status TEXT DEFAULT 'New',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
@@ -177,7 +202,7 @@ CREATE POLICY "Allow all" ON public.first_timers FOR ALL USING (true) WITH CHECK
           <div className="w-20 h-20 bg-fh-gold/10 text-fh-gold rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-inner">
              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
           </div>
-          <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-4">First Timers Registry Reset</h2>
+          <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-4">Visitor Registry Reset</h2>
           <p className="text-slate-500 mb-10 text-[11px] font-bold uppercase tracking-widest max-w-lg mx-auto">The guest intake system is not ready. Run the script to authorize.</p>
           <pre className="bg-slate-950 text-fh-gold p-8 rounded-[2rem] text-[10px] font-mono text-left h-48 overflow-y-auto mb-10 shadow-2xl border border-white/5 scrollbar-hide">{repairSQL}</pre>
           <button onClick={fetchInitialData} className="px-16 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-[0.3em] shadow-xl border-b-4 border-black active:scale-95">Verify Protocols</button>
@@ -192,7 +217,7 @@ CREATE POLICY "Allow all" ON public.first_timers FOR ALL USING (true) WITH CHECK
       <div className="flex justify-end">
         <button onClick={() => setIsModalOpen(true)} className="px-10 py-5 bg-fh-green text-fh-gold rounded-[1.75rem] font-black uppercase tracking-widest text-[10px] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30 flex items-center gap-3">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-          Log First Timer
+          Register New Visitor
         </button>
       </div>
 
@@ -216,7 +241,7 @@ CREATE POLICY "Allow all" ON public.first_timers FOR ALL USING (true) WITH CHECK
            <div className="relative z-10">
               <p className="text-[9px] font-black text-fh-gold uppercase tracking-widest mb-2">Latest Visitor</p>
               <h3 className="text-xl font-black text-white tracking-tight leading-tight">
-                {visitors[0] ? `${visitors[0].first_name} ${visitors[0].last_name}` : 'No Guests Logged'}
+                {visitors[0] ? visitors[0].full_name : 'No Guests Logged'}
               </h3>
            </div>
            <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-6 relative z-10">Reception System v1.0</p>
@@ -234,8 +259,8 @@ CREATE POLICY "Allow all" ON public.first_timers FOR ALL USING (true) WITH CHECK
                   <tr>
                     <th className="px-10 py-6">Guest Identity</th>
                     <th className="px-10 py-6">Contact Relay</th>
+                    <th className="px-10 py-6">Location & Type</th>
                     <th className="px-10 py-6">Invited By</th>
-                    <th className="px-10 py-6">Visit Date</th>
                     <th className="px-10 py-6 text-right">Status</th>
                   </tr>
                </thead>
@@ -247,11 +272,11 @@ CREATE POLICY "Allow all" ON public.first_timers FOR ALL USING (true) WITH CHECK
                        <td className="px-10 py-6">
                           <div className="flex items-center gap-4">
                              <div className="w-12 h-12 bg-slate-900 text-fh-gold rounded-2xl flex items-center justify-center font-black text-xs border border-white/10 shadow-lg">
-                                {v.first_name[0]}{v.last_name[0]}
+                                {v.full_name[0]}
                              </div>
                              <div>
-                                <p className="font-black text-slate-800 uppercase tracking-tight text-sm">{v.first_name} {v.last_name}</p>
-                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">{v.gender}</p>
+                                <p className="font-black text-slate-800 uppercase tracking-tight text-sm">{v.full_name}</p>
+                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">{v.visitor_type}</p>
                              </div>
                           </div>
                        </td>
@@ -260,10 +285,16 @@ CREATE POLICY "Allow all" ON public.first_timers FOR ALL USING (true) WITH CHECK
                           <p className="text-[9px] text-slate-400 lowercase">{v.email || 'no-email'}</p>
                        </td>
                        <td className="px-10 py-6">
-                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{v.invited_by || 'Walk-in'}</p>
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-relaxed">
+                            {v.location_area || 'N/A'}<br/>
+                            <span className="text-slate-400 font-medium lowercase">Near {v.landmark || 'N/A'}</span>
+                          </p>
                        </td>
                        <td className="px-10 py-6">
-                          <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">{new Date(v.visit_date).toLocaleDateString()}</p>
+                          <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest leading-relaxed">
+                            {v.invited_by || 'Walk-in'}<br/>
+                            <span className="text-slate-400 text-[8px] font-medium">{new Date(v.visit_date).toLocaleDateString()}</span>
+                          </p>
                        </td>
                        <td className="px-10 py-6 text-right">
                           <div className="flex items-center justify-end gap-3">
@@ -274,7 +305,7 @@ CREATE POLICY "Allow all" ON public.first_timers FOR ALL USING (true) WITH CHECK
                                 className="px-3 py-1.5 bg-fh-gold/10 text-fh-gold rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-fh-gold hover:text-fh-green transition-all shadow-sm disabled:opacity-50"
                                 title="Convert to Full Member"
                               >
-                                {isSubmitting ? '...' : 'Convert'}
+                                {isSubmitting ? '...' : 'Register as Member'}
                               </button>
                             )}
                             <select 
@@ -291,7 +322,7 @@ CREATE POLICY "Allow all" ON public.first_timers FOR ALL USING (true) WITH CHECK
                                <option value="Followed Up">Followed Up</option>
                                <option value="Member">Member</option>
                             </select>
-                            <button onClick={() => deleteVisitor(v.id, `${v.first_name} ${v.last_name}`)} className="p-2 text-slate-300 hover:text-rose-500 transition-colors">
+                            <button onClick={() => deleteVisitor(v.id, v.full_name)} className="p-2 text-slate-300 hover:text-rose-500 transition-colors">
                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             </button>
                           </div>
@@ -315,42 +346,43 @@ CREATE POLICY "Allow all" ON public.first_timers FOR ALL USING (true) WITH CHECK
                     <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
                  </div>
                  <div>
-                    <h3 className="text-3xl font-black text-fh-green uppercase leading-none tracking-tighter">Guest Intake</h3>
-                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">Create First Timer Record</p>
+                    <h3 className="text-3xl font-black text-fh-green uppercase leading-none tracking-tighter">Visitor Intake</h3>
+                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">Create Visitor Record</p>
                  </div>
                </div>
                <button onClick={() => setIsModalOpen(false)} className="p-5 hover:bg-slate-100 rounded-full transition-all text-slate-400 active:scale-90"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg></button>
             </div>
 
             <form onSubmit={handleCreateVisitor} className="p-12 space-y-8 max-h-[70vh] overflow-y-auto scrollbar-hide">
+               <div className="space-y-1">
+                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Full Name *</label>
+                 <input required value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} placeholder="e.g. John Doe" className="w-full px-8 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" />
+               </div>
+
+               <div className="space-y-1">
+                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Phone Number *</label>
+                 <input required value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="+233..." className="w-full px-8 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" />
+               </div>
+
                <div className="grid grid-cols-2 gap-8">
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">First Name *</label>
-                    <input required value={formData.first_name} onChange={e => setFormData({...formData, first_name: e.target.value})} placeholder="e.g. John" className="w-full px-8 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" />
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Location / Area</label>
+                    <input value={formData.location_area} onChange={e => setFormData({...formData, location_area: e.target.value})} placeholder="e.g. East Legon" className="w-full px-8 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Last Name *</label>
-                    <input required value={formData.last_name} onChange={e => setFormData({...formData, last_name: e.target.value})} placeholder="e.g. Doe" className="w-full px-8 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" />
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Landmark</label>
+                    <input value={formData.landmark} onChange={e => setFormData({...formData, landmark: e.target.value})} placeholder="e.g. Near Shell Signboard" className="w-full px-8 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" />
                   </div>
                </div>
 
                <div className="grid grid-cols-2 gap-8">
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Phone Number *</label>
-                    <input required value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="+233..." className="w-full px-8 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Email Address</label>
-                    <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="john@example.com" className="w-full px-8 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" />
-                  </div>
-               </div>
-
-               <div className="grid grid-cols-2 gap-8">
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Gender</label>
-                    <select value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full px-8 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner appearance-none cursor-pointer">
-                       <option>Male</option>
-                       <option>Female</option>
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Marital Status</label>
+                    <select value={formData.marital_status} onChange={e => setFormData({...formData, marital_status: e.target.value})} className="w-full px-8 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner appearance-none cursor-pointer">
+                       <option>Single</option>
+                       <option>Married</option>
+                       <option>Widowed</option>
+                       <option>Divorced</option>
                     </select>
                   </div>
                   <div className="space-y-1">
@@ -359,13 +391,23 @@ CREATE POLICY "Allow all" ON public.first_timers FOR ALL USING (true) WITH CHECK
                   </div>
                </div>
 
-               <div className="space-y-1">
-                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Invited By</label>
-                 <input value={formData.invited_by} onChange={e => setFormData({...formData, invited_by: e.target.value})} placeholder="Name of person who invited them..." className="w-full px-8 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" />
+               <div className="grid grid-cols-2 gap-8">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Who Invited You?</label>
+                    <input value={formData.invited_by} onChange={e => setFormData({...formData, invited_by: e.target.value})} placeholder="Name of inviter..." className="w-full px-8 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Visitor Type</label>
+                    <select value={formData.visitor_type} onChange={e => setFormData({...formData, visitor_type: e.target.value as any})} className="w-full px-8 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner appearance-none cursor-pointer">
+                       <option value="First-time">1. First-time</option>
+                       <option value="Returning visitor">2. Returning visitor</option>
+                       <option value="Member of another church">3. Member of another church</option>
+                    </select>
+                  </div>
                </div>
 
                <div className="space-y-1">
-                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Prayer Request / Notes</label>
+                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Prayer Request</label>
                  <textarea value={formData.prayer_request} onChange={e => setFormData({...formData, prayer_request: e.target.value})} rows={3} placeholder="Any specific needs or prayer requests..." className="w-full p-8 bg-slate-50 border border-slate-200 rounded-[2.5rem] font-bold text-slate-600 shadow-inner leading-relaxed resize-none italic" />
                </div>
 
