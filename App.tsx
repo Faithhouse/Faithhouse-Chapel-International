@@ -35,6 +35,7 @@ import DavidChatbot from './components/DavidChatbot';
 import { Toaster, toast } from 'sonner';
 import { NavItem, UserProfile } from './types';
 import { supabase } from './supabaseClient';
+import PublicEnrollmentView from './views/PublicEnrollmentView';
 
 const App: React.FC = () => {
   const [activeItem, setActiveItem] = useState<NavItem | string>('Dashboard');
@@ -47,6 +48,14 @@ const App: React.FC = () => {
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [lastActivity, setLastActivity] = useState(Date.now());
   const [isCellLeader, setIsCellLeader] = useState(false);
+  const [isEnrollmentView, setIsEnrollmentView] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('view') === 'enroll' || params.get('enroll') === 'true') {
+      setIsEnrollmentView(true);
+    }
+  }, []);
 
   useEffect(() => {
     const checkCellLeadership = async () => {
@@ -248,7 +257,7 @@ const App: React.FC = () => {
         
         case 'Branches':
           return <BranchesView />;
-        
+
         case 'Leadership Registry':
         case 'Church Leadership':
         case 'Ministerial & Leadership':
@@ -339,7 +348,9 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <div className="min-h-screen flex flex-col bg-slate-50 font-sans print:bg-white">
-        {!currentUser && !isDemoMode ? (
+        {isEnrollmentView ? (
+          <PublicEnrollmentView />
+        ) : !currentUser && !isDemoMode ? (
           <LoginView onLoginSuccess={(internalUser) => {
             if (internalUser) {
               setCurrentUser(internalUser);

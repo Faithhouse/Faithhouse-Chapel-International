@@ -111,6 +111,7 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem, currentU
       }
 
       if (error) throw error;
+      toast.success(editingId ? "Ministry updated successfully" : "Ministry created successfully");
 
       // Sync to profiles if email exists
       if (payload.email) {
@@ -131,6 +132,7 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem, currentU
         setTableError("Table Missing");
       } else {
         console.error('Submission error:', error);
+        toast.error(error.message || "Operation failed");
       }
     } finally {
       setIsSubmitting(false);
@@ -162,13 +164,24 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem, currentU
   };
 
   const deleteMinistry = async (id: string) => {
-    if (!confirm('Permanent Delete?')) return;
+    const isConfirmed = window.confirm('DANGER: Permanent Delete?\n\nThis will permanently remove this ministry and its access portal. This cannot be undone.\n\nAre you sure?');
+    if (!isConfirmed) return;
+    
+    setIsSubmitting(true); // Reuse submitting state for loading
     try {
+      console.log('Attempting to delete ministry:', id);
       const { error } = await supabase.from('ministries').delete().eq('id', id);
-      if (error) throw error;
+      if (error) {
+        console.error('Delete error details:', error);
+        throw error;
+      }
+      toast.success("Ministry purged successfully");
       await fetchMinistries();
     } catch (error: any) {
-      console.error(error);
+      console.error('Full delete error:', error);
+      toast.error(error.message || "Failed to purge ministry. Check console for details.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -300,7 +313,7 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
               </div>
             </div>
 
-            <div className="px-4 py-2.5 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-300">
+            <div className="px-4 py-2.5 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between transition-all duration-300">
                <div className="flex gap-1.5">
                  {!isReadOnly && (
                    <>

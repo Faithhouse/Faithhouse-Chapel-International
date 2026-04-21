@@ -346,6 +346,57 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName })
     }
   };
 
+  const deleteResource = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this resource?")) return;
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('ministry_resources')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success("Resource deleted successfully");
+      fetchResources();
+      setIsEditingResource(false);
+    } catch (err: any) {
+      console.error('Error deleting resource:', err);
+      toast.error('Failed to delete resource: ' + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const deleteDeptAttendance = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this attendance session? All member logs for this session will also be deleted.")) return;
+    setIsDeptSubmitting(true);
+    try {
+      // First delete attendance logs
+      const { error: logErr } = await supabase
+        .from('dept_attendance_logs')
+        .delete()
+        .eq('event_id', id);
+      
+      if (logErr) throw logErr;
+
+      // Then delete the event
+      const { error: evErr } = await supabase
+        .from('dept_attendance_events')
+        .delete()
+        .eq('id', id);
+      
+      if (evErr) throw evErr;
+
+      toast.success("Attendance session deleted");
+      fetchDeptAttendance();
+    } catch (err: any) {
+      console.error('Error deleting attendance:', err);
+      toast.error('Failed to delete session: ' + err.message);
+    } finally {
+      setIsDeptSubmitting(false);
+    }
+  };
+
   const generateResourceContent = async (title: string) => {
     if (!title) return;
     setIsGenerating(true);
@@ -620,10 +671,11 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName })
         .eq('id', id);
 
       if (error) throw error;
+      toast.success(`Revoked ministry assignment for ${name}`);
       await fetchPersonnel();
     } catch (err: any) {
       console.error('Removal Error:', err);
-      alert('Revoke failed: ' + err.message);
+      toast.error('Revoke failed: ' + err.message);
     } finally {
       setIsLoading(false);
     }
@@ -1492,12 +1544,21 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
                   <td className="px-8 py-6 text-[10px] font-bold text-slate-500 uppercase">{ev.event_type}</td>
                   <td className="px-8 py-6 text-sm font-black text-violet-600">{ev.total_attendance || 0}</td>
                   <td className="px-8 py-6 text-right">
-                    <button 
-                      onClick={() => openDeptAttendanceSheet(ev)}
-                      className="px-4 py-2 bg-violet-100 text-violet-700 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-violet-600 hover:text-white transition-all"
-                    >
-                      Open Sheet
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button 
+                        onClick={() => openDeptAttendanceSheet(ev)}
+                        className="px-4 py-2 bg-violet-100 text-violet-700 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-violet-600 hover:text-white transition-all"
+                      >
+                        Open Sheet
+                      </button>
+                      <button 
+                        onClick={() => deleteDeptAttendance(ev.id)}
+                        className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                        title="Delete Session"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               )) : (
@@ -1791,9 +1852,17 @@ CREATE POLICY "Allow all for authenticated" ON public.ministry_resources FOR ALL
               </p>
               <div className="flex items-center justify-between mt-auto relative z-10">
                 <span className="text-[9px] font-bold text-slate-300 uppercase">Last updated: {new Date(res.updated_at || res.created_at).toLocaleDateString()}</span>
-                <div className="flex items-center gap-2 text-indigo-500 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
-                  <span className="text-[9px] font-black uppercase tracking-widest">Edit</span>
-                  <Edit3 className="w-3 h-3" />
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 text-indigo-500 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+                    <span className="text-[9px] font-black uppercase tracking-widest">Edit</span>
+                    <Edit3 className="w-3 h-3" />
+                  </div>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); deleteResource(res.id); }}
+                    className="p-1.5 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
                 </div>
               </div>
             </div>

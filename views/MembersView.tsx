@@ -47,6 +47,12 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
   const [isPurging, setIsPurging] = useState(false);
   const [showDeleteFinalConfirm, setShowDeleteFinalConfirm] = useState(false);
 
+  // Enrollment Queue State
+  const [enrollmentQueue, setEnrollmentQueue] = useState<any[]>([]);
+  const [isReviewingQueue, setIsReviewingQueue] = useState(false);
+  const [isApproving, setIsApproving] = useState<string | null>(null);
+  const [existingNames, setExistingNames] = useState<Set<string>>(new Set());
+
   // Form State
   const [formData, setFormData] = useState({
     first_name: '',
@@ -69,11 +75,19 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
     latitude: 0,
     longitude: 0,
     location_area: '',
-    landmark: '',
     marital_status: 'Single',
     invited_by: '',
     prayer_request: '',
-    visitor_type: 'First-time' as Member['visitor_type']
+    occupation: '',
+    place_of_work: '',
+    educational_level: '',
+    hometown: '',
+    water_baptised: false,
+    holy_ghost_baptised: false,
+    spouse_name: '',
+    spouse_phone: '',
+    children: [] as any[],
+    emergency_contact_relationship: ''
   });
 
   const isMinistryRole = (role: string) => {
@@ -113,11 +127,19 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
           latitude: memberToEdit.latitude || 0,
           longitude: memberToEdit.longitude || 0,
           location_area: memberToEdit.location_area || '',
-          landmark: memberToEdit.landmark || '',
           marital_status: memberToEdit.marital_status || 'Single',
           invited_by: memberToEdit.invited_by || '',
           prayer_request: memberToEdit.prayer_request || '',
-          visitor_type: memberToEdit.visitor_type || 'First-time'
+          occupation: memberToEdit.occupation || '',
+          place_of_work: memberToEdit.place_of_work || '',
+          educational_level: memberToEdit.educational_level || '',
+          hometown: memberToEdit.hometown || '',
+          water_baptised: memberToEdit.water_baptised || false,
+          holy_ghost_baptised: memberToEdit.holy_ghost_baptised || false,
+          spouse_name: memberToEdit.spouse_name || '',
+          spouse_phone: memberToEdit.spouse_phone || '',
+          children: memberToEdit.children || [],
+          emergency_contact_relationship: memberToEdit.emergency_contact_relationship || ''
         });
         setIsModalOpen(true);
       }
@@ -144,32 +166,58 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
       const loadedBranches = branchData || [];
       setBranches(loadedBranches);
 
-      let query = supabase
-        .from('members')
-        .select('*, branches(*)')
-        .order('first_name', { ascending: true });
-
-      if (statusFilter !== 'All') {
-        query = query.eq('status', statusFilter);
-      }
-
-      if (searchTerm) {
-        query = query.or(
-          `first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,gps_address.ilike.%${searchTerm}%`
-        );
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        if (error.code === '42P01' || error.message.includes('not found') || error.code === 'PGRST205' || error.message.includes('schema cache') || error.message.includes('Could not find')) {
-          setTableMissing(true);
-        } else {
-          throw error;
+      if (statusFilter === 'Pending Approval') {
+        setIsReviewingQueue(true);
+        const { data: queueData, error: queueError } = await supabase
+          .from('member_enrollment_queue')
+          .select('*, branches(*)')
+          .eq('status', 'Pending')
+          .order('created_at', { ascending: false });
+        
+        if (queueError) {
+          if (queueError.code === '42P01' || queueError.message.includes('not found') || queueError.code === 'PGRST205' || queueError.message.includes('schema cache') || queueError.message.includes('Could not find')) {
+            setTableMissing(true);
+            return;
+          }
+          throw queueError;
         }
+
+        // Fetch names for cross-check
+        const { data: nameData } = await supabase.from('members').select('first_name, last_name');
+        const nameSet = new Set((nameData || []).map(m => `${m.first_name.toLowerCase()}|${(m.last_name || '').toLowerCase()}`));
+        setExistingNames(nameSet);
+
+        setEnrollmentQueue(queueData || []);
+        setMembers([]); // Clear regular members list for this view
       } else {
-        setTableMissing(null);
-        setMembers(data || []);
+        setIsReviewingQueue(false);
+        let query = supabase
+          .from('members')
+          .select('*, branches(*)')
+          .order('first_name', { ascending: true });
+
+        if (statusFilter !== 'All') {
+          query = query.eq('status', statusFilter);
+        }
+
+        if (searchTerm) {
+          query = query.or(
+            `first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,gps_address.ilike.%${searchTerm}%`
+          );
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+          if (error.code === '42P01' || error.message.includes('not found') || error.code === 'PGRST205' || error.message.includes('schema cache') || error.message.includes('Could not find')) {
+            setTableMissing(true);
+          } else {
+            throw error;
+          }
+        } else {
+          setTableMissing(null);
+          setMembers(data || []);
+        }
       }
     } catch (err: any) {
       console.error("Registry Sync Error:", err);
@@ -218,22 +266,71 @@ CREATE TABLE IF NOT EXISTS public.members (
   notify_events BOOLEAN DEFAULT true,
   wedding_anniversary DATE,
   location_area TEXT,
-  landmark TEXT,
   marital_status TEXT,
   invited_by TEXT,
   prayer_request TEXT,
-  visitor_type TEXT,
+  hometown TEXT,
+  occupation TEXT,
+  place_of_work TEXT,
+  educational_level TEXT,
+  water_baptised BOOLEAN DEFAULT false,
+  holy_ghost_baptised BOOLEAN DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
--- Ensure all columns exist for visitors
+-- Ensure all columns exist for members
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS wedding_anniversary DATE;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS location_area TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS landmark TEXT;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS marital_status TEXT;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS invited_by TEXT;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS prayer_request TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS visitor_type TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS hometown TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS occupation TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS place_of_work TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS educational_level TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS water_baptised BOOLEAN DEFAULT false;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS holy_ghost_baptised BOOLEAN DEFAULT false;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS spouse_name TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS spouse_phone TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS children JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS emergency_contact_relationship TEXT;
+
+-- Update Enrollment Queue Table columns if they exist
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS water_baptised BOOLEAN DEFAULT false;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS holy_ghost_baptised BOOLEAN DEFAULT false;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS ministry TEXT DEFAULT 'N/A';
+
+-- Create Enrollment Queue Table
+CREATE TABLE IF NOT EXISTS public.member_enrollment_queue (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  gender TEXT,
+  phone TEXT,
+  email TEXT,
+  gps_address TEXT,
+  dob DATE,
+  marital_status TEXT,
+  wedding_anniversary DATE,
+  occupation TEXT,
+  hometown TEXT,
+  spouse_name TEXT,
+  spouse_phone TEXT,
+  children JSONB DEFAULT '[]'::jsonb,
+  emergency_contact_name TEXT,
+  emergency_contact_relationship TEXT,
+  emergency_contact_phone TEXT,
+  branch_id UUID REFERENCES public.branches(id),
+  status TEXT DEFAULT 'Pending',
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  water_baptised BOOLEAN DEFAULT false,
+  holy_ghost_baptised BOOLEAN DEFAULT false,
+  ministry TEXT DEFAULT 'N/A',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
 
 CREATE TABLE IF NOT EXISTS public.tithe_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -458,8 +555,108 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
       date_joined: new Date().toISOString().split('T')[0], branch_id: branches[0]?.id || '', ministry: 'N/A',
       emergency_contact_name: '', emergency_contact_phone: '', notify_birthday: true, notify_events: true, 
       wedding_anniversary: '', status, follow_up_status: 'Pending', latitude: 0, longitude: 0,
-      location_area: '', landmark: '', marital_status: 'Single', invited_by: '', prayer_request: '', visitor_type: 'First-time'
+      location_area: '', marital_status: 'Single', invited_by: '', prayer_request: '',
+      occupation: '', place_of_work: '', educational_level: '', hometown: '', water_baptised: false, holy_ghost_baptised: false,
+      spouse_name: '', spouse_phone: '', children: [], emergency_contact_relationship: ''
     });
+  };
+
+  const handleApprove = async (entry: any) => {
+    setIsApproving(entry.id);
+    try {
+      // 1. Check if member already exists (Name match)
+      const { data: existingMember } = await supabase
+        .from('members')
+        .select('id')
+        .ilike('first_name', entry.first_name)
+        .ilike('last_name', entry.last_name)
+        .maybeSingle();
+      
+      const payload = {
+        first_name: entry.first_name,
+        last_name: entry.last_name,
+        gender: entry.gender,
+        phone: entry.phone,
+        email: entry.email,
+        gps_address: entry.gps_address,
+        dob: entry.dob,
+        marital_status: entry.marital_status || 'Single',
+        wedding_anniversary: entry.wedding_anniversary,
+        occupation: entry.occupation,
+        hometown: entry.hometown,
+        spouse_name: entry.spouse_name,
+        spouse_phone: entry.spouse_phone,
+        children: entry.children || [],
+        emergency_contact_name: entry.emergency_contact_name,
+        emergency_contact_relationship: entry.emergency_contact_relationship,
+        emergency_contact_phone: entry.emergency_contact_phone,
+        branch_id: entry.branch_id,
+        latitude: entry.latitude,
+        longitude: entry.longitude,
+        water_baptised: entry.water_baptised || false,
+        holy_ghost_baptised: entry.holy_ghost_baptised || false,
+        ministry: entry.ministry || 'N/A',
+        status: 'Active'
+      };
+
+      if (existingMember) {
+        // Update existing
+        const { error: updateError } = await supabase
+          .from('members')
+          .update(payload)
+          .eq('id', existingMember.id);
+        if (updateError) throw updateError;
+        showNotify("Existing Member Found. Profile Updated Successfully!");
+      } else {
+        // Insert new
+        const { error: insertError } = await supabase
+          .from('members')
+          .insert([payload]);
+        if (insertError) throw insertError;
+        showNotify("New Member Approved & Identity Migrated!");
+      }
+
+      // 2. Update status in queue
+      const { error: qUpdateError } = await supabase.from('member_enrollment_queue').update({ status: 'Approved' }).eq('id', entry.id);
+      if (qUpdateError) throw qUpdateError;
+
+      fetchInitialData();
+    } catch (err: any) {
+      showNotify(err.message, 'error');
+    } finally {
+      setIsApproving(null);
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    if (!window.confirm("Permanently reject this enrollment?")) return;
+    try {
+      const { error } = await supabase.from('member_enrollment_queue').update({ status: 'Rejected' }).eq('id', id);
+      if (error) throw error;
+      showNotify("Enrollment Rejected.");
+      fetchInitialData();
+    } catch (err: any) {
+      showNotify(err.message, 'error');
+    }
+  };
+
+  const handleChildChange = (index: number, field: string, value: string) => {
+    const newChildren = [...formData.children];
+    newChildren[index] = { ...newChildren[index], [field]: value };
+    setFormData({ ...formData, children: newChildren });
+  };
+
+  const addChild = () => {
+    if (formData.children.length >= 5) return;
+    setFormData({
+      ...formData,
+      children: [...formData.children, { name: '', dob: '', gender: 'Male', phone: '' }]
+    });
+  };
+
+  const removeChild = (index: number) => {
+    const newChildren = formData.children.filter((_, i) => i !== index);
+    setFormData({ ...formData, children: newChildren });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -476,19 +673,7 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
         gps_address: formData.gps_address.trim() || null,
       };
 
-      // Special Handling for Visitors (Full Name splitting and clearing excluded fields)
-      if (formData.status === 'Visitor') {
-        const names = formData.first_name.trim().split(/\s+/);
-        payload.first_name = names[0] || 'Visitor';
-        payload.last_name = names.slice(1).join(' ') || '';
-        
-        // Excluded fields as per request
-        payload.dob = null;
-        payload.wedding_anniversary = null;
-        payload.latitude = 0;
-        payload.longitude = 0;
-      }
-
+      // No special handling for visitors needed anymore
       let error;
       if (editingId) {
         const result = await supabase.from('members').update(payload).eq('id', editingId);
@@ -525,11 +710,6 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
     } catch (err: any) {
       showNotify(err.message, 'error');
     }
-  };
-
-  const openVisitorIntake = () => {
-    resetForm('Visitor');
-    setIsModalOpen(true);
   };
 
   const handleWhatsAppOutreach = (phone: string | undefined, firstName: string) => {
@@ -684,14 +864,9 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
              </button>
            )}
            {!isReadOnly && (
-             <>
-               <button onClick={openVisitorIntake} className="px-4 md:px-8 py-2 md:py-5 bg-cms-purple text-white rounded-lg md:rounded-[1.75rem] font-black uppercase text-[7px] md:text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all border-b-2 md:border-b-4 border-black/30">
-                + Visitor Intake
-               </button>
-               <button onClick={() => { resetForm('Active'); setIsModalOpen(true); }} className="px-5 md:px-10 py-2 md:py-5 bg-fh-green text-fh-gold rounded-lg md:rounded-[1.75rem] font-black uppercase text-[7px] md:text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all border-b-2 md:border-b-4 border-black/30">
-                + Register Member
-               </button>
-             </>
+             <button onClick={() => { resetForm('Active'); setIsModalOpen(true); }} className="px-5 md:px-10 py-2 md:py-5 bg-fh-green text-fh-gold rounded-lg md:rounded-[1.75rem] font-black uppercase text-[7px] md:text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all border-b-2 md:border-b-4 border-black/30">
+              + Register Member
+             </button>
            )}
         </div>
       </div>
@@ -715,10 +890,21 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
         >
           <option value="All">All Membership Tiers</option>
           <option>Active</option>
-          <option>Visitor</option>
           <option>Probation</option>
           <option>Inactive</option>
+          <option>Pending Approval</option>
         </select>
+        <button 
+          onClick={() => {
+            const url = `${window.location.origin}${window.location.pathname}?view=enroll`;
+            navigator.clipboard.writeText(url);
+            showNotify("Public Enrollment Link Copied!");
+          }}
+          className="px-6 py-4 md:py-6 bg-fh-green text-fh-gold rounded-xl md:rounded-[2rem] font-black text-[9px] md:text-[11px] uppercase tracking-widest shadow-xl active:scale-95 transition-all flex items-center gap-2"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.826a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+          Enrollment Link
+        </button>
       </div>
 
       {/* Registry Ledger */}
@@ -750,6 +936,55 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
             <tbody className="divide-y divide-slate-50">
               {isLoading ? (
                 <tr><td colSpan={6} className="px-10 py-32 text-center animate-pulse text-slate-300 font-black uppercase tracking-[0.5em]">Synchronizing Registry...</td></tr>
+              ) : isReviewingQueue ? (
+                enrollmentQueue.length > 0 ? (
+                  enrollmentQueue.map(e => {
+                    const isExisting = existingNames.has(`${e.first_name.toLowerCase()}|${(e.last_name || '').toLowerCase()}`);
+                    return (
+                      <tr key={e.id} className="hover:bg-slate-50 transition-all group text-xs">
+                        <td className="px-10 py-6" colSpan={2}>
+                          <div className="flex items-center gap-5">
+                            <div className="w-14 h-14 bg-fh-green text-fh-gold rounded-[1.5rem] flex items-center justify-center font-black text-xs border border-white/10 shadow-lg">
+                              {e.first_name[0]}{e.last_name[0]}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="font-black text-slate-900 uppercase tracking-tighter text-sm">{e.first_name} {e.last_name}</p>
+                                {isExisting && (
+                                  <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[8px] font-black uppercase tracking-widest rounded-md border border-amber-200">Profile Update</span>
+                                )}
+                              </div>
+                              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Submitted: {new Date(e.created_at).toLocaleDateString()}</p>
+                            </div>
+                          </div>
+                        </td>
+                      <td className="px-10 py-6">
+                        <p className="font-black text-slate-800">{e.phone}</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase">{e.email || 'NO EMAIL'}</p>
+                      </td>
+                      <td className="px-10 py-6">
+                        <p className="font-black text-slate-600 uppercase tracking-tight text-[10px]">{e.branches?.name || 'GENERIC'}</p>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase truncate max-w-[120px]">{e.gps_address || '---'}</p>
+                      </td>
+                      <td className="px-10 py-6">
+                         <span className="px-3 py-1 bg-amber-50 text-amber-600 border border-amber-100 rounded-lg font-black uppercase text-[8px] tracking-widest">Pending Audit</span>
+                      </td>
+                      <td className="px-10 py-6 text-right">
+                         <div className="flex justify-end gap-2">
+                            <button onClick={() => handleApprove(e)} disabled={isApproving === e.id} className="p-3 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-xl shadow-sm transition-all">
+                               {isApproving === e.id ? <div className="w-4 h-4 border-2 border-emerald-500/30 border-t-emerald-500 animate-spin rounded-full"></div> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>}
+                            </button>
+                            <button onClick={() => handleReject(e.id)} className="p-3 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white rounded-xl shadow-sm transition-all">
+                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                         </div>
+                      </td>
+                    </tr>
+                    );
+                  })
+                ) : (
+                  <tr><td colSpan={6} className="px-10 py-32 text-center text-slate-300 font-black uppercase tracking-[0.3em]">Enrollment Queue is Empty</td></tr>
+                )
               ) : members.length > 0 ? (
                 members.map(m => (
                   <tr key={m.id} className={`hover:bg-slate-50/50 transition-all group text-xs ${selectedIds.includes(m.id) ? 'bg-emerald-50/30' : ''}`}>
@@ -792,14 +1027,14 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
                          <button onClick={() => quickGeoTag(m.id)} className="px-3 py-2 bg-slate-100 text-slate-400 text-[8px] font-black uppercase tracking-widest rounded-lg border border-slate-200 hover:bg-cms-blue hover:text-white transition-all">Tag Location</button>
                        )}
                     </td>
-                    <td className="px-10 py-6">
-                      <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border shadow-sm ${
-                        m.status === 'Active' ? 'bg-emerald-50 text-cms-emerald border-emerald-100' :
-                        m.status === 'Visitor' ? 'bg-purple-50 text-cms-purple border-purple-100' : 'bg-slate-50 text-slate-400 border-slate-200'
-                      }`}>
-                        {m.status}
-                      </span>
-                    </td>
+                        <td className="px-10 py-6">
+                          <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border shadow-sm ${
+                            m.status === 'Active' ? 'bg-emerald-50 text-cms-emerald border-emerald-100' :
+                            'bg-slate-50 text-slate-400 border-slate-200'
+                          }`}>
+                            {m.status}
+                          </span>
+                        </td>
                     <td className="px-10 py-6 text-right">
                        <div className="flex items-center justify-end gap-2 lg:opacity-0 lg:group-hover:opacity-100 transition-all">
                           <button 
@@ -834,11 +1069,19 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
                                   longitude: m.longitude || 0,
                                   wedding_anniversary: m.wedding_anniversary || '',
                                   location_area: m.location_area || '',
-                                  landmark: m.landmark || '',
                                   marital_status: m.marital_status || 'Single',
                                   invited_by: m.invited_by || '',
                                   prayer_request: m.prayer_request || '',
-                                  visitor_type: m.visitor_type || 'First-time'
+                                  occupation: m.occupation || '',
+                                  place_of_work: m.place_of_work || '',
+                                  educational_level: m.educational_level || '',
+                                  hometown: m.hometown || '',
+                                  water_baptised: m.water_baptised || false,
+                                  holy_ghost_baptised: m.holy_ghost_baptised || false,
+                                  spouse_name: m.spouse_name || '',
+                                  spouse_phone: m.spouse_phone || '',
+                                  children: m.children || [],
+                                  emergency_contact_relationship: m.emergency_contact_relationship || ''
                                 }); 
                                 setIsModalOpen(true); 
                               }} className="p-3 bg-slate-100 hover:bg-slate-900 text-slate-500 hover:text-fh-gold rounded-xl shadow-sm"><svg className="w-5 h-5 lg:w-4 lg:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
@@ -1129,22 +1372,28 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
 
             <form onSubmit={handleSubmit} className="p-12 space-y-8 max-h-[70vh] overflow-y-auto scrollbar-hide">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {formData.status === 'Visitor' ? (
-                  <>
-                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Full Name *</label><input required name="first_name" value={formData.first_name} onChange={handleInputChange} placeholder="e.g. John Doe" className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                {/* Identitiy Fields */}
+                <div className="md:col-span-2 lg:col-span-3 border-b border-slate-100 pb-4 mb-4">
+                  <h4 className="text-[10px] font-black text-fh-green uppercase tracking-[0.3em]">1. Personal Identity</h4>
+                </div>
+                <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">First Name *</label><input required name="first_name" value={formData.first_name} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Last Name *</label><input required name="last_name" value={formData.last_name} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Gender</label><select name="gender" value={formData.gender} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner"><option>Male</option><option>Female</option></select></div>
+                <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Date of Birth</label><input type="date" name="dob" value={formData.dob} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Marital Status</label><select name="marital_status" value={formData.marital_status} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner"><option>Single</option><option>Married</option><option>Widowed</option><option>Divorced</option></select></div>
+                <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Wedding Anniversary</label><input type="date" name="wedding_anniversary" value={formData.wedding_anniversary} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Hometown</label><input name="hometown" value={formData.hometown} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" placeholder="e.g. Kumasi" /></div>
+
+                    <div className="md:col-span-2 lg:col-span-3 border-b border-slate-100 pb-4 mt-12 mb-4">
+                      <h4 className="text-[10px] font-black text-fh-green uppercase tracking-[0.3em]">2. Contact & Geolocation</h4>
+                    </div>
                     <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Phone Number *</label><input required name="phone" value={formData.phone} onChange={handleInputChange} placeholder="+233..." className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Email Address</label><input type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
                     <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Location / Area</label><input name="location_area" value={formData.location_area} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
-                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Landmark</label><input name="landmark" value={formData.landmark} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
-                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Marital Status</label><select name="marital_status" value={formData.marital_status} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner"><option>Single</option><option>Married</option><option>Widowed</option><option>Divorced</option></select></div>
-                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Date of Visit</label><input type="date" name="date_joined" value={formData.date_joined} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
-                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Who Invited You?</label><input name="invited_by" value={formData.invited_by} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Visitor Type</label>
-                      <select name="visitor_type" value={formData.visitor_type} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner">
-                        <option value="First-time">1. First-time</option>
-                        <option value="Returning visitor">2. Returning visitor</option>
-                        <option value="Member of another church">3. Member of another church</option>
-                      </select>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">GPS Digital Address</label><input name="gps_address" value={formData.gps_address} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" placeholder="GA-123-4567" /></div>
+
+                    <div className="md:col-span-2 lg:col-span-3 border-b border-slate-100 pb-4 mt-12 mb-4">
+                      <h4 className="text-[10px] font-black text-fh-green uppercase tracking-[0.3em]">3. Church Life & Ministry</h4>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Branch Site *</label>
@@ -1153,47 +1402,89 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
                         {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                       </select>
                     </div>
-                    <div className="space-y-1 md:col-span-2 lg:col-span-3">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Prayer Request</label>
-                      <textarea name="prayer_request" value={formData.prayer_request} onChange={handleInputChange} rows={3} placeholder="Any specific prayer needs..." className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-bold text-slate-600 shadow-inner leading-relaxed resize-none" />
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">First Name *</label><input required name="first_name" value={formData.first_name} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
-                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Last Name *</label><input required name="last_name" value={formData.last_name} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
-                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Gender</label><select name="gender" value={formData.gender} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner"><option>Male</option><option>Female</option></select></div>
-                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Phone Relay</label><input name="phone" value={formData.phone} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
-                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Email Entry</label><input type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Date Joined Church</label><input type="date" name="date_joined" value={formData.date_joined} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Date of Birth</label>
-                      <input type="date" name="dob" value={formData.dob} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Wedding Anniversary</label>
-                      <input type="date" name="wedding_anniversary" value={formData.wedding_anniversary} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Branch Site *</label>
-                      <select required name="branch_id" value={formData.branch_id} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner">
-                        <option value="">Select Target...</option>
-                        {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Assigned Ministry</label>
+                      <select name="ministry" value={formData.ministry} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner">
+                        <option value="N/A">None (General Member)</option>
+                        <option value="Protocol">Protocol</option>
+                        <option value="Ushering">Ushering</option>
+                        <option value="Music">Music / Choir</option>
+                        <option value="Media">Media & Tech</option>
+                        <option value="Prayer">Prayer & Intercession</option>
+                        <option value="Evangelism">Evangelism</option>
+                        <option value="Children">Children Ministry</option>
                       </select>
                     </div>
-                    <div className="space-y-1">
-                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Follow-Up Status</label>
-                       <select name="follow_up_status" value={formData.follow_up_status} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner">
-                          <option value="Pending">Pending</option>
-                          <option value="Contacted">Contacted</option>
-                          <option value="Visited">Visited</option>
-                          <option value="Completed">Completed</option>
-                       </select>
-                     </div>
-                     <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Latitude</label><input type="number" step="any" name="latitude" value={formData.latitude} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
-                     <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Longitude</label><input type="number" step="any" name="longitude" value={formData.longitude} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
-                  </>
-                )}
-              </div>
+                    <div className="flex items-center gap-6 px-4 pt-4">
+                      <div className="flex items-center gap-2">
+                        <input type="checkbox" name="water_baptised" checked={formData.water_baptised} onChange={(e) => setFormData({...formData, water_baptised: e.target.checked})} className="w-5 h-5 accent-fh-green" />
+                        <label className="text-[10px] font-black text-slate-500 uppercase">Water Baptised</label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input type="checkbox" name="holy_ghost_baptised" checked={formData.holy_ghost_baptised} onChange={(e) => setFormData({...formData, holy_ghost_baptised: e.target.checked})} className="w-5 h-5 accent-fh-green" />
+                        <label className="text-[10px] font-black text-slate-500 uppercase">Holy Ghost Baptised</label>
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-2 lg:col-span-3 border-b border-slate-100 pb-4 mt-12 mb-4">
+                      <h4 className="text-[10px] font-black text-fh-green uppercase tracking-[0.3em]">4. Family & Household Information</h4>
+                    </div>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Spouse Name</label><input name="spouse_name" value={formData.spouse_name} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" placeholder="Full name of spouse" /></div>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Spouse Phone</label><input name="spouse_phone" value={formData.spouse_phone} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" placeholder="+233..." /></div>
+                    
+                    <div className="md:col-span-2 lg:col-span-3 space-y-6 mt-4">
+                      <div className="flex items-center justify-between">
+                        <h5 className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Children (Max 5)</h5>
+                        {formData.children.length < 5 && (
+                          <button type="button" onClick={addChild} className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-[8px] font-black uppercase tracking-widest border border-emerald-100 hover:bg-emerald-100 transition-all">+ Add Child</button>
+                        )}
+                      </div>
+                      
+                      {formData.children.map((child, idx) => (
+                        <div key={idx} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 space-y-4 relative">
+                          <button type="button" onClick={() => removeChild(idx)} className="absolute top-4 right-4 text-slate-300 hover:text-rose-500 transition-all">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-2">Child Name</label>
+                              <input value={child.name} onChange={(e) => handleChildChange(idx, 'name', e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl font-bold text-slate-700 text-xs" />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-2">DOB</label>
+                              <input type="date" value={child.dob} onChange={(e) => handleChildChange(idx, 'dob', e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl font-bold text-slate-700 text-xs" />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-2">Gender</label>
+                              <select value={child.gender} onChange={(e) => handleChildChange(idx, 'gender', e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl font-bold text-slate-700 text-xs">
+                                <option>Male</option>
+                                <option>Female</option>
+                              </select>
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-2">Phone (Optional)</label>
+                              <input value={child.phone} onChange={(e) => handleChildChange(idx, 'phone', e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl font-bold text-slate-700 text-xs" />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="md:col-span-2 lg:col-span-3 border-b border-slate-100 pb-4 mt-12 mb-4">
+                      <h4 className="text-[10px] font-black text-fh-green uppercase tracking-[0.3em]">5. Occupation & Skillset</h4>
+                    </div>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Occupation</label><input name="occupation" value={formData.occupation} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Place of Work</label><input name="place_of_work" value={formData.place_of_work} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Educational Level</label><select name="educational_level" value={formData.educational_level} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner"><option value="">Select Level...</option><option>Secondary</option><option>Tertiary</option><option>Post-Graduate</option><option>None</option></select></div>
+
+                    <div className="md:col-span-2 lg:col-span-3 border-b border-slate-100 pb-4 mt-12 mb-4">
+                      <h4 className="text-[10px] font-black text-fh-green uppercase tracking-[0.3em]">6. Emergency Protocols</h4>
+                    </div>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Emergency Contact Name</label><input name="emergency_contact_name" value={formData.emergency_contact_name} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Relationship</label><input name="emergency_contact_relationship" value={formData.emergency_contact_relationship} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" placeholder="e.g. Spouse, Brother, Parent" /></div>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Emergency Relay Phone</label><input name="emergency_contact_phone" value={formData.emergency_contact_phone} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                  </div>
               <button type="submit" disabled={isSubmitting} className="w-full py-6 bg-fh-green text-fh-gold rounded-[2.5rem] font-black uppercase text-xs tracking-[0.4em] shadow-2xl active:scale-95 transition-all border-b-4 border-black/30">
                  {isSubmitting ? <div className="w-5 h-5 border-2 border-fh-gold/50 border-t-fh-gold animate-spin rounded-full" /> : 'Authorize Identity Commit'}
               </button>

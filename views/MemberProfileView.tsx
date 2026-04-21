@@ -167,11 +167,70 @@ const MemberProfileView: React.FC<MemberProfileViewProps> = ({ memberId, onBack,
             <div className="space-y-6">
               <div>
                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Primary Contact</p>
-                <p className="text-sm font-bold">{member.emergency_contact_name || 'Not Specified'}</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-bold">{member.emergency_contact_name || 'Not Specified'}</p>
+                  {member.emergency_contact_relationship && (
+                    <span className="text-[8px] font-black text-fh-gold uppercase tracking-widest bg-white/10 px-2 py-0.5 rounded-md">{member.emergency_contact_relationship}</span>
+                  )}
+                </div>
               </div>
               <div>
                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Emergency Relay</p>
                 <p className="text-sm font-bold text-fh-gold">{member.emergency_contact_phone || '---'}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-[3rem] p-10 shadow-sm border border-slate-50">
+            <h4 className="text-[10px] font-black text-fh-green uppercase tracking-[0.3em] mb-8">Professional Dossier</h4>
+            <div className="space-y-6">
+              <div>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Occupation</p>
+                <p className="text-sm font-bold text-slate-700">{member.occupation || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Employment</p>
+                <p className="text-sm font-bold text-slate-700">{member.place_of_work || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Education</p>
+                <p className="text-sm font-bold text-slate-700">{member.educational_level || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Marital Registry</p>
+                <p className="text-sm font-bold text-slate-700">{member.marital_status || 'Single'}</p>
+              </div>
+              <div className="pt-4 flex flex-wrap gap-2">
+                {member.water_baptised && <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-[8px] font-black uppercase border border-blue-100">Water Baptised</span>}
+                {member.holy_ghost_baptised && <span className="px-3 py-1 bg-amber-50 text-amber-600 rounded-lg text-[8px] font-black uppercase border border-amber-100">Holy Ghost Baptised</span>}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-[3rem] p-10 shadow-sm border border-slate-50">
+            <h4 className="text-[10px] font-black text-fh-green uppercase tracking-[0.3em] mb-8">Household Registry</h4>
+            <div className="space-y-6">
+              {member.marital_status === 'Married' && (
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Spouse</p>
+                   <p className="text-sm font-bold text-slate-700">{member.spouse_name || 'Not Listed'}</p>
+                   <p className="text-[10px] text-fh-green font-black mt-1">{member.spouse_phone || '---'}</p>
+                </div>
+              )}
+              
+              <div className="space-y-4">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Children ({member.children?.length || 0})</p>
+                {(member.children || []).length > 0 ? member.children?.map((child, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <div>
+                      <p className="text-xs font-bold text-slate-800">{child.name}</p>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase">{new Date(child.dob).toLocaleDateString()} • {child.gender}</p>
+                    </div>
+                    {child.phone && <span className="text-[9px] font-black text-fh-green">{child.phone}</span>}
+                  </div>
+                )) : (
+                  <p className="text-[10px] text-slate-300 font-black uppercase italic">No children data</p>
+                )}
               </div>
             </div>
           </div>

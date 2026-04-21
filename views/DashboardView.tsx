@@ -945,10 +945,9 @@ NOTIFY pgrst, 'reload schema';`;
                     <div className="flex items-center gap-2 mt-1">
                       <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
                         m.status === 'New' ? 'bg-blue-50 text-blue-600' : 
-                        m.status === 'Visitor' ? 'bg-amber-50 text-amber-600' : 
                         'bg-emerald-50 text-emerald-600'
                       }`}>
-                        {m.status || 'Returning'}
+                        {m.status || 'Active'}
                       </span>
                       <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
                         <Clock className="w-3 h-3" /> Last: {getRelativeTime(m.created_at)}

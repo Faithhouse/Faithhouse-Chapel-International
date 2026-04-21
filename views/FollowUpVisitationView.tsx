@@ -46,7 +46,7 @@ const FollowUpVisitationView: React.FC<FollowUpVisitationViewProps> = ({ setActi
   
   const [selectedSession, setSelectedSession] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'Overview' | 'Visitation' | 'Personnel' | 'Operations' | 'Resources'>('Overview');
-  const [visitationSubTab, setVisitationSubTab] = useState<'Radar' | 'Registry' | 'WhatsApp' | 'Visitors'>('Radar');
+  const [visitationSubTab, setVisitationSubTab] = useState<'Radar' | 'Registry' | 'WhatsApp'>('Radar');
   const [filter, setFilter] = useState('All');
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [zoneFilter, setZoneFilter] = useState('');
@@ -60,7 +60,6 @@ const FollowUpVisitationView: React.FC<FollowUpVisitationViewProps> = ({ setActi
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isPersonnelModalOpen, setIsPersonnelModalOpen] = useState(false);
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
-  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [tableError, setTableError] = useState<string | null>(null);
   const [editingPersonnel, setEditingPersonnel] = useState<any>(null);
   const [editingResource, setEditingResource] = useState<any>(null);
@@ -102,7 +101,7 @@ const FollowUpVisitationView: React.FC<FollowUpVisitationViewProps> = ({ setActi
       if (!data || data.length === 0) {
         // Seed default resources if empty
         const defaults = [
-          { title: 'First Timer Welcome Script', category: 'Script', description: 'Standard script for welcoming new visitors via phone.' },
+          { title: 'Absentee Follow-up Guide', category: 'Guideline', description: 'Best practices for reaching out to members who missed service.' },
           { title: 'Home Visitation Guidelines', category: 'Guideline', description: 'Best practices and safety protocols for home visits.' },
           { title: 'Follow-up Email Template', category: 'Template', description: 'Professional email template for Monday morning follow-ups.' },
           { title: 'Bereavement Support Guide', category: 'Guideline', description: 'Compassionate approach for visiting bereaved families.' },
@@ -119,23 +118,9 @@ const FollowUpVisitationView: React.FC<FollowUpVisitationViewProps> = ({ setActi
     }
   }, []);
   
-  const [regForm, setRegForm] = useState({
-    first_name: '',
-    last_name: '',
-    phone: '',
-    location_area: '',
-    landmark: '',
-    marital_status: 'Single',
-    invited_by: '',
-    visitor_type: 'First-time',
-    prayer_request: '',
-    date_joined: new Date().toISOString().split('T')[0],
-    status: 'Visitor' as const
-  });
-
   const [newRecord, setNewRecord] = useState({
     member_id: '',
-    category: 'First-time Visitor',
+    category: 'Sick/Hospital',
     priority: 'Medium',
     notes: '',
     visit_date: new Date().toISOString().split('T')[0]
@@ -233,7 +218,7 @@ const FollowUpVisitationView: React.FC<FollowUpVisitationViewProps> = ({ setActi
         BEGIN
           IF NOT EXISTS (SELECT 1 FROM visitation_resources LIMIT 1) THEN
             INSERT INTO visitation_resources (title, description, category, content) VALUES
-            ('First-Time Visitor Script', 'A warm greeting script for following up with first-time visitors.', 'Script', '# First-Time Visitor Script\n\n**Greeting:** "Hello [Member Name], my name is [Your Name] from Faithhouse Chapel International. We were so glad to have you worship with us this past Sunday!"\n\n**Purpose:** "I''m just calling to say thank you for visiting and to see if you have any questions about our church or if there''s anything we can pray with you about."\n\n**Closing:** "We look forward to seeing you again soon! God bless you."'),
+            ('Absentee Follow-up Guide', 'A warm greeting script for following up with members who missed church services.', 'Script', '# Absentee Follow-up Guide\n\n**Greeting:** "Hello [Member Name], my name is [Your Name] from Faithhouse Chapel International. We missed you at our service this past Sunday!"\n\n**Purpose:** "I''m just calling to check on you and see if everything is okay, and if there''s anything the church can pray with you about."\n\n**Closing:** "We look forward to seeing you at our next service! God bless you."'),
             ('Sick Visit Guidelines', 'Best practices and spiritual guidance for visiting the sick.', 'Guideline', '# Sick Visit Guidelines\n\n1. **Preparation:** Pray before you go. Ask the Holy Spirit for wisdom and compassion.\n2. **Duration:** Keep visits short (15-20 minutes) unless requested otherwise.\n3. **Spiritual Care:** Read a comforting Psalm (e.g., Psalm 23, Psalm 103) and offer a brief, faith-filled prayer.\n4. **Sensitivity:** Be mindful of the patient''s energy levels and medical needs.'),
             ('Follow-up Call Log Template', 'A template for recording details of follow-up phone calls.', 'Template', '# Follow-up Call Log\n\n- **Date:** [Date]\n- **Member Name:** [Name]\n- **Caller:** [Your Name]\n- **Response:** [Positive/Neutral/No Answer]\n- **Prayer Requests:** [Details]\n- **Action Items:** [e.g., Send to Pastor, Invite to Cell Group]'),
             ('New Convert Discipleship Plan', 'A 4-week plan for nurturing new converts.', 'Guideline', '# New Convert Discipleship Plan\n\n**Week 1:** The Assurance of Salvation (John 3:16, 1 John 5:11-13)\n**Week 2:** The Importance of Prayer and Word (Matthew 6:9-13, Psalm 119:105)\n**Week 3:** Understanding the Holy Spirit (Acts 1:8, Galatians 5:22-23)\n**Week 4:** The Power of Fellowship and Service (Hebrews 10:24-25)');
@@ -621,13 +606,6 @@ const FollowUpVisitationView: React.FC<FollowUpVisitationViewProps> = ({ setActi
               <p className="text-slate-500 text-sm font-medium">Pastoral Care & Outreach Dashboard</p>
             </div>
             <div className="flex items-center gap-3">
-              <button 
-                onClick={() => setIsRegisterModalOpen(true)}
-                className="px-6 py-2 bg-violet-600 text-white rounded-xl text-sm font-bold hover:bg-violet-700 transition-all shadow-lg shadow-violet-100 flex items-center gap-2"
-              >
-                <UserPlus className="w-4 h-4" />
-                Register Visitor
-              </button>
               <button 
                 onClick={() => setActiveItem?.('Follow-Up Map')}
                 className="bg-fh-green text-fh-gold px-4 py-2 rounded-lg text-sm font-semibold hover:bg-fh-green-dark transition-all shadow-sm flex items-center gap-2"
@@ -1145,8 +1123,7 @@ END $$;`}
               {[
                 { id: 'Radar', label: 'Detection Radar', icon: <Activity className="w-4 h-4" /> },
                 { id: 'Registry', label: 'Care Registry', icon: <ClipboardList className="w-4 h-4" /> },
-                { id: 'WhatsApp', label: 'WhatsApp Hub', icon: <MessageSquare className="w-4 h-4" /> },
-                { id: 'Visitors', label: 'Visitors', icon: <Users className="w-4 h-4" /> }
+                { id: 'WhatsApp', label: 'WhatsApp Hub', icon: <MessageSquare className="w-4 h-4" /> }
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -1286,54 +1263,6 @@ END $$;`}
               </div>
             )}
 
-            {visitationSubTab === 'Visitors' && (
-              <div className="space-y-6">
-                <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
-                  <h3 className="text-lg font-bold text-slate-900 mb-2">Visitor Follow-up</h3>
-                  <p className="text-sm text-slate-500 mb-6">New visitors who joined in the last 30 days and need a welcome visit.</p>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {members.filter(m => m.status === 'Visitor').map((member, i) => (
-                      <div key={i} className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                        <div className="flex items-center gap-4 mb-4">
-                          <div className="w-12 h-12 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
-                            {member.first_name?.[0]}
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-slate-900">{member.first_name} {member.last_name}</h4>
-                            <p className="text-xs text-slate-500">Joined: {member.date_joined || 'Recent'}</p>
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <button 
-                            onClick={() => {
-                              setNewRecord({
-                                ...newRecord,
-                                member_id: member.id,
-                                category: 'First-time Visitor',
-                                priority: 'High'
-                              });
-                              setIsAddModalOpen(true);
-                            }}
-                            className="flex-1 py-2 bg-white text-indigo-600 border border-indigo-100 rounded-xl text-xs font-bold hover:bg-indigo-50 transition-all"
-                          >
-                            Schedule Visit
-                          </button>
-                          <button className="p-2 bg-white text-emerald-600 border border-emerald-100 rounded-xl hover:bg-emerald-50 transition-all">
-                            <Phone className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    {members.filter(m => m.status === 'Visitor').length === 0 && (
-                      <div className="col-span-full py-12 text-center text-slate-400 italic">
-                        No new first timers currently awaiting follow-up.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
         {false && activeTab === 'Visitation' && (
@@ -1737,7 +1666,6 @@ END $$;`}
                       onChange={e => setNewRecord({...newRecord, category: e.target.value})}
                       className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                     >
-                      <option>First-time Visitor</option>
                       <option>Sick/Hospital</option>
                       <option>Bereaved</option>
                       <option>New Convert</option>
@@ -1788,155 +1716,6 @@ END $$;`}
         )}
       </AnimatePresence>
 
-      {/* Register Visitor Modal */}
-      <AnimatePresence>
-        {isRegisterModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsRegisterModalOpen(false)}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="relative bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden"
-            >
-              <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-violet-50/50">
-                <div>
-                  <h3 className="text-xl font-bold text-violet-900">Register New Visitor</h3>
-                  <p className="text-xs text-violet-600 font-medium">Add a first-time guest to the follow-up system</p>
-                </div>
-                <button onClick={() => setIsRegisterModalOpen(false)} className="p-2 hover:bg-violet-100 rounded-full transition-colors">
-                  <X className="w-5 h-5 text-violet-400" />
-                </button>
-              </div>
-              <form onSubmit={handleRegisterVisitor} className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Full Name</label>
-                  <input
-                    required
-                    type="text"
-                    value={regForm.first_name}
-                    onChange={e => {
-                      const names = e.target.value.trim().split(' ');
-                      setRegForm({
-                        ...regForm, 
-                        first_name: names[0],
-                        last_name: names.slice(1).join(' ')
-                      });
-                    }}
-                    placeholder="e.g. John Doe"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Phone Number</label>
-                  <input
-                    required
-                    type="tel"
-                    value={regForm.phone}
-                    onChange={e => setRegForm({...regForm, phone: e.target.value})}
-                    placeholder="+233..."
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Location / Area</label>
-                  <input
-                    type="text"
-                    value={regForm.location_area}
-                    onChange={e => setRegForm({...regForm, location_area: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Landmark</label>
-                  <input
-                    type="text"
-                    value={regForm.landmark}
-                    onChange={e => setRegForm({...regForm, landmark: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Marital Status</label>
-                  <select
-                    value={regForm.marital_status}
-                    onChange={e => setRegForm({...regForm, marital_status: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                  >
-                    <option>Single</option>
-                    <option>Married</option>
-                    <option>Widowed</option>
-                    <option>Divorced</option>
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Date of Visit</label>
-                  <input
-                    type="date"
-                    value={regForm.date_joined}
-                    onChange={e => setRegForm({...regForm, date_joined: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Who Invited You?</label>
-                  <input
-                    type="text"
-                    value={regForm.invited_by}
-                    onChange={e => setRegForm({...regForm, invited_by: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                  />
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Visitor Type</label>
-                  <select
-                    value={regForm.visitor_type}
-                    onChange={e => setRegForm({...regForm, visitor_type: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                  >
-                    <option value="First-time">1. First-time</option>
-                    <option value="Returning visitor">2. Returning visitor</option>
-                    <option value="Member of another church">3. Member of another church</option>
-                  </select>
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2">Prayer Request</label>
-                  <textarea
-                    rows={3}
-                    value={regForm.prayer_request}
-                    onChange={e => setRegForm({...regForm, prayer_request: e.target.value})}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-violet-500 transition-all resize-none italic"
-                    placeholder="Any specific needs..."
-                  />
-                </div>
-                <div className="md:col-span-2 pt-4">
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full bg-violet-600 text-white py-4 rounded-2xl font-bold hover:bg-violet-700 transition-all shadow-lg shadow-violet-200 disabled:opacity-50"
-                  >
-                    {isLoading ? 'Registering...' : 'Complete Registration'}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
       {/* Personnel Modal */}
       <AnimatePresence>
         {isPersonnelModalOpen && (

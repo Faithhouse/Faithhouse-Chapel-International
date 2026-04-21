@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { AttendanceEvent, AttendanceRecord, Member, Branch } from '../types';
+import { toast } from 'sonner';
+import { AttendanceEvent, AttendanceRecord, Member, Branch, UserProfile } from '../types';
 import AttendanceReportDocument from '../src/components/AttendanceReportDocument';
 import { FileText, Printer, X } from 'lucide-react';
 
@@ -92,6 +93,21 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ currentUser }) => {
     };
   }, [branchFilter, typeFilter, selectedMonth, selectedYear, reportType]);
 
+  const isSchemaError = (err: any) => {
+    if (!err) return false;
+    const msg = (err.message || '').toLowerCase();
+    const code = err.code || '';
+    return (
+      code === '42703' || 
+      code === 'PGRST204' || 
+      code === '42P01' || 
+      code === 'PGRST205' ||
+      msg.includes('full_name') || 
+      msg.includes('schema cache') ||
+      msg.includes('column does not exist')
+    );
+  };
+
   const fetchInitialData = async () => {
     setIsLoading(true);
     setSchemaError(null);
@@ -128,8 +144,7 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ currentUser }) => {
 
       const { data: eventData, error: eventError } = await eventQuery;
       if (eventError) {
-         if (eventError.code === '42P01' || eventError.code === 'PGRST205') throw new Error("ATTENDANCE_TABLE_MISSING");
-         if (eventError.code === 'PGRST204') throw new Error("SCHEMA_OUT_OF_SYNC");
+         if (isSchemaError(eventError)) throw new Error("ATTENDANCE_TABLE_MISSING");
          throw eventError;
       }
       setEvents(eventData || []);
@@ -223,8 +238,8 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ currentUser }) => {
     try {
       const { data, error } = await supabase.from('attendance_records').select('*').eq('attendance_event_id', event.id);
       if (error) throw error;
-      
-      // Pre-populate records for all active members to ensure full synchronization
+
+      // Pre-populate records for all active members
       const existingRecords = data || [];
       const fullRecords: AttendanceRecord[] = members.map(m => {
         const existing = existingRecords.find(r => r.member_id === m.id);
@@ -249,7 +264,6 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ currentUser }) => {
       const idx = prev.findIndex(r => r.member_id === memberId);
       if (idx > -1) {
         const up = [...prev];
-        // Toggle logic: if clicking the same status, set to 'Unmarked'
         const newStatus = up[idx].status === status ? 'Unmarked' : status;
         up[idx] = { ...up[idx], status: newStatus };
         return up;
@@ -262,24 +276,12 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ currentUser }) => {
     if (!activeEvent) return;
     setIsSaving(true);
     try {
-      // Logic Fix: Omit 'id' for new records to prevent Null Constraint Violation
+      // 1. Save Member Records
       const cleanRecords = records.map(({ id, ...rest }) => id ? { id, ...rest } : rest);
-      
       const { error: recordsError } = await supabase.from('attendance_records').upsert(cleanRecords, { onConflict: 'attendance_event_id, member_id' });
-      
-      if (recordsError) {
-         if (recordsError.message.includes('column "id"') || recordsError.code === '23502') {
-           setSchemaError("PRIMARY_KEY_DEFAULT_MISSING");
-           throw new Error("Database Schema Conflict: The database requires manual repair to support automatic ID generation.");
-         }
-         if (recordsError.message.includes('unique or exclusion constraint')) {
-           setSchemaError("UNIQUE_CONSTRAINT_MISSING");
-           throw new Error("Database Schema Conflict: Missing unique constraint for attendance synchronization.");
-         }
-         throw recordsError;
-      }
+      if (recordsError) throw recordsError;
 
-      // Save the summary counts to attendance_events
+      // 2. Update Event Summary
       const total = activeEventCounts.men_count + 
                     activeEventCounts.women_count + 
                     activeEventCounts.children_count;
@@ -298,8 +300,9 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ currentUser }) => {
 
       setActiveEvent(null);
       fetchInitialData();
+      toast.success("Attendance synced successfully.");
     } catch (err: any) {
-      alert(`Sync Conflict: ${err.message}`);
+      toast.error(`Sync Conflict: ${err.message}`);
     } finally {
       setIsSaving(false);
     }
@@ -441,7 +444,7 @@ CREATE POLICY "Allow all" ON public.attendance_records FOR ALL USING (true) WITH
 -- 7. REFRESH SCHEMA CACHE
 NOTIFY pgrst, 'reload schema';`;
      } else {
-       repairSQL = `-- SCHEMA REPAIR: ADD UUID DEFAULTS & UNIQUE CONSTRAINTS
+        repairSQL = `-- SCHEMA REPAIR: ADD UUID DEFAULTS & UNIQUE CONSTRAINTS
 ALTER TABLE public.attendance_records 
 ALTER COLUMN id SET DEFAULT gen_random_uuid();
 
@@ -453,6 +456,7 @@ ALTER TABLE public.attendance_events ADD COLUMN IF NOT EXISTS teen_count INTEGER
 ALTER TABLE public.attendance_events ADD COLUMN IF NOT EXISTS men_count INTEGER DEFAULT 0;
 ALTER TABLE public.attendance_events ADD COLUMN IF NOT EXISTS women_count INTEGER DEFAULT 0;
 
+-- VISITOR REGISTRY SYNC
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'unique_event_member') THEN
     ALTER TABLE public.attendance_records ADD CONSTRAINT unique_event_member UNIQUE (attendance_event_id, member_id);

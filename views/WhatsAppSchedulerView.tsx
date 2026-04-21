@@ -298,7 +298,6 @@ CREATE TABLE IF NOT EXISTS public.whatsapp_automations (
 -- Seed initial data if empty
 INSERT INTO public.whatsapp_automations (type, title, description, message_template, trigger_delay_days)
 VALUES 
-('first_timer', 'First Timer Welcome', 'Automated outreach for new visitors', 'Shalom {{Name}}! 🕊️ It was a blessing having you at our service. We hope to see you again soon!', 1),
 ('absentee', 'Absentee Follow-up', 'Pastoral care for missed services', 'Shalom {{Name}}! 🕊️ We missed you at our recent service. We hope all is well. God bless you!', 3),
 ('birthday', 'Birthday Messages', 'Member engagement for birthdays', 'Happy Birthday {{Name}}! 🎂 May God continue to bless and keep you in this new year of your life!', 0),
 ('engagement', 'Member Engagement', 'General engagement and announcements', 'Shalom {{Name}}! 🕊️ Just checking in to see how your week is going. Stay blessed!', 7)
@@ -643,50 +642,47 @@ CREATE POLICY "Allow all" ON public.whatsapp_automations FOR ALL USING (true) WI
           </div>
 
           {/* Automation Features */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {automations.map((automation) => (
-              <div key={automation.id} className={`bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm group hover:border-${automation.type === 'first_timer' ? 'emerald' : automation.type === 'absentee' ? 'blue' : automation.type === 'birthday' ? 'rose' : 'violet'}-500 transition-all`}>
-                <div className="flex items-center gap-4 mb-6">
-                  <div className={`p-3 rounded-2xl group-hover:rotate-12 transition-transform ${
-                    automation.type === 'first_timer' ? 'bg-emerald-50 text-emerald-500' : 
-                    automation.type === 'absentee' ? 'bg-blue-50 text-blue-500' : 
-                    automation.type === 'birthday' ? 'bg-rose-50 text-rose-500' : 
-                    'bg-violet-50 text-violet-500'
-                  }`}>
-                    {automation.type === 'first_timer' ? <Zap className="w-6 h-6" /> : 
-                     automation.type === 'absentee' ? <Users className="w-6 h-6" /> : 
-                     automation.type === 'birthday' ? <Sparkles className="w-6 h-6" /> : 
-                     <MessageSquare className="w-6 h-6" />}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {automations.map((automation) => (
+                  <div key={automation.id} className={`bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm group hover:border-${automation.type === 'absentee' ? 'blue' : automation.type === 'birthday' ? 'rose' : 'violet'}-500 transition-all`}>
+                    <div className="flex items-center gap-4 mb-6">
+                      <div className={`p-3 rounded-2xl group-hover:rotate-12 transition-transform ${
+                        automation.type === 'absentee' ? 'bg-blue-50 text-blue-500' : 
+                        automation.type === 'birthday' ? 'bg-rose-50 text-rose-500' : 
+                        'bg-violet-50 text-violet-500'
+                      }`}>
+                        {automation.type === 'absentee' ? <Users className="w-6 h-6" /> : 
+                         automation.type === 'birthday' ? <Sparkles className="w-6 h-6" /> : 
+                         <MessageSquare className="w-6 h-6" />}
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight leading-none mb-1">{automation.title}</h4>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{automation.description}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${
+                        automation.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'
+                      }`}>
+                        {automation.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                      <button 
+                        onClick={() => {
+                          setSelectedAutomation(automation);
+                          setIsAutomationModalOpen(true);
+                        }}
+                        className={`text-[10px] font-black uppercase tracking-widest hover:underline ${
+                          automation.type === 'absentee' ? 'text-blue-500' : 
+                          automation.type === 'birthday' ? 'text-rose-500' : 
+                          'text-violet-500'
+                        }`}
+                      >
+                        Configure
+                      </button>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight leading-none mb-1">{automation.title}</h4>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{automation.description}</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${
-                    automation.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'
-                  }`}>
-                    {automation.is_active ? 'Active' : 'Inactive'}
-                  </span>
-                  <button 
-                    onClick={() => {
-                      setSelectedAutomation(automation);
-                      setIsAutomationModalOpen(true);
-                    }}
-                    className={`text-[10px] font-black uppercase tracking-widest hover:underline ${
-                      automation.type === 'first_timer' ? 'text-emerald-500' : 
-                      automation.type === 'absentee' ? 'text-blue-500' : 
-                      automation.type === 'birthday' ? 'text-rose-500' : 
-                      'text-violet-500'
-                    }`}
-                  >
-                    Configure
-                  </button>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
         </div>
       )}
 
@@ -899,7 +895,7 @@ CREATE POLICY "Allow all" ON public.whatsapp_automations FOR ALL USING (true) WI
                 <div className="space-y-6 animate-in slide-in-from-right-4">
                   <h4 className="text-lg font-black text-slate-900 uppercase tracking-tight mb-4">Step 1: Select Audience</h4>
                   <div className="grid grid-cols-2 gap-4">
-                    {(['All Members', 'First Timers', 'Absentees', 'Children Ministry', 'Teens Ministry', 'Custom Selection'] as const).map((group) => (
+                    {(['All Members', 'Absentees', 'Children Ministry', 'Teens Ministry', 'Custom Selection'] as const).map((group) => (
                       <button
                         key={group}
                         onClick={() => setDispatchForm(prev => ({ ...prev, target_group: group as any }))}

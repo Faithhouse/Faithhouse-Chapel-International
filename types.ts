@@ -44,7 +44,7 @@ export interface Member {
   wedding_anniversary?: string;
   date_joined?: string;
   branch_id: string;
-  status: 'Active' | 'Inactive' | 'Visitor' | 'Probation';
+  status: 'Active' | 'Inactive' | 'Probation';
   follow_up_status?: 'Pending' | 'Contacted' | 'Visited' | 'Completed';
   last_seen?: string;
   latitude?: number;
@@ -53,12 +53,25 @@ export interface Member {
   role?: string;
   gps_address?: string;
   location_area?: string;
-  landmark?: string;
   marital_status?: string;
   invited_by?: string;
   prayer_request?: string;
-  visitor_type?: 'First-time' | 'Returning visitor' | 'Member of another church';
+  occupation?: string;
+  place_of_work?: string;
+  educational_level?: string;
+  water_baptised?: boolean;
+  holy_ghost_baptised?: boolean;
+  hometown?: string;
+  spouse_name?: string;
+  spouse_phone?: string;
+  children?: {
+    name: string;
+    dob: string;
+    gender: 'Male' | 'Female';
+    phone?: string;
+  }[];
   emergency_contact_name?: string;
+  emergency_contact_relationship?: string;
   emergency_contact_phone?: string;
   notify_birthday?: boolean;
   notify_events?: boolean;
@@ -81,7 +94,7 @@ export interface ScheduledMessage {
   title: string;
   message: string;
   scheduled_for: string;
-  target_group: 'All' | 'Visitors' | 'Active Members' | 'Ministry Heads' | 'Absentees' | 'First Timers' | 'Children Ministry' | 'Teens Ministry' | 'Custom Selection';
+  target_group: 'All' | 'Active Members' | 'Ministry Heads' | 'Absentees' | 'Children Ministry' | 'Teens Ministry' | 'Custom Selection';
   message_type: 'Text' | 'Image' | 'Announcement' | 'Reminder';
   branch_context?: string;
   event_id?: string;
@@ -100,7 +113,7 @@ export interface VisitationRecord {
   member_id: string;
   visitor_id?: string;
   visit_date: string;
-  category: 'First-time Visitor' | 'Sick/Hospital' | 'Bereaved' | 'New Convert' | 'Inactive/Backslidden';
+  category: 'Sick/Hospital' | 'Bereaved' | 'New Convert' | 'Inactive/Backslidden';
   status: 'Pending' | 'Contacted' | 'Visited' | 'Completed';
   priority: 'High' | 'Medium' | 'Low';
   notes?: string;
