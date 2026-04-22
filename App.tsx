@@ -27,6 +27,7 @@ import RecurringTasksView from './views/RecurringTasksView';
 import UsersView from './views/UsersView';
 import FollowUpMapView from './views/FollowUpMapView';
 import ProfileView from './views/ProfileView';
+import VisitorsRegistryView from './views/VisitorsRegistryView';
 import MinistryReportsView from './views/MinistryReportsView';
 import SettingsView from './views/SettingsView';
 import LoginView from './views/LoginView';
@@ -245,6 +246,9 @@ const App: React.FC = () => {
             />
           );
         
+        case 'Visitors Registry':
+          return <VisitorsRegistryView setActiveItem={handleSetActiveItem as any} currentUser={currentUser} />;
+
         case 'Attendance':
           return <AttendanceView currentUser={currentUser} />;
         

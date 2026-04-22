@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Member, Branch, UserProfile } from '../types';
-import { ShieldAlert, Lock } from 'lucide-react';
+import { ShieldAlert, Lock, MapPin, Navigation, Tag } from 'lucide-react';
+import { MapPickerModal } from '../components/MapPickerModal';
 
 interface MembersViewProps {
   onSelectMember?: (id: string) => void;
@@ -54,6 +55,7 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
   const [existingNames, setExistingNames] = useState<Set<string>>(new Set());
 
   // Form State
+  const [showMapPicker, setShowMapPicker] = useState(false);
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -75,6 +77,7 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
     latitude: 0,
     longitude: 0,
     location_area: '',
+    maps_url: '',
     marital_status: 'Single',
     invited_by: '',
     prayer_request: '',
@@ -127,6 +130,7 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
           latitude: memberToEdit.latitude || 0,
           longitude: memberToEdit.longitude || 0,
           location_area: memberToEdit.location_area || '',
+          maps_url: memberToEdit.maps_url || '',
           marital_status: memberToEdit.marital_status || 'Single',
           invited_by: memberToEdit.invited_by || '',
           prayer_request: memberToEdit.prayer_request || '',
@@ -294,6 +298,7 @@ ALTER TABLE public.members ADD COLUMN IF NOT EXISTS spouse_name TEXT;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS spouse_phone TEXT;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS children JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS emergency_contact_relationship TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS maps_url TEXT;
 
 -- Update Enrollment Queue Table columns if they exist
 ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
@@ -301,6 +306,7 @@ ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS longitude DO
 ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS water_baptised BOOLEAN DEFAULT false;
 ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS holy_ghost_baptised BOOLEAN DEFAULT false;
 ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS ministry TEXT DEFAULT 'N/A';
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS maps_url TEXT;
 
 -- Create Enrollment Queue Table
 CREATE TABLE IF NOT EXISTS public.member_enrollment_queue (
@@ -555,7 +561,7 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
       date_joined: new Date().toISOString().split('T')[0], branch_id: branches[0]?.id || '', ministry: 'N/A',
       emergency_contact_name: '', emergency_contact_phone: '', notify_birthday: true, notify_events: true, 
       wedding_anniversary: '', status, follow_up_status: 'Pending', latitude: 0, longitude: 0,
-      location_area: '', marital_status: 'Single', invited_by: '', prayer_request: '',
+      location_area: '', maps_url: '', marital_status: 'Single', invited_by: '', prayer_request: '',
       occupation: '', place_of_work: '', educational_level: '', hometown: '', water_baptised: false, holy_ghost_baptised: false,
       spouse_name: '', spouse_phone: '', children: [], emergency_contact_relationship: ''
     });
@@ -593,6 +599,7 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
         branch_id: entry.branch_id,
         latitude: entry.latitude,
         longitude: entry.longitude,
+        maps_url: entry.maps_url,
         water_baptised: entry.water_baptised || false,
         holy_ghost_baptised: entry.holy_ghost_baptised || false,
         ministry: entry.ministry || 'N/A',
@@ -1389,8 +1396,41 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
                     </div>
                     <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Phone Number *</label><input required name="phone" value={formData.phone} onChange={handleInputChange} placeholder="+233..." className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
                     <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Email Address</label><input type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
-                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Location / Area</label><input name="location_area" value={formData.location_area} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
-                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">GPS Digital Address</label><input name="gps_address" value={formData.gps_address} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" placeholder="GA-123-4567" /></div>
+                    <div className="col-span-1 md:col-span-2 lg:col-span-3 space-y-1 relative">
+                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Location / Address</label>
+                       
+                       {formData.gps_address ? (
+                         <div className="w-full px-7 py-4 bg-emerald-50/50 border border-emerald-100 rounded-3xl flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                               <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                                  <MapPin className="w-4 h-4" />
+                               </div>
+                               <div>
+                                 <p className="text-sm font-bold text-slate-800">{formData.location_area || 'Location Pinned'}</p>
+                                 <div className="flex items-center gap-2">
+                                    <p className="text-[10px] font-bold text-emerald-600 tracking-widest">{formData.gps_address}</p>
+                                    {formData.maps_url && (
+                                       <a href={formData.maps_url} target="_blank" rel="noreferrer" className="text-[9px] text-blue-500 hover:underline">View Map</a>
+                                    )}
+                                 </div>
+                               </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                               <button type="button" onClick={() => setShowMapPicker(true)} className="px-4 py-2 bg-white text-slate-600 border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50">Edit</button>
+                               <button type="button" onClick={() => setFormData(prev => ({ ...prev, location_area: '', gps_address: '', latitude: 0, longitude: 0, maps_url: '' }))} className="px-4 py-2 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-100">Clear</button>
+                            </div>
+                         </div>
+                       ) : (
+                         <button 
+                           type="button"
+                           onClick={() => setShowMapPicker(true)}
+                           className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-inner flex items-center gap-3 text-left"
+                         >
+                           <MapPin className="w-5 h-5 text-indigo-400" />
+                           Open Map Picker
+                         </button>
+                       )}
+                    </div>
 
                     <div className="md:col-span-2 lg:col-span-3 border-b border-slate-100 pb-4 mt-12 mb-4">
                       <h4 className="text-[10px] font-black text-fh-green uppercase tracking-[0.3em]">3. Church Life & Ministry</h4>
@@ -1493,6 +1533,22 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
         </div>
       )}
 
+      <MapPickerModal 
+        isOpen={showMapPicker} 
+        onClose={() => setShowMapPicker(false)} 
+        initialCoords={formData.latitude ? { lat: formData.latitude, lng: formData.longitude } : null}
+        onConfirm={(locationData) => {
+          setFormData(prev => ({
+            ...prev,
+            latitude: locationData.lat,
+            longitude: locationData.lng,
+            gps_address: locationData.gps,
+            location_area: locationData.address,
+            maps_url: locationData.maps_url
+          }));
+          setShowMapPicker(false);
+        }}
+      />
     </div>
   );
 };

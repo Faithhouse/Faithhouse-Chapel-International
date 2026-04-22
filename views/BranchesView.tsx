@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Branch } from '../types';
 import { toast } from 'sonner';
+import { MapPin } from 'lucide-react';
+import { MapPickerModal } from '../components/MapPickerModal';
 
 // Added interface for BranchesView props
 interface BranchesViewProps {
@@ -19,12 +21,17 @@ const BranchesView: React.FC<BranchesViewProps> = () => {
   // Filter state
   const [searchTerm, setSearchTerm] = useState('');
 
+  const [showMapPicker, setShowMapPicker] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     location: '',
     pastor_in_charge: '',
     phone: '',
     email: '',
+    gps_address: '',
+    latitude: 0,
+    longitude: 0,
+    maps_url: '',
   });
 
   useEffect(() => {
@@ -85,10 +92,14 @@ const BranchesView: React.FC<BranchesViewProps> = () => {
     try {
       const payload = { 
         name: formData.name.trim(),
-        location: formData.location.trim(),
+        location: formData.location.trim() || 'Location Pinned',
         pastor_in_charge: formData.pastor_in_charge.trim() || null,
         phone: formData.phone.trim() || null,
-        email: formData.email.trim() || null
+        email: formData.email.trim() || null,
+        gps_address: formData.gps_address.trim() || null,
+        latitude: formData.latitude || null,
+        longitude: formData.longitude || null,
+        maps_url: formData.maps_url.trim() || null,
       };
       
       let error;
@@ -133,6 +144,10 @@ const BranchesView: React.FC<BranchesViewProps> = () => {
       pastor_in_charge: '',
       phone: '',
       email: '',
+      gps_address: '',
+      latitude: 0,
+      longitude: 0,
+      maps_url: '',
     });
   };
 
@@ -140,10 +155,14 @@ const BranchesView: React.FC<BranchesViewProps> = () => {
     setEditingId(branch.id);
     setFormData({
       name: branch.name,
-      location: branch.location,
+      location: branch.location || '',
       pastor_in_charge: branch.pastor_in_charge || '',
       phone: branch.phone || '',
       email: branch.email || '',
+      gps_address: branch.gps_address || '',
+      latitude: branch.latitude || 0,
+      longitude: branch.longitude || 0,
+      maps_url: branch.maps_url || '',
     });
     setIsModalOpen(true);
   };
@@ -181,8 +200,16 @@ create table branches (
   pastor_in_charge text,
   phone text,
   email text,
+  gps_address text,
+  maps_url text,
+  latitude double precision,
+  longitude double precision,
   created_at timestamp with time zone default now()
 );
+
+-- Note: In existing systems, run: 
+-- ALTER TABLE branches ADD COLUMN gps_address text, ADD COLUMN maps_url text, ADD COLUMN latitude double precision, ADD COLUMN longitude double precision;
+
 
 -- Re-enable security
 alter table branches enable row level security;
@@ -190,7 +217,8 @@ create policy "Allow all actions for now" on branches for all using (true) with 
             </pre>
             <button 
               onClick={() => {
-                navigator.clipboard.writeText(`drop table if exists branches cascade; create table branches (id uuid primary key default gen_random_uuid(), name text not null, location text not null, pastor_in_charge text, phone text, email text, created_at timestamp with time zone default now()); alter table branches enable row level security; create policy "Allow all actions for now" on branches for all using (true) with check (true);`);
+                const sql = `drop table if exists branches cascade; create table branches (id uuid primary key default gen_random_uuid(), name text not null, location text not null, pastor_in_charge text, phone text, email text, gps_address text, maps_url text, latitude double precision, longitude double precision, created_at timestamp with time zone default now()); alter table branches enable row level security; create policy "Allow all actions for now" on branches for all using (true) with check (true);`;
+                navigator.clipboard.writeText(sql);
                 alert('Repair script copied to clipboard!');
               }}
               className="absolute top-4 right-4 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-lg active:scale-95"
@@ -354,18 +382,40 @@ create policy "Allow all actions for now" on branches for all using (true) with 
                   />
                 </div>
                 
-                <div className="md:col-span-2 space-y-1.5">
+                <div className="md:col-span-2 space-y-1.5 relative">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Location / Address *</label>
-                  <input 
-                    type="text" 
-                    name="location" 
-                    value={formData.location} 
-                    onChange={handleInputChange} 
-                    disabled={isSubmitting}
-                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all text-sm font-bold text-slate-800 placeholder:text-slate-300 disabled:opacity-50" 
-                    placeholder="e.g. 123 Church Way, City Center" 
-                    required 
-                  />
+                  
+                  {formData.gps_address ? (
+                     <div className="w-full px-5 py-4 bg-indigo-50/50 border border-indigo-100 rounded-2xl flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                           <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                              <MapPin className="w-4 h-4" />
+                           </div>
+                           <div>
+                             <p className="text-sm font-bold text-slate-800 line-clamp-1">{formData.location || 'Location Pinned'}</p>
+                             <div className="flex items-center gap-2">
+                                <p className="text-[10px] font-bold text-indigo-600 tracking-widest">{formData.gps_address}</p>
+                                {formData.maps_url && (
+                                   <a href={formData.maps_url} target="_blank" rel="noreferrer" className="text-[9px] text-blue-500 hover:underline">View Map</a>
+                                )}
+                             </div>
+                           </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                           <button type="button" onClick={() => setShowMapPicker(true)} className="px-3 py-1.5 bg-white text-slate-600 border border-slate-200 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-slate-50">Edit</button>
+                           <button type="button" onClick={() => setFormData(prev => ({ ...prev, location: '', gps_address: '', latitude: 0, longitude: 0, maps_url: '' }))} className="px-3 py-1.5 bg-rose-50 text-rose-600 border border-rose-100 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-rose-100">Clear</button>
+                        </div>
+                     </div>
+                   ) : (
+                     <button 
+                       type="button"
+                       onClick={() => setShowMapPicker(true)}
+                       className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all flex items-center gap-3 text-left"
+                     >
+                       <MapPin className="w-5 h-5 text-indigo-400" />
+                       Open Map Picker
+                     </button>
+                   )}
                 </div>
 
                 <div className="md:col-span-2 space-y-1.5">
@@ -436,6 +486,22 @@ create policy "Allow all actions for now" on branches for all using (true) with 
           </div>
         </div>
       )}
+      <MapPickerModal 
+        isOpen={showMapPicker} 
+        onClose={() => setShowMapPicker(false)} 
+        initialCoords={formData.latitude ? { lat: formData.latitude, lng: formData.longitude } : null}
+        onConfirm={(locationData) => {
+          setFormData(prev => ({
+            ...prev,
+            latitude: locationData.lat,
+            longitude: locationData.lng,
+            gps_address: locationData.gps,
+            location: locationData.address || prev.location,
+            maps_url: locationData.maps_url
+          }));
+          setShowMapPicker(false);
+        }}
+      />
     </div>
   );
 };

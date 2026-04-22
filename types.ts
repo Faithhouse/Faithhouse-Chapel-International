@@ -26,7 +26,11 @@ export type NavItem =
 export interface Branch {
   id: string;
   name: string;
-  location: string;
+  location: string; // Used as display address
+  gps_address?: string;
+  latitude?: number;
+  longitude?: number;
+  maps_url?: string;
   pastor_in_charge?: string;
   phone?: string;
   email?: string;
@@ -52,6 +56,7 @@ export interface Member {
   ministry?: string;
   role?: string;
   gps_address?: string;
+  maps_url?: string;
   location_area?: string;
   marital_status?: string;
   invited_by?: string;

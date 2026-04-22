@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../supabaseClient';
 import { toast } from 'sonner';
+import { MapPin } from 'lucide-react';
+import { MapPickerModal } from '../components/MapPickerModal';
 
 const churchImages = [
   "https://images.unsplash.com/photo-1438232992991-995b7058bbb3?auto=format&fit=crop&q=80&w=1000",
@@ -19,6 +21,7 @@ const PublicEnrollmentView: React.FC = () => {
   const [branches, setBranches] = useState<any[]>([]);
   const [ministries, setMinistries] = useState<any[]>([]);
   const [isLocating, setIsLocating] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [images, setImages] = useState<string[]>(churchImages);
   const [formData, setFormData] = useState({
@@ -41,6 +44,7 @@ const PublicEnrollmentView: React.FC = () => {
     branch_id: '',
     latitude: 0 as number | null,
     longitude: 0 as number | null,
+    maps_url: '',
     water_baptised: false,
     holy_ghost_baptised: false,
     ministry: 'N/A'
@@ -329,43 +333,43 @@ const PublicEnrollmentView: React.FC = () => {
                       </div>
                     </div>
                     <div className="space-y-4">
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2">Physical / GPS Address</label>
-                        <input name="gps_address" value={formData.gps_address} onChange={handleInputChange} className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold" placeholder="GA-123-4567 or Area Name" />
+                      
+                      <div className="space-y-1 relative">
+                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2">Location / GPS Address</label>
+                         
+                         {formData.gps_address ? (
+                           <div className="w-full px-6 py-4 bg-emerald-50/50 border border-emerald-100 rounded-3xl flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                 <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                                    <MapPin className="w-4 h-4" />
+                                 </div>
+                                 <div>
+                                   <p className="text-sm font-bold text-slate-800">Location Pinned</p>
+                                   <div className="flex items-center gap-2">
+                                      <p className="text-[10px] font-bold text-emerald-600 tracking-widest">{formData.gps_address}</p>
+                                      {formData.maps_url && (
+                                         <a href={formData.maps_url} target="_blank" rel="noreferrer" className="text-[9px] text-blue-500 hover:underline">View Map</a>
+                                      )}
+                                   </div>
+                                 </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                 <button type="button" onClick={() => setShowMapPicker(true)} className="px-4 py-2 bg-white text-slate-600 border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50">Edit</button>
+                                 <button type="button" onClick={() => setFormData(prev => ({ ...prev, gps_address: '', latitude: null, longitude: null, maps_url: '' }))} className="px-4 py-2 bg-rose-50 text-rose-600 border border-rose-100 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-100">Clear</button>
+                              </div>
+                           </div>
+                         ) : (
+                           <button 
+                             type="button"
+                             onClick={() => setShowMapPicker(true)}
+                             className="w-full px-6 py-5 bg-slate-50 border border-slate-200 rounded-2xl font-black text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-inner flex items-center gap-3 text-left"
+                           >
+                             <MapPin className="w-5 h-5 text-indigo-400" />
+                             Pin Map Location
+                           </button>
+                         )}
                       </div>
                       
-                      {/* Precise Geolocation Feature */}
-                      <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Precise Location Tagging</h4>
-                            <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">Uses satellite coordinates for church mapping</p>
-                          </div>
-                          <button 
-                            type="button" 
-                            onClick={getCurrentLocation}
-                            disabled={isLocating}
-                            className={`flex items-center gap-2 px-5 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
-                              formData.latitude && formData.longitude 
-                                ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' 
-                                : 'bg-slate-900 text-white hover:bg-slate-800'
-                            }`}
-                          >
-                            {isLocating ? (
-                              <div className="w-4 h-4 border-2 border-white/30 border-t-white animate-spin rounded-full" />
-                            ) : (
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                            )}
-                            {formData.latitude && formData.longitude ? 'Location Captured' : 'Tag My Current Location'}
-                          </button>
-                        </div>
-                        {formData.latitude && formData.longitude && (
-                          <div className="flex items-center gap-4 pt-2 border-t border-slate-200">
-                             <div className="text-[8px] font-black text-emerald-600 uppercase">Lat: {formData.latitude.toFixed(6)}</div>
-                             <div className="text-[8px] font-black text-emerald-600 uppercase">Long: {formData.longitude.toFixed(6)}</div>
-                          </div>
-                        )}
-                      </div>
                     </div>
 
                     <div className="space-y-1">
@@ -532,6 +536,22 @@ const PublicEnrollmentView: React.FC = () => {
           </div>
         </form>
       </div>
+
+      <MapPickerModal 
+        isOpen={showMapPicker} 
+        onClose={() => setShowMapPicker(false)} 
+        initialCoords={formData.latitude ? { lat: formData.latitude, lng: formData.longitude! } : null}
+        onConfirm={(locationData) => {
+          setFormData(prev => ({
+            ...prev,
+            latitude: locationData.lat,
+            longitude: locationData.lng,
+            gps_address: locationData.gps,
+            maps_url: locationData.maps_url
+          }));
+          setShowMapPicker(false);
+        }}
+      />
     </div>
   );
 };
