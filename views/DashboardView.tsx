@@ -329,7 +329,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
 
   if (tableMissing) {
     const repairSQL = `-- SYSTEM REPAIR SCRIPT
--- Ensure members table exists first
+-- Ensure branches table exists first
+CREATE TABLE IF NOT EXISTS public.branches (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL,
+  location TEXT NOT NULL,
+  pastor_in_charge TEXT,
+  phone TEXT,
+  email TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Ensure members table exists
 CREATE TABLE IF NOT EXISTS public.members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   first_name TEXT NOT NULL,
@@ -341,6 +352,36 @@ CREATE TABLE IF NOT EXISTS public.members (
   wedding_anniversary DATE,
   date_joined DATE,
   status TEXT DEFAULT 'Active',
+  ministry TEXT DEFAULT 'N/A',
+  branch_id UUID REFERENCES public.branches(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Enrollment Queue Table
+CREATE TABLE IF NOT EXISTS public.member_enrollment_queue (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  gender TEXT,
+  phone TEXT,
+  email TEXT,
+  gps_address TEXT,
+  dob DATE,
+  marital_status TEXT,
+  occupation TEXT,
+  hometown TEXT,
+  spouse_name TEXT,
+  spouse_phone TEXT,
+  children JSONB DEFAULT '[]'::jsonb,
+  emergency_contact_name TEXT,
+  emergency_contact_relationship TEXT,
+  emergency_contact_phone TEXT,
+  branch_id UUID REFERENCES public.branches(id),
+  status TEXT DEFAULT 'Pending',
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  water_baptised BOOLEAN DEFAULT false,
+  holy_ghost_baptised BOOLEAN DEFAULT false,
   ministry TEXT DEFAULT 'N/A',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
@@ -436,9 +477,16 @@ ALTER TABLE public.recurring_task_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.task_instances ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.leadership ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.member_enrollment_queue ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Allow all for staff" ON public.members;
 CREATE POLICY "Allow all for staff" ON public.members FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public enrollment" ON public.member_enrollment_queue;
+CREATE POLICY "Allow public enrollment" ON public.member_enrollment_queue FOR INSERT TO public WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow staff manage enrollment" ON public.member_enrollment_queue;
+CREATE POLICY "Allow staff manage enrollment" ON public.member_enrollment_queue FOR ALL TO public USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow all for staff" ON public.financial_records;
 CREATE POLICY "Allow all for staff" ON public.financial_records FOR ALL USING (true) WITH CHECK (true);

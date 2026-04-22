@@ -48,7 +48,7 @@ export interface Member {
   wedding_anniversary?: string;
   date_joined?: string;
   branch_id: string;
-  status: 'Active' | 'Inactive' | 'Probation';
+  status: 'Active' | 'Inactive' | 'Probation' | 'Visitor';
   follow_up_status?: 'Pending' | 'Contacted' | 'Visited' | 'Completed';
   last_seen?: string;
   latitude?: number;
@@ -233,12 +233,40 @@ export interface TaskInstance {
 export interface Ministry {
   id: string;
   name: string;
-  leader_name?: string;
+  ministry?: string; // Parent category
+  leader_id?: string; // Foreign key to leadership.id
+  leader_name?: string; // Fallback or freeform
+  deputy_id?: string; // Foreign key to leadership.id
+  deputy_name?: string; // Fallback or freeform
   email?: string;
   description?: string;
   meeting_schedule?: string;
+  meeting_day?: string;
+  color?: string;
   status: 'Active' | 'Inactive';
   created_at?: string;
+  lead?: { first_name: string, last_name: string, position: string };
+  deputy?: { first_name: string, last_name: string, position: string };
+}
+
+export interface MinistryMember {
+  id: string;
+  ministry_id: string;
+  member_id: string;
+  role: string;
+  joined_date: string;
+  status: 'Active' | 'On Leave' | 'Inactive';
+  created_at?: string;
+}
+
+export interface MinistryAttendance {
+  id: string;
+  ministry_id: string;
+  session_date: string;
+  notes: string;
+  attendees: string[];
+  created_by: string;
+  created_at: string;
 }
 
 export interface Volunteer {

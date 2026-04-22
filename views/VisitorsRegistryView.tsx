@@ -218,9 +218,9 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
 
       toast.success('Visitor registered successfully');
       setRegForm({
-        full_name: '', phone: '', email: '', home_address: '',
+        full_name: '', phone: '', email: '', home_address: '', gps_address: '', maps_url: '', latitude: 0, longitude: 0,
         date_of_first_visit: new Date().toISOString().split('T')[0],
-        service_attended: 'Sunday Service', heard_about_us: 'Friend/Family',
+        service_attended: 'Sunday Service', heard_about_us: 'Friend/Family', referred_by_name: '', referred_by_contact: '',
         prayer_requests: '', membership_interest: 'Maybe', welcomed_by: '',
         needs_follow_up: false, follow_up_assigned_name: '', follow_up_due_date: ''
       });

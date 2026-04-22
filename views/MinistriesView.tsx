@@ -11,6 +11,7 @@ interface MinistriesViewProps {
 
 const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem, currentUser }) => {
   const [ministries, setMinistries] = useState<Ministry[]>([]);
+  const [leaders, setLeaders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [tableError, setTableError] = useState<string | null>(null);
@@ -21,7 +22,10 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem, currentU
 
   const [formData, setFormData] = useState({
     name: '',
+    leader_id: '',
     leader_name: '',
+    deputy_id: '',
+    deputy_name: '',
     email: '',
     description: '',
     meeting_schedule: '',
@@ -44,9 +48,13 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem, currentU
   const fetchMinistries = async () => {
     setIsLoading(true);
     try {
+      // Fetch leaders for the dropdowns
+      const { data: leadersData } = await supabase.from('leadership').select('id, first_name, last_name, position');
+      setLeaders(leadersData || []);
+
       let query = supabase
         .from('ministries')
-        .select('*')
+        .select('*, lead:leader_id(first_name, last_name, position), deputy:deputy_id(first_name, last_name, position)')
         .order('name', { ascending: true });
 
       if (searchTerm) {
@@ -94,7 +102,10 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem, currentU
     try {
       const payload = { 
         name: formData.name.trim(),
+        leader_id: formData.leader_id || null,
         leader_name: formData.leader_name.trim() || null,
+        deputy_id: formData.deputy_id || null,
+        deputy_name: formData.deputy_name || null,
         email: formData.email.trim() || null,
         description: formData.description.trim() || null,
         meeting_schedule: formData.meeting_schedule.trim() || null,
@@ -142,7 +153,10 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem, currentU
   const resetForm = () => {
     setFormData({
       name: '',
+      leader_id: '',
       leader_name: '',
+      deputy_id: '',
+      deputy_name: '',
       email: '',
       description: '',
       meeting_schedule: '',
@@ -154,7 +168,10 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem, currentU
     setEditingId(ministry.id);
     setFormData({
       name: ministry.name,
+      leader_id: ministry.leader_id || '',
       leader_name: ministry.leader_name || '',
+      deputy_id: ministry.deputy_id || '',
+      deputy_name: ministry.deputy_name || '',
       email: ministry.email || '',
       description: ministry.description || '',
       meeting_schedule: ministry.meeting_schedule || '',
@@ -305,10 +322,14 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
                 {min.description || 'Ministry operational scope.'}
               </p>
               
-              <div className="space-y-1.5 pt-2 border-t border-slate-50">
+              <div className="space-y-2 pt-2 border-t border-slate-50">
                 <div className="flex items-center gap-2">
                    <svg className="w-2.5 h-2.5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                   <p className="text-[9px] font-bold text-slate-600 truncate">{min.leader_name || 'Unassigned'}</p>
+                   <p className="text-[9px] font-bold text-slate-600 truncate">Head: {min.lead ? `${min.lead.first_name} ${min.lead.last_name}` : (min.leader_name || 'Unassigned')}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                   <svg className="w-2.5 h-2.5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                   <p className="text-[9px] font-bold text-slate-500 truncate">Dep: {min.deputy ? `${min.deputy.first_name} ${min.deputy.last_name}` : (min.deputy_name || '---')}</p>
                 </div>
               </div>
             </div>
@@ -335,7 +356,7 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
             </div>
           </div>
         )) : (
-          <div className="col-span-full py-20 text-center bg-white rounded-3xl border border-slate-100 shadow-inner italic text-slate-300 font-black uppercase tracking-widest text-xs">No departments detected.</div>
+          <div className="col-span-full py-20 text-center bg-white rounded-3xl border border-slate-100 shadow-inner italic text-slate-300 font-black uppercase tracking-widest text-xs">No ministries detected.</div>
         )}
       </div>
 
@@ -344,19 +365,34 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
           <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md animate-in fade-in" onClick={() => !isSubmitting && setIsModalOpen(false)} />
           <div className="relative bg-white w-full max-w-xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 border-b-[12px] border-fh-gold">
             <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
-              <h3 className="text-2xl font-black text-slate-800 tracking-tight uppercase">{editingId ? 'Modify Dept' : 'Setup Dept'}</h3>
+              <h3 className="text-2xl font-black text-slate-800 tracking-tight uppercase">{editingId ? 'Modify Ministry' : 'Setup Ministry'}</h3>
               <button disabled={isSubmitting} onClick={() => setIsModalOpen(false)} className="p-3 hover:bg-slate-200 rounded-full transition-colors"><svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg></button>
             </div>
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Ministry Name *</label><input type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-fh-gold/5 font-bold text-slate-800 shadow-inner" placeholder="e.g. Media Ministry" required /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Leader</label><input type="text" name="leader_name" value={formData.leader_name} onChange={handleInputChange} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-fh-gold/5 font-bold text-slate-800 shadow-inner" placeholder="Leader Name" /></div>
+                <div className="md:col-span-2 grid grid-cols-2 gap-6">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Ministry Head</label>
+                    <select name="leader_id" value={formData.leader_id} onChange={handleInputChange} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-fh-gold/5 font-bold text-slate-800 shadow-inner">
+                      <option value="">Select a Head...</option>
+                      {leaders.map(l => <option key={l.id} value={l.id}>{l.first_name} {l.last_name}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Deputy Head</label>
+                    <select name="deputy_id" value={formData.deputy_id} onChange={handleInputChange} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-fh-gold/5 font-bold text-slate-800 shadow-inner">
+                      <option value="">Select a Deputy...</option>
+                      {leaders.map(l => <option key={l.id} value={l.id}>{l.first_name} {l.last_name}</option>)}
+                    </select>
+                  </div>
+                </div>
                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Ministry Email</label><input type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-fh-gold/5 font-bold text-slate-800 shadow-inner" placeholder="e.g. music@faithhouse.church" /></div>
                 <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Meeting Schedule</label><input type="text" name="meeting_schedule" value={formData.meeting_schedule} onChange={handleInputChange} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-fh-gold/5 font-bold text-slate-800 shadow-inner" placeholder="e.g. Sundays 4PM" /></div>
                 <div className="md:col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Description</label><textarea name="description" value={formData.description} onChange={handleInputChange} rows={3} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-fh-gold/5 font-bold text-slate-800 shadow-inner resize-none" placeholder="Brief mission statement..." /></div>
               </div>
               <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-fh-green text-fh-gold rounded-[2rem] font-black uppercase text-[10px] tracking-[0.4em] shadow-xl active:scale-95 transition-all border-b-4 border-black/30">
-                {isSubmitting ? 'Syncing...' : (editingId ? 'Update Registry' : 'Add Department')}
+                {isSubmitting ? 'Syncing...' : (editingId ? 'Update Registry' : 'Add Ministry')}
               </button>
             </form>
           </div>
@@ -389,11 +425,11 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
                   <h2 className="text-3xl font-black text-fh-green">{ministries.length}</h2>
                 </div>
                 <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100 text-center">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Active Depts</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Active Ministries</p>
                   <h2 className="text-3xl font-black text-emerald-600">{ministries.filter(m => m.status === 'Active').length}</h2>
                 </div>
                 <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100 text-center">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Inactive Depts</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Inactive Ministries</p>
                   <h2 className="text-3xl font-black text-rose-500">{ministries.filter(m => m.status === 'Inactive').length}</h2>
                 </div>
               </div>
@@ -404,7 +440,8 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
                   <thead>
                     <tr className="text-[10px] font-black uppercase text-slate-400 border-b border-slate-100">
                       <th className="py-4">Ministry Name</th>
-                      <th className="py-4">Leader</th>
+                      <th className="py-4">Ministry Head</th>
+                      <th className="py-4">Deputy Head</th>
                       <th className="py-4">Schedule</th>
                       <th className="py-4 text-right">Status</th>
                     </tr>
@@ -413,7 +450,8 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
                     {ministries.map(min => (
                       <tr key={min.id} className="text-[10px] font-bold text-slate-700">
                         <td className="py-4 uppercase">{min.name}</td>
-                        <td className="py-4">{min.leader_name || '---'}</td>
+                        <td className="py-4">{min.lead ? `${min.lead.first_name} ${min.lead.last_name}` : (min.leader_name || '---')}</td>
+                        <td className="py-4">{min.deputy ? `${min.deputy.first_name} ${min.deputy.last_name}` : (min.deputy_name || '---')}</td>
                         <td className="py-4">{min.meeting_schedule || '---'}</td>
                         <td className="py-4 text-right">
                           <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider ${
@@ -435,7 +473,7 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
                 </div>
                 <div className="space-y-12">
                   <div className="h-px bg-slate-300 w-48 mx-auto"></div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Ministry Coordinator Signature</p>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Council of Ministry Heads</p>
                 </div>
               </div>
             </div>

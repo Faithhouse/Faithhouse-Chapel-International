@@ -6,7 +6,10 @@ import {
   LeadershipPipeline, 
   Minister, 
   Member, 
-  UserProfile 
+  UserProfile,
+  Ministry,
+  MinistryMember,
+  MinistryAttendance
 } from '../types';
 import { toast } from 'sonner';
 import { 
@@ -17,7 +20,8 @@ import {
   UserPlus, Edit3, Trash2, Save, X,
   ArrowUpRight, BookOpen, ShieldCheck,
   Mail, Phone, Briefcase, RefreshCw, UserCheck,
-  ArrowLeft, Calendar, Layout
+  ArrowLeft, Calendar, Layout,
+  Bell, ClipboardList, CheckSquare, DownloadCloud, ArrowRight, ArrowLeft as ArrowLeftIcon, BarChart, Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -27,7 +31,7 @@ interface Leader {
   last_name: string;
   position: string;
   category: 'Pastor' | 'Minister' | 'Ministry Head/Deputy' | 'Worker';
-  department: string;
+  ministry: string;
   email: string;
   phone: string;
   image_url?: string;
@@ -41,18 +45,33 @@ interface LeadershipDevelopmentViewProps {
 const categories = ['Pastor', 'Minister', 'Ministry Head/Deputy', 'Worker'] as const;
 
 const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ currentUser }) => {
-  const [activeTab, setActiveTab] = useState<'Registry' | 'Appraisals' | 'Pipeline'>('Registry');
+  const [activeTab, setActiveTab] = useState<'Registry' | 'Appraisals' | 'Pipeline' | 'Ministries'>('Registry');
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [appraisals, setAppraisals] = useState<MinisterialAppraisal[]>([]);
   const [pipeline, setPipeline] = useState<LeadershipPipeline[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  
+  const [ministryItems, setMinistryItems] = useState<Ministry[]>([]);
+  const [ministryMembers, setMinistryMembers] = useState<MinistryMember[]>([]);
+  const [ministryAttendance, setMinistryAttendance] = useState<MinistryAttendance[]>([]);
+  const [selectedMinistryId, setSelectedMinistryId] = useState<string | null>(null);
+
   const [isLoading, setIsLoading] = useState(true);
   const [selectedLeaderId, setSelectedLeaderId] = useState<string | null>(null);
+  
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedLeaderIds, setSelectedLeaderIds] = useState<string[]>([]);
   
   // Modals
   const [isLeaderModalOpen, setIsLeaderModalOpen] = useState(false);
   const [isAppraisalModalOpen, setIsAppraisalModalOpen] = useState(false);
   const [isPipelineModalOpen, setIsPipelineModalOpen] = useState(false);
+  const [isMinistryModalOpen, setIsMinistryModalOpen] = useState(false);
+  const [isMinistryMemberModalOpen, setIsMinistryMemberModalOpen] = useState(false);
+  const [isMinistryAttendanceModalOpen, setIsMinistryAttendanceModalOpen] = useState(false);
+  const [isMinistryBulkAssignModalOpen, setIsMinistryBulkAssignModalOpen] = useState(false);
   
   const [editingLeader, setEditingLeader] = useState<Partial<Leader> | null>(null);
   const [tableMissing, setTableMissing] = useState(false);
@@ -81,7 +100,66 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
     status: 'Active'
   });
 
-  const repairSQL = `
+  const [ministryForm, setMinistryForm] = useState<Partial<Ministry>>({
+    name: '',
+    ministry: '',
+    leader_id: '',
+    deputy_id: '',
+    description: '',
+    meeting_day: '',
+    status: 'Active',
+    color: '#4f46e5'
+  });
+
+  const [ministryMemberForm, setMinistryMemberForm] = useState<Partial<MinistryMember>>({
+    member_id: '',
+    role: '',
+    status: 'Active',
+    joined_date: new Date().toISOString().split('T')[0]
+  });
+
+  const [attendanceForm, setAttendanceForm] = useState<{
+    session_date: string;
+    notes: string;
+    attendees: string[];
+  }>({
+    session_date: new Date().toISOString().split('T')[0],
+    notes: '',
+    attendees: []
+  });
+
+  const [bulkAssignMinistryId, setBulkAssignMinistryId] = useState('');
+
+    const repairSQL = `
+    DO $$ 
+    BEGIN
+      ALTER TABLE public.leadership RENAME COLUMN department TO ministry;
+    EXCEPTION WHEN undefined_column THEN END $$;
+
+    -- Consolidate teams into ministries
+    DO $$ 
+    BEGIN
+      IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'teams') THEN
+        ALTER TABLE public.teams RENAME TO ministries;
+      END IF;
+    EXCEPTION WHEN duplicate_table THEN END $$;
+
+    DO $$ 
+    BEGIN
+      IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'team_members') THEN
+        ALTER TABLE public.team_members RENAME TO ministry_members;
+        ALTER TABLE public.ministry_members RENAME COLUMN team_id TO ministry_id;
+      END IF;
+    EXCEPTION WHEN duplicate_table THEN END $$;
+
+    DO $$ 
+    BEGIN
+      IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'team_attendance') THEN
+        ALTER TABLE public.team_attendance RENAME TO ministry_attendance;
+        ALTER TABLE public.ministry_attendance RENAME COLUMN team_id TO ministry_id;
+      END IF;
+    EXCEPTION WHEN duplicate_table THEN END $$;
+
     -- Ensure leadership table exists
     CREATE TABLE IF NOT EXISTS public.leadership (
       id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -89,10 +167,28 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
       last_name TEXT NOT NULL,
       position TEXT NOT NULL,
       category TEXT NOT NULL,
-      department TEXT,
+      ministry TEXT,
       email TEXT,
       phone TEXT,
       image_url TEXT,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+    );
+
+    -- Ensure ministries table exists (merged from teams and ministries)
+    CREATE TABLE IF NOT EXISTS public.ministries (
+      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+      name TEXT NOT NULL,
+      ministry TEXT, -- Parent category/ministry
+      leader_id UUID REFERENCES public.leadership(id),
+      leader_name TEXT,
+      deputy_id UUID REFERENCES public.leadership(id),
+      deputy_name TEXT,
+      email TEXT,
+      description TEXT,
+      meeting_schedule TEXT,
+      meeting_day TEXT,
+      status TEXT DEFAULT 'Active',
+      color TEXT DEFAULT '#4f46e5',
       created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
     );
 
@@ -125,9 +221,32 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
       updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
     );
 
+    CREATE TABLE IF NOT EXISTS public.ministry_members (
+      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+      ministry_id UUID REFERENCES public.ministries(id) ON DELETE CASCADE,
+      member_id UUID REFERENCES public.members(id) ON DELETE CASCADE,
+      role TEXT,
+      joined_date DATE DEFAULT CURRENT_DATE,
+      status TEXT DEFAULT 'Active',
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+    );
+
+    CREATE TABLE IF NOT EXISTS public.ministry_attendance (
+      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+      ministry_id UUID REFERENCES public.ministries(id) ON DELETE CASCADE,
+      session_date DATE NOT NULL,
+      notes TEXT,
+      attendees JSONB DEFAULT '[]',
+      created_by UUID REFERENCES public.profiles(id),
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+    );
+
     ALTER TABLE public.leadership ENABLE ROW LEVEL SECURITY;
     ALTER TABLE public.ministerial_appraisals ENABLE ROW LEVEL SECURITY;
     ALTER TABLE public.leadership_pipeline ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE public.ministries ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE public.ministry_members ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE public.ministry_attendance ENABLE ROW LEVEL SECURITY;
 
     DROP POLICY IF EXISTS "Allow all for authenticated users on leadership" ON public.leadership;
     CREATE POLICY "Allow all for authenticated users on leadership" ON public.leadership FOR ALL TO authenticated USING (true) WITH CHECK (true);
@@ -137,6 +256,15 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
 
     DROP POLICY IF EXISTS "Allow all for authenticated users on leadership_pipeline" ON public.leadership_pipeline;
     CREATE POLICY "Allow all for authenticated users on leadership_pipeline" ON public.leadership_pipeline FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+    DROP POLICY IF EXISTS "Allow all on ministries" ON public.ministries;
+    CREATE POLICY "Allow all on ministries" ON public.ministries FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+    DROP POLICY IF EXISTS "Allow all on ministry_members" ON public.ministry_members;
+    CREATE POLICY "Allow all on ministry_members" ON public.ministry_members FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+    DROP POLICY IF EXISTS "Allow all on ministry_attendance" ON public.ministry_attendance;
+    CREATE POLICY "Allow all on ministry_attendance" ON public.ministry_attendance FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
     NOTIFY pgrst, 'reload schema';
   `;
@@ -177,6 +305,26 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
         .order('first_name');
       setMembers(memData || []);
 
+      // Fetch Ministry Items
+      const { data: tData } = await supabase
+        .from('ministries')
+        .select('*, lead:leader_id(first_name, last_name, position), deputy:deputy_id(first_name, last_name, position)')
+        .order('name');
+      setMinistryItems(tData || []);
+
+      // Fetch Ministry Members
+      const { data: tmData } = await supabase
+        .from('ministry_members')
+        .select('*');
+      setMinistryMembers(tmData || []);
+
+      // Fetch Ministry Attendance
+      const { data: taData } = await supabase
+        .from('ministry_attendance')
+        .select('*')
+        .order('session_date', { ascending: false });
+      setMinistryAttendance(taData || []);
+
     } catch (error: any) {
       console.error('Error fetching data:', error);
     } finally {
@@ -199,7 +347,7 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
       category: formData.get('category') as any,
       email: formData.get('email') as string,
       phone: formData.get('phone') as string,
-      department: formData.get('department') as string,
+      ministry: formData.get('ministry') as string,
     };
 
     try {
@@ -270,16 +418,185 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
     }
   };
 
+  const handleMinistrySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      if (ministryForm.id) {
+        const { error } = await supabase.from('ministries').update(ministryForm).eq('id', ministryForm.id);
+        if (error) throw error;
+        toast.success("Ministry updated");
+      } else {
+        const { error } = await supabase.from('ministries').insert([ministryForm]);
+        if (error) throw error;
+        toast.success("Ministry created");
+      }
+      setIsMinistryModalOpen(false);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleMinistryMemberSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const payload = { ...ministryMemberForm, ministry_id: selectedMinistryId };
+      const { error } = await supabase.from('ministry_members').insert([payload]);
+      if (error) throw error;
+      toast.success("Member added to ministry");
+      setIsMinistryMemberModalOpen(false);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRemoveMinistryMember = async (id: string) => {
+    if(!window.confirm("Remove member from ministry?")) return;
+    try {
+      await supabase.from('ministry_members').delete().eq('id', id);
+      toast.success("Member removed");
+      fetchData();
+    } catch(err) {}
+  };
+
+  const handleAttendanceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        ministry_id: selectedMinistryId,
+        session_date: attendanceForm.session_date,
+        notes: attendanceForm.notes,
+        attendees: attendanceForm.attendees,
+        created_by: currentUser?.id
+      };
+      const { error } = await supabase.from('ministry_attendance').insert([payload]);
+      if (error) throw error;
+      toast.success("Attendance logged");
+      setIsMinistryAttendanceModalOpen(false);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const toggleLeaderSelection = (id: string) => {
+    setSelectedLeaderIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+
+  const handleBulkAssign = async () => {
+    if(!bulkAssignMinistryId || selectedLeaderIds.length === 0) return;
+    setIsSubmitting(true);
+    try {
+      const payloads = selectedLeaderIds.map(id => ({
+        ministry_id: bulkAssignMinistryId,
+        member_id: id,
+        role: 'Member',
+        joined_date: new Date().toISOString().split('T')[0],
+        status: 'Active'
+      }));
+      const { error } = await supabase.from('ministry_members').insert(payloads);
+      if (error) throw error;
+      toast.success(`${selectedLeaderIds.length} leaders assigned to ministry`);
+      setIsMinistryBulkAssignModalOpen(false);
+      setIsSelectMode(false);
+      setSelectedLeaderIds([]);
+      fetchData();
+    } catch(err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleExportSelected = () => {
+    if(selectedLeaderIds.length === 0) return;
+    const selectedData = leaders.filter(l => selectedLeaderIds.includes(l.id));
+    const csvHeader = "First Name,Last Name,Position,Category,Ministry,Email,Phone\n";
+    const csvContent = selectedData.map(l => `"${l.first_name}","${l.last_name}","${l.position}","${l.category}","${l.ministry}","${l.email}","${l.phone}"`).join("\n");
+    
+    const blob = new Blob([csvHeader + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'selected_leaders.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Export successful");
+  };
+
+  const handlePipelineMove = async (id: string, newLevel: string) => {
+    try {
+      const { error } = await supabase.from('leadership_pipeline').update({ current_level: newLevel, updated_at: new Date().toISOString() }).eq('id', id);
+      if (error) throw error;
+      toast.success("Moved candidate");
+      fetchData();
+    } catch(err:any) {}
+  };
+
   const filteredLeaders = leaders.filter(l => {
     const matchesCategory = activeCategory === 'All' || l.category === activeCategory;
     const matchesSearch = (l.first_name + ' ' + l.last_name).toLowerCase().includes(searchTerm.toLowerCase()) || 
                          l.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         l.department.toLowerCase().includes(searchTerm.toLowerCase());
+                         l.ministry.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
   const selectedLeader = leaders.find(l => l.id === selectedLeaderId);
   const leaderAppraisals = appraisals.filter(a => a.leader_id === selectedLeaderId);
+
+  // Analytics Computation
+  const avgLeadershipScore = appraisals.length ? (appraisals.reduce((acc, a) => acc + (a.leadership_score || 0), 0) / appraisals.length).toFixed(1) : 'N/A';
+  
+  const pipelineCounts = pipeline.reduce((acc, p) => {
+    acc[p.current_level] = (acc[p.current_level] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const categoryCounts = leaders.reduce((acc, l) => {
+    acc[l.category] = (acc[l.category] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Notifications Computation
+  const notifications: any[] = [];
+  const currentYear = new Date().getFullYear().toString();
+  
+  leaders.forEach(l => {
+    const hasAppraisal = appraisals.some(a => a.leader_id === l.id && a.period.includes(currentYear));
+    if (!hasAppraisal) {
+      notifications.push({ id: `app-${l.id}`, type: 'Appraisal', message: `No ${currentYear} appraisal for ${l.first_name} ${l.last_name}` });
+    }
+  });
+
+  pipeline.forEach(p => {
+    const lastUpdate = new Date(p.updated_at || new Date());
+    const daysSince = (new Date().getTime() - lastUpdate.getTime()) / (1000 * 3600 * 24);
+    if (daysSince > 30) {
+      const mem = members.find(m => m.id === p.member_id);
+      notifications.push({ id: `pipe-${p.id}`, type: 'Pipeline', message: `${mem?.first_name || 'Member'} stuck in pipeline >30 days` });
+    }
+  });
+
+  const fourteenDaysAgo = new Date();
+  fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+  ministryItems.forEach(t => {
+     const recentAtt = ministryAttendance.find(a => a.ministry_id === t.id && new Date(a.session_date) >= fourteenDaysAgo);
+     if (!recentAtt) {
+       notifications.push({ id: `att-${t.id}`, type: 'Ministry', message: `No attendance for ${t.name} in last 14 days` });
+     }
+  });
 
   if (tableMissing) {
     return (
@@ -305,7 +622,7 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
   return (
     <div className="space-y-8 pb-20 animate-in fade-in duration-500 p-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-50">
         <div className="space-y-2">
           <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Leadership & Development</h2>
           <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.4em] flex items-center gap-2">
@@ -313,7 +630,55 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
             Governance, Oversight & Pipeline
           </p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex gap-4 items-center">
+          
+          <div className="relative">
+            <button 
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="relative p-4 bg-white rounded-2xl shadow-md text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <Bell className="w-5 h-5" />
+              {notifications.length > 0 && (
+                <span className="absolute top-2 right-2 w-3 h-3 bg-rose-500 rounded-full border-2 border-white animate-pulse" />
+              )}
+            </button>
+            
+            <AnimatePresence>
+              {showNotifications && (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute right-0 mt-4 w-80 bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden z-50">
+                  <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                     <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Action Required</h4>
+                     <span className="bg-rose-100 text-rose-600 px-2 py-0.5 rounded-full text-[10px] font-bold">{notifications.length}</span>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                       <div className="p-8 text-center text-slate-400 text-xs font-bold">You're all caught up!</div>
+                    ) : (
+                       notifications.map(n => (
+                         <div key={n.id} className="p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors flex gap-3 items-start">
+                            <div className="p-2 bg-indigo-50 text-indigo-500 rounded-lg shrink-0">
+                               <AlertCircle className="w-4 h-4" />
+                            </div>
+                            <div>
+                               <p className="text-[10px] font-bold text-slate-800 leading-snug">{n.message}</p>
+                            </div>
+                         </div>
+                       ))
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <button 
+            onClick={() => setShowAnalytics(!showAnalytics)}
+            className="px-6 py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-50 transition-all flex items-center gap-3"
+          >
+            <BarChart className="w-4 h-4" />
+            Analytics
+          </button>
+          
           <button 
             onClick={() => { setEditingLeader({}); setIsLeaderModalOpen(true); }}
             className="px-6 py-4 bg-slate-900 text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-slate-800 transition-all flex items-center gap-3"
@@ -321,30 +686,78 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
             <Plus className="w-4 h-4" />
             Appoint Leader
           </button>
-          <button 
-            onClick={() => setIsPipelineModalOpen(true)}
-            className="px-6 py-4 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl active:scale-95 transition-all flex items-center gap-3"
-          >
-            <UserPlus className="w-4 h-4" />
-            Add to Pipeline
-          </button>
         </div>
       </div>
 
+      {/* Analytics Dashboard */}
+      <AnimatePresence>
+        {showAnalytics && (
+           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 bg-slate-950 p-8 rounded-[3rem] shadow-2xl relative">
+                <div className="space-y-1">
+                   <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Total Leaders</h4>
+                   <p className="text-4xl font-black text-fh-gold">{leaders.length}</p>
+                </div>
+                <div className="space-y-1">
+                   <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Active Ministries</h4>
+                   <p className="text-4xl font-black text-fh-green">{ministryItems.length}</p>
+                </div>
+                <div className="space-y-1">
+                   <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Pipeline</h4>
+                   <p className="text-4xl font-black text-indigo-400">{pipeline.length}</p>
+                </div>
+                <div className="space-y-1">
+                   <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Avg Score</h4>
+                   <p className="text-4xl font-black text-amber-400">{avgLeadershipScore} <span className="text-lg text-slate-600">/ 5</span></p>
+                </div>
+
+                <div className="md:col-span-2 bg-slate-900 border border-slate-800 rounded-[2rem] p-6 mt-4">
+                   <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Category Breakdown</h4>
+                   <div className="space-y-3">
+                     {categories.map(cat => (
+                        <div key={cat} className="flex items-center gap-4">
+                           <div className="w-24 text-[9px] font-black uppercase tracking-widest text-slate-500 truncate">{cat}</div>
+                           <div className="flex-1 bg-slate-800 h-2 rounded-full overflow-hidden">
+                              <div className="h-full bg-fh-gold" style={{ width: `${leaders.length ? ((categoryCounts[cat] || 0) / leaders.length) * 100 : 0}%` }} />
+                           </div>
+                           <div className="w-8 text-[10px] font-bold text-white text-right">{categoryCounts[cat] || 0}</div>
+                        </div>
+                     ))}
+                   </div>
+                </div>
+
+                <div className="md:col-span-2 bg-slate-900 border border-slate-800 rounded-[2rem] p-6 mt-4">
+                   <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Pipeline Stages</h4>
+                   <div className="space-y-3">
+                     {['Discipleship', 'Leadership School', 'Minister in Training', 'Ministry Lead'].map(stage => (
+                        <div key={stage} className="flex items-center gap-4">
+                           <div className="w-32 text-[9px] font-black uppercase tracking-widest text-slate-500 truncate border-l-2 border-active pl-2" style={{ borderColor: stage === 'Discipleship' ? '#64748b' : stage === 'Leadership School' ? '#6366f1' : stage === 'Minister in Training' ? '#f59e0b' : '#10b981' }}>{stage}</div>
+                           <div className="flex-1" />
+                           <div className="text-[10px] font-bold text-white text-right w-8">{pipelineCounts[stage] || 0}</div>
+                           <div className="text-[9px] font-black text-slate-600 w-12 text-right">{pipeline.length ? Math.round(((pipelineCounts[stage] || 0) / pipeline.length) * 100) : 0}%</div>
+                        </div>
+                     ))}
+                   </div>
+                </div>
+             </div>
+           </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Tabs */}
-      {!selectedLeaderId && (
-        <div className="flex gap-2 p-1.5 bg-slate-100 rounded-[2rem] w-fit">
-          {(['Registry', 'Appraisals', 'Pipeline'] as const).map((tab) => (
+      {!selectedMinistryId && !selectedLeaderId && (
+        <div className="flex gap-2 p-1.5 bg-slate-100 rounded-[2rem] w-fit overflow-x-auto max-w-full">
+          {(['Registry', 'Appraisals', 'Pipeline', 'Ministries'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-8 py-3 rounded-[1.5rem] font-black uppercase text-[10px] tracking-widest transition-all ${
+              className={`px-8 py-3 rounded-[1.5rem] font-black uppercase text-[10px] tracking-widest transition-all whitespace-nowrap ${
                 activeTab === tab 
                   ? 'bg-white text-fh-green shadow-sm' 
                   : 'text-slate-400 hover:text-slate-600'
               }`}
             >
-              {tab === 'Registry' ? 'Leader Registry' : tab === 'Appraisals' ? 'Global Appraisals' : 'Leadership Pipeline'}
+              {tab === 'Registry' ? 'Leader Registry' : tab === 'Appraisals' ? 'Global Appraisals' : tab === 'Pipeline' ? 'Leadership Pipeline' : 'Ministries'}
             </button>
           ))}
         </div>
@@ -386,7 +799,7 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
                       {selectedLeader?.category}
                     </span>
                     <span className="px-4 py-1.5 bg-fh-gold/10 text-fh-gold rounded-full text-[10px] font-black uppercase tracking-widest border border-fh-gold/20">
-                      {selectedLeader?.department}
+                      {selectedLeader?.ministry}
                     </span>
                   </div>
                 </div>
@@ -439,6 +852,66 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* NEW SECTION A: Ministries Led & NEW SECTION B: Performance Trend */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+               <div className="bg-white rounded-[3rem] p-10 shadow-sm border border-slate-100">
+                  <div className="flex items-center gap-4 mb-8">
+                     <div className="w-12 h-12 bg-slate-50 text-slate-600 rounded-2xl flex items-center justify-center"><Users className="w-5 h-5" /></div>
+                     <h4 className="text-xl font-black text-slate-800 uppercase tracking-tight">Ministries Led</h4>
+                  </div>
+                  <div className="space-y-4 max-h-64 overflow-y-auto pr-2">
+                     {ministryItems.filter(t => t.leader_id === selectedLeaderId).length === 0 ? (
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Not leading any ministries currently.</p>
+                     ) : (
+                         ministryItems.filter(t => t.leader_id === selectedLeaderId).map(min => (
+                           <div key={min.id} onClick={() => { setSelectedLeaderId(null); setSelectedMinistryId(min.id); setActiveTab('Ministries'); }} className="p-5 border border-slate-100 rounded-2xl flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow bg-slate-50 border-l-4" style={{ borderLeftColor: min.color }}>
+                              <div>
+                                 <h5 className="font-black text-slate-800 uppercase tracking-tight mb-1">{min.name}</h5>
+                                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{min.ministry}</p>
+                              </div>
+                              <div className="text-right">
+                                 <span className="text-[10px] font-black uppercase tracking-widest bg-white border border-slate-200 px-3 py-1.5 rounded-full shadow-sm">{ministryMembers.filter(m => m.ministry_id === min.id).length} Members</span>
+                              </div>
+                           </div>
+                        ))
+                     )}
+                  </div>
+               </div>
+               
+               <div className="bg-white rounded-[3rem] p-10 shadow-sm border border-slate-100">
+                  <div className="flex items-center gap-4 mb-8">
+                     <div className="w-12 h-12 bg-slate-50 text-slate-600 rounded-2xl flex items-center justify-center"><TrendingUp className="w-5 h-5" /></div>
+                     <h4 className="text-xl font-black text-slate-800 uppercase tracking-tight">Performance Trend</h4>
+                  </div>
+                  <div className="space-y-6">
+                     {leaderAppraisals.length === 0 ? (
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">No appraisal data available to calculate trends.</p>
+                     ) : (
+                        [
+                           { key: 'leadership_score', label: 'Leadership' },
+                           { key: 'spiritual_growth_score', label: 'Spiritual Growth' },
+                           { key: 'operational_efficiency_score', label: 'Operational Efficiency' },
+                           { key: 'pastoral_care_score', label: 'Pastoral Care' }
+                        ].map(metric => {
+                           const avg = leaderAppraisals.reduce((sum, a) => sum + (a[metric.key as keyof MinisterialAppraisal] as number || 0), 0) / leaderAppraisals.length;
+                           const pct = (avg / 5) * 100;
+                           return (
+                              <div key={metric.key} className="space-y-2">
+                                 <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                                    <span className="text-slate-500">{metric.label}</span>
+                                    <span className="text-fh-green">{pct.toFixed(0)}%</span>
+                                 </div>
+                                 <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                                    <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} className="h-full bg-fh-green rounded-full" />
+                                 </div>
+                              </div>
+                           );
+                        })
+                     )}
+                  </div>
+               </div>
             </div>
 
             {/* Appraisal History for this leader */}
@@ -522,20 +995,28 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
                   </button>
                 ))}
               </div>
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input 
-                  type="text" 
-                  placeholder="Search leaders..." 
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-fh-green/20 outline-none w-64 shadow-sm"
-                />
+              <div className="flex gap-4 items-center w-full md:w-auto">
+                <div className="relative flex-1 md:flex-none">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input 
+                    type="text" 
+                    placeholder="Search leaders..." 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-11 pr-4 py-3 w-full bg-white border border-slate-200 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-fh-green/20 outline-none md:w-64 shadow-sm"
+                  />
+                </div>
+                <button
+                  onClick={() => setIsSelectMode(!isSelectMode)}
+                  className={`p-3 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-sm transition-all flex items-center justify-center gap-2 ${isSelectMode ? 'bg-indigo-600 text-white' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
+                >
+                  <CheckSquare className="w-5 h-5" />
+                </button>
               </div>
             </div>
 
             {/* Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pb-24">
               {isLoading ? (
                 [1,2,3,4].map(i => <div key={i} className="h-72 bg-white rounded-[2.5rem] animate-pulse border border-slate-100 shadow-sm" />)
               ) : filteredLeaders.length > 0 ? filteredLeaders.map((leader, idx) => (
@@ -544,9 +1025,15 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: idx * 0.05 }}
-                  onClick={() => setSelectedLeaderId(leader.id)}
-                  className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all group relative overflow-hidden cursor-pointer"
+                  onClick={() => isSelectMode ? toggleLeaderSelection(leader.id) : setSelectedLeaderId(leader.id)}
+                  className={`bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 transition-all group relative cursor-pointer ${isSelectMode && selectedLeaderIds.includes(leader.id) ? 'ring-2 ring-indigo-500 border-indigo-500' : 'hover:shadow-xl hover:-translate-y-1'}`}
                 >
+                  {isSelectMode && (
+                     <div className="absolute top-6 right-6 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors z-10" style={{ borderColor: selectedLeaderIds.includes(leader.id) ? '#4f46e5' : '#cbd5e1', backgroundColor: selectedLeaderIds.includes(leader.id) ? '#4f46e5' : 'transparent' }}>
+                       {selectedLeaderIds.includes(leader.id) && <CheckSquare className="w-4 h-4 text-white" />}
+                     </div>
+                  )}
+                  
                   <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-bl-[5rem] -mr-16 -mt-16 transition-transform group-hover:scale-110 group-hover:bg-fh-green/5" />
                   
                   <div className="relative z-10 flex flex-col items-center text-center">
@@ -564,7 +1051,7 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
                         <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center">
                           <Briefcase className="w-3.5 h-3.5" />
                         </div>
-                        <span className="text-[10px] font-bold uppercase tracking-widest">{leader.department || 'General'}</span>
+                        <span className="text-[10px] font-bold uppercase tracking-widest">{leader.ministry || 'General'}</span>
                       </div>
                     </div>
 
@@ -580,6 +1067,26 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
                 <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-slate-100 shadow-inner italic text-slate-300 font-black uppercase tracking-widest text-xs">No leaders found.</div>
               )}
             </div>
+
+            {/* Bulk Action Bar */}
+            <AnimatePresence>
+              {isSelectMode && (
+                <motion.div initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }} className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] max-w-2xl w-[90%] md:w-full">
+                   <div className="bg-slate-900 text-white rounded-[2rem] p-4 px-6 md:px-8 shadow-2xl flex flex-col md:flex-row items-center justify-between border border-slate-800 gap-4">
+                      <div className="flex items-center gap-4">
+                         <div className="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center font-black text-xs">{selectedLeaderIds.length}</div>
+                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">Leaders Selected</span>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-center gap-3">
+                         <button onClick={() => setIsMinistryBulkAssignModalOpen(true)} disabled={selectedLeaderIds.length === 0} className="px-4 py-2 bg-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 disabled:opacity-50 transition-colors">Assign to Ministry</button>
+                         <button onClick={handleExportSelected} disabled={selectedLeaderIds.length === 0} className="px-4 py-2 bg-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 disabled:opacity-50 transition-colors flex items-center gap-2"><DownloadCloud className="w-3 h-3" /> Export CSV</button>
+                         <button onClick={() => { setIsSelectMode(false); setSelectedLeaderIds([]); }} className="w-8 h-8 rounded-full border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"><X className="w-4 h-4" /></button>
+                      </div>
+                   </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
           </motion.div>
         ) : activeTab === 'Appraisals' ? (
           <motion.div 
@@ -640,56 +1147,254 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
               <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-slate-100 shadow-inner italic text-slate-300 font-black uppercase tracking-widest text-xs">No appraisals recorded yet.</div>
             )}
           </motion.div>
-        ) : (
+        ) : activeTab === 'Pipeline' ? (
           <motion.div 
             key="pipeline"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            className="flex gap-6 overflow-x-auto pb-8 snap-x"
           >
-            {pipeline.length > 0 ? pipeline.map((item) => (
-              <div key={item.id} className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm hover:shadow-xl transition-all border-b-4 border-fh-green">
-                <div className="flex justify-between items-start mb-6">
-                  <div className="w-12 h-12 bg-slate-50 text-fh-green rounded-2xl flex items-center justify-center font-black text-lg border border-slate-100 shadow-inner">
-                    {item.members?.first_name.charAt(0)}
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Progress</p>
-                    <p className="text-lg font-black text-fh-green">{item.progress_percentage}%</p>
-                  </div>
-                </div>
+            {['Discipleship', 'Leadership School', 'Minister in Training', 'Ministry Lead'].map((stage, sIdx, sArr) => {
+               const stgItems = pipeline.filter(p => p.current_level === stage);
+               return (
+                 <div key={stage} className="min-w-[320px] max-w-[320px] bg-slate-100 rounded-[3rem] p-4 flex flex-col snap-center">
+                    <div className="p-4 flex items-center justify-between mb-4 border-b border-slate-200">
+                       <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">{stage}</h3>
+                       <span className="bg-slate-200 text-slate-500 font-bold text-xs px-3 py-1 rounded-full">{stgItems.length}</span>
+                    </div>
+                    <div className="flex-1 space-y-4 overflow-y-auto">
+                       {stgItems.length === 0 ? (
+                         <div className="text-center p-8 text-slate-400 text-[10px] font-black uppercase tracking-widest">No candidates</div>
+                       ) : stgItems.map(item => (
+                         <div key={item.id} className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200 hover:shadow-md transition-shadow relative group">
+                            <div className="absolute top-0 right-0 w-16 h-16 bg-slate-50 rounded-bl-[3rem] -mr-8 -mt-8" />
+                            <div className="flex items-center gap-4 mb-4 relative z-10">
+                               <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-black">{item.members?.first_name.charAt(0)}</div>
+                               <div>
+                                  <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight leading-none">{item.members?.first_name}</h4>
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.progress_percentage}% Done</span>
+                               </div>
+                            </div>
+                            
+                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mb-4 relative z-10">
+                               <div className="h-full bg-indigo-500" style={{ width: `${item.progress_percentage}%` }} />
+                            </div>
 
-                <h3 className="text-xl font-black text-slate-900 mb-1 uppercase tracking-tight">
-                  {item.members?.first_name} {item.members?.last_name}
-                </h3>
-                <div className="flex items-center gap-2 mb-6">
-                  <BookOpen className="w-3 h-3 text-fh-gold" />
-                  <p className="text-[10px] font-black text-fh-gold uppercase tracking-[0.2em]">{item.current_level}</p>
-                </div>
-                
-                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden mb-6">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${item.progress_percentage}%` }}
-                    className="h-full bg-fh-green"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Mentor: {item.mentor?.full_name || 'Assigned'}</p>
-                  <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${
-                    item.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-400'
-                  }`}>
-                    {item.status}
-                  </span>
-                </div>
-              </div>
-            )) : (
-              <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-slate-100 shadow-inner italic text-slate-300 font-black uppercase tracking-widest text-xs">No leadership candidates in pipeline.</div>
-            )}
+                            <div className="flex justify-between items-center relative z-10 border-t border-slate-50 pt-4">
+                               <button 
+                                 disabled={sIdx === 0} 
+                                 onClick={() => handlePipelineMove(item.id, sArr[sIdx - 1])}
+                                 className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 disabled:opacity-30 transition-colors"
+                               >
+                                 <ArrowLeft className="w-4 h-4" />
+                               </button>
+                               <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Move</span>
+                               <button 
+                                 disabled={sIdx === sArr.length - 1}
+                                 onClick={() => handlePipelineMove(item.id, sArr[sIdx + 1])}
+                                 className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 disabled:opacity-30 transition-colors"
+                               >
+                                 <ArrowRight className="w-4 h-4" />
+                               </button>
+                            </div>
+                         </div>
+                       ))}
+                    </div>
+                 </div>
+               );
+            })}
           </motion.div>
-        )}
+        ) : activeTab === 'Ministries' ? (
+          <motion.div 
+            key="ministries"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="space-y-8"
+          >
+             {/* Ministries Top Actions */}
+             <div className="flex justify-between items-center bg-white p-4 px-8 rounded-3xl border border-slate-100 shadow-sm">
+                <h3 className="text-lg font-black uppercase tracking-widest text-slate-800">Ministries</h3>
+                <button 
+                  onClick={() => { setMinistryForm({}); setIsMinistryModalOpen(true); }}
+                  className="px-6 py-3 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" /> Create Ministry
+                </button>
+             </div>
+
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {ministryItems.length === 0 ? (
+                   <div className="col-span-full py-20 text-center bg-white rounded-[3rem] border border-slate-100 shadow-inner italic text-slate-300 font-black uppercase tracking-widest text-xs">No ministries established yet.</div>
+                ) : ministryItems.map(min => (
+                   <div key={min.id} className="bg-white rounded-[3rem] p-8 border border-slate-100 shadow-sm hover:shadow-xl transition-all relative overflow-hidden group cursor-pointer" onClick={() => setSelectedMinistryId(min.id)}>
+                      <div className="absolute top-0 right-0 w-32 h-32 opacity-10 rounded-bl-[5rem] -mr-16 -mt-16 transition-transform group-hover:scale-125" style={{ backgroundColor: min.color }}/>
+                      
+                      <div className="flex justify-between items-start mb-6">
+                         <div className="w-12 h-12 rounded-2xl flex items-center justify-center border" style={{ backgroundColor: `${min.color}15`, color: min.color, borderColor: `${min.color}30` }}>
+                            <Users className="w-5 h-5" />
+                         </div>
+                         <span className="px-3 py-1 bg-slate-50 text-slate-500 rounded-full text-[8px] font-black uppercase tracking-widest shadow-sm border border-slate-100">
+                           {ministryMembers.filter(m => m.ministry_id === min.id).length} Members
+                         </span>
+                      </div>
+                      
+                      <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-1 group-hover:text-indigo-600 transition-colors">{min.name}</h3>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-6">{min.ministry}</p>
+                      
+                      <div className="border-t border-slate-50 pt-4 mt-6 grid grid-cols-2 gap-4">
+                         <div>
+                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Ministry Head</p>
+                            <p className="text-[11px] font-bold text-slate-700 truncate">{min.lead ? `${min.lead.first_name} ${min.lead.last_name}` : 'Unassigned'}</p>
+                         </div>
+                         <div>
+                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Deputy Head</p>
+                            <p className="text-[11px] font-bold text-slate-700 truncate">{min.deputy ? `${min.deputy.first_name} ${min.deputy.last_name}` : 'Unassigned'}</p>
+                         </div>
+                      </div>
+                   </div>
+                ))}
+             </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      {/* Ministry Detail View */}
+      <AnimatePresence>
+         {selectedMinistryId && (
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="fixed inset-0 z-[100] bg-slate-100 overflow-y-auto p-4 md:p-8">
+               <button onClick={() => setSelectedMinistryId(null)} className="fixed top-8 right-8 z-[110] w-12 h-12 bg-white rounded-full flex items-center justify-center text-slate-400 hover:text-slate-800 shadow-xl border border-slate-100 transition-colors">
+                  <X className="w-5 h-5" />
+               </button>
+
+               {(() => {
+                  const min = ministryItems.find(t => t.id === selectedMinistryId);
+                  if(!min) return null;
+                  const membersList = ministryMembers.filter(m => m.ministry_id === selectedMinistryId);
+                  const attHistory = ministryAttendance.filter(a => a.ministry_id === selectedMinistryId);
+                  const memberDetails = membersList.map(m => {
+                     const memData = members.find(mbr => mbr.id === m.member_id) || leaders.find(ldr => ldr.id === m.member_id);
+                     return { ...m, details: memData };
+                  });
+
+                  // Calculate overall attendance rate
+                  let totalExpected = 0;
+                  let totalPresent = 0;
+                  attHistory.forEach(a => {
+                     const attendees = Array.isArray(a.attendees) ? a.attendees : [];
+                     totalExpected += membersList.length;
+                     totalPresent += attendees.length;
+                  });
+                  const overallAttRate = totalExpected > 0 ? ((totalPresent / totalExpected) * 100).toFixed(0) : '0';
+
+                  return (
+                     <div className="max-w-7xl mx-auto space-y-8 pb-32">
+                        {/* Ministry Header */}
+                        <div className="bg-white rounded-[4rem] p-12 shadow-sm border border-slate-200 relative overflow-hidden flex flex-col md:flex-row md:items-end justify-between gap-8">
+                           <div className="absolute top-0 right-0 w-96 h-96 opacity-[0.03] rounded-bl-[10rem] -mr-32 -mt-32 pointer-events-none" style={{ backgroundColor: min.color }}/>
+                           <div className="relative z-10 space-y-4">
+                              <span className="px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] rounded-full" style={{ backgroundColor: `${min.color}15`, color: min.color }}>{min.ministry}</span>
+                              <h2 className="text-5xl font-black text-slate-900 uppercase tracking-tighter">{min.name}</h2>
+                              <p className="max-w-2xl text-slate-500 font-medium leading-relaxed">{min.description || 'No description provided.'}</p>
+                           </div>
+                           <div className="flex gap-6 relative z-10">
+                              <div className="bg-slate-50 p-6 rounded-[2rem] min-w-[120px] text-center border border-slate-100 shadow-inner">
+                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Members</p>
+                                 <p className="text-3xl font-black text-slate-800">{membersList.length}</p>
+                              </div>
+                              <div className="bg-slate-50 p-6 rounded-[2rem] min-w-[120px] text-center border border-slate-100 shadow-inner">
+                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Att. Rate</p>
+                                 <p className="text-3xl font-black text-slate-800">{overallAttRate}%</p>
+                              </div>
+                           </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                           <div className="bg-white rounded-[3rem] p-8 border border-slate-200 shadow-sm flex items-center gap-6">
+                              <div className="w-16 h-16 rounded-2xl bg-fh-green/10 text-fh-green flex items-center justify-center font-black text-2xl border border-fh-green/20">
+                                 {min.lead?.first_name?.charAt(0) || 'H'}
+                              </div>
+                              <div>
+                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Ministry Head</p>
+                                 <h4 className="text-xl font-black text-slate-800 uppercase tracking-tight">{min.lead ? `${min.lead.first_name} ${min.lead.last_name}` : 'Unassigned'}</h4>
+                                 <p className="text-[10px] font-bold text-fh-green uppercase tracking-widest">{min.lead?.position || 'Lead Role'}</p>
+                              </div>
+                           </div>
+                           <div className="bg-white rounded-[3rem] p-8 border border-slate-200 shadow-sm flex items-center gap-6">
+                              <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-2xl border border-indigo-100">
+                                 {min.deputy?.first_name?.charAt(0) || 'D'}
+                              </div>
+                              <div>
+                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Deputy Head</p>
+                                 <h4 className="text-xl font-black text-slate-800 uppercase tracking-tight">{min.deputy ? `${min.deputy.first_name} ${min.deputy.last_name}` : 'Unassigned'}</h4>
+                                 <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">{min.deputy?.position || 'Deputy Role'}</p>
+                              </div>
+                           </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                           {/* Members Roster */}
+                           <div className="lg:col-span-2 bg-white rounded-[3rem] p-10 border border-slate-200 shadow-sm">
+                              <div className="flex justify-between items-center mb-8 pb-8 border-b border-slate-100">
+                                 <h3 className="text-2xl font-black uppercase tracking-tight text-slate-800">Ministry Roster</h3>
+                                 <button onClick={() => setIsMinistryMemberModalOpen(true)} className="px-5 py-3 bg-slate-900 text-white hover:bg-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors">
+                                    <Plus className="w-4 h-4" /> Add Member
+                                 </button>
+                              </div>
+                              <div className="space-y-4">
+                                 {memberDetails.length === 0 ? (
+                                    <div className="py-12 text-center text-slate-400 font-bold text-sm bg-slate-50 rounded-[2rem]">No members in this ministry.</div>
+                                 ) : memberDetails.map(m => (
+                                    <div key={m.id} className="flex items-center justify-between p-4 px-6 bg-white border border-slate-100 hover:border-slate-300 transition-colors rounded-[2rem] shadow-sm">
+                                       <div className="flex items-center gap-4">
+                                          <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center font-black text-slate-400 border border-slate-100">
+                                             {m.details?.first_name?.charAt(0) || '?'}
+                                          </div>
+                                          <div>
+                                             <h4 className="font-black text-slate-800 uppercase tracking-tight">{m.details?.first_name} {m.details?.last_name}</h4>
+                                             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{m.role || 'Member'}</p>
+                                          </div>
+                                       </div>
+                                       <button onClick={() => handleRemoveMinistryMember(m.id)} className="w-8 h-8 rounded-full hover:bg-rose-50 text-slate-300 hover:text-rose-500 flex items-center justify-center transition-colors">
+                                          <X className="w-4 h-4" />
+                                       </button>
+                                    </div>
+                                 ))}
+                              </div>
+                           </div>
+
+                           {/* Attendance Log */}
+                           <div className="bg-white rounded-[3rem] p-10 border border-slate-200 shadow-sm">
+                              <div className="flex justify-between items-center mb-8 pb-8 border-b border-slate-100">
+                                 <h3 className="text-2xl font-black uppercase tracking-tight text-slate-800">Attendance</h3>
+                                 <button onClick={() => setIsMinistryAttendanceModalOpen(true)} className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white flex items-center justify-center transition-colors">
+                                    <ClipboardList className="w-5 h-5" />
+                                 </button>
+                              </div>
+                              <div className="space-y-6">
+                                 {attHistory.length === 0 ? (
+                                    <div className="py-12 text-center text-slate-400 font-bold text-sm bg-slate-50 rounded-[2rem]">No attendance logged.</div>
+                                 ) : attHistory.slice(0, 5).map(att => (
+                                    <div key={att.id} className="p-5 border border-slate-100 rounded-2xl bg-slate-50 hover:bg-white transition-colors relative overflow-hidden">
+                                       <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500" />
+                                       <div className="flex justify-between mb-2">
+                                          <p className="text-xs font-black text-slate-800 uppercase tracking-widest">{new Date(att.session_date).toLocaleDateString()}</p>
+                                          <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">
+                                             {Array.isArray(att.attendees) ? att.attendees.length : 0} / {membersList.length}
+                                          </p>
+                                       </div>
+                                       {att.notes && <p className="text-xs text-slate-500 font-medium italic mt-2">"{att.notes}"</p>}
+                                    </div>
+                                 ))}
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+                  );
+               })()}
+            </motion.div>
+         )}
       </AnimatePresence>
 
       {/* Leader Modal */}
@@ -744,8 +1449,8 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4">Department</label>
-                  <input name="department" defaultValue={editingLeader?.department} className="w-full bg-slate-50 border border-slate-200 rounded-[1.5rem] px-7 py-4.5 text-sm font-bold focus:bg-white focus:ring-4 focus:ring-fh-green/5 outline-none transition-all" />
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4">Ministry</label>
+                  <input name="ministry" defaultValue={editingLeader?.ministry} className="w-full bg-slate-50 border border-slate-200 rounded-[1.5rem] px-7 py-4.5 text-sm font-bold focus:bg-white focus:ring-4 focus:ring-fh-green/5 outline-none transition-all" />
                 </div>
                 <div className="flex gap-4 pt-4">
                   {editingLeader?.id && (
@@ -860,7 +1565,7 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
                         <option value="Discipleship">Discipleship</option>
                         <option value="Leadership School">Leadership School</option>
                         <option value="Minister in Training">Minister in Training</option>
-                        <option value="Departmental Lead">Departmental Lead</option>
+                        <option value="Ministry Lead">Ministry Lead</option>
                       </select>
                     </div>
                     <div className="space-y-2">
@@ -880,6 +1585,219 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Ministry Modal */}
+      <AnimatePresence>
+        {isMinistryModalOpen && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" onClick={() => setIsMinistryModalOpen(false)} />
+            <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} className="relative bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border-b-[12px] border-fh-green">
+              <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-fh-green text-fh-gold rounded-2xl flex items-center justify-center shadow-lg"><Briefcase className="w-6 h-6" /></div>
+                  <div>
+                    <h2 className="text-2xl font-black uppercase tracking-tight text-slate-800 leading-none">{ministryForm.id ? 'Edit Ministry' : 'Create Ministry'}</h2>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Structure your groups</p>
+                  </div>
+                </div>
+                <button onClick={() => setIsMinistryModalOpen(false)} className="p-3 hover:bg-slate-200 rounded-full transition-colors"><X className="w-6 h-6" /></button>
+              </div>
+              <form onSubmit={handleMinistrySubmit} className="p-10 space-y-8 overflow-y-auto max-h-[70vh] scrollbar-hide">
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Ministry Name *</label>
+                    <input autoFocus required type="text" value={ministryForm.name || ''} onChange={(e) => setMinistryForm({...ministryForm, name: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-fh-green/10 font-bold text-slate-800 shadow-inner" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Parent Ministry / Category</label>
+                      <input type="text" value={ministryForm.ministry || ''} onChange={(e) => setMinistryForm({...ministryForm, ministry: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-fh-green/10 font-bold text-slate-800 shadow-inner" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Color Theme</label>
+                      <div className="flex gap-4 items-center px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl shadow-inner">
+                        <input type="color" value={ministryForm.color || '#4f46e5'} onChange={(e) => setMinistryForm({...ministryForm, color: e.target.value})} className="w-8 h-8 rounded-full border-0 cursor-pointer" />
+                        <span className="text-sm font-bold text-slate-600">{ministryForm.color || '#4f46e5'}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Ministry Head</label>
+                      <select value={ministryForm.leader_id || ''} onChange={(e) => setMinistryForm({...ministryForm, leader_id: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-fh-green/10 font-bold text-slate-800 shadow-inner">
+                        <option value="">Select a Head...</option>
+                        {leaders.map(l => <option key={l.id} value={l.id}>{l.first_name} {l.last_name}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Deputy Head</label>
+                      <select value={ministryForm.deputy_id || ''} onChange={(e) => setMinistryForm({...ministryForm, deputy_id: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-fh-green/10 font-bold text-slate-800 shadow-inner">
+                        <option value="">Select a Deputy...</option>
+                        {leaders.map(l => <option key={l.id} value={l.id}>{l.first_name} {l.last_name}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Description</label>
+                    <textarea value={ministryForm.description || ''} onChange={(e) => setMinistryForm({...ministryForm, description: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-fh-green/10 font-bold text-slate-800 shadow-inner min-h-[100px]" />
+                  </div>
+                </div>
+                <div className="flex justify-end pt-4">
+                  <button type="submit" disabled={isSubmitting} className="px-10 py-4 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-2xl active:scale-95 transition-all flex items-center gap-3">
+                    {isSubmitting ? <Clock className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    Save Ministry
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Add Ministry Member Modal */}
+      <AnimatePresence>
+        {isMinistryMemberModalOpen && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" onClick={() => setIsMinistryMemberModalOpen(false)} />
+            <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} className="relative bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border-b-[12px] border-indigo-600">
+              <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg"><UserPlus className="w-6 h-6" /></div>
+                  <div>
+                    <h2 className="text-2xl font-black uppercase tracking-tight text-slate-800 leading-none">Add Member</h2>
+                  </div>
+                </div>
+                <button onClick={() => setIsMinistryMemberModalOpen(false)} className="p-3 hover:bg-slate-200 rounded-full transition-colors"><X className="w-6 h-6" /></button>
+              </div>
+              <form onSubmit={handleMinistryMemberSubmit} className="p-10 space-y-8">
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Select Leader *</label>
+                    <select required value={ministryMemberForm.member_id || ''} onChange={(e) => setMinistryMemberForm({...ministryMemberForm, member_id: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-600/10 font-bold text-slate-800 shadow-inner">
+                      <option value="">Choose Leader...</option>
+                      {leaders.filter(l => !ministryMembers.some(tm => tm.ministry_id === selectedMinistryId && tm.member_id === l.id)).map(l => <option key={l.id} value={l.id}>{l.first_name} {l.last_name} ({l.position})</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Role in Ministry</label>
+                    <input type="text" placeholder="e.g. Member, Coordinator, Secretary" value={ministryMemberForm.role || ''} onChange={(e) => setMinistryMemberForm({...ministryMemberForm, role: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-600/10 font-bold text-slate-800 shadow-inner" />
+                  </div>
+                </div>
+                <div className="flex justify-end pt-4">
+                  <button type="submit" disabled={isSubmitting} className="px-10 py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl active:scale-95 transition-all flex items-center gap-3">
+                    {isSubmitting ? <Clock className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                    Add to Ministry
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Log Ministry Attendance Modal */}
+      <AnimatePresence>
+        {isMinistryAttendanceModalOpen && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" onClick={() => setIsMinistryAttendanceModalOpen(false)} />
+            <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} className="relative bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border-b-[12px] border-emerald-500">
+              <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shadow-lg"><UserCheck className="w-6 h-6" /></div>
+                  <div>
+                    <h2 className="text-2xl font-black uppercase tracking-tight text-slate-800 leading-none">Log Attendance</h2>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Record meeting presence</p>
+                  </div>
+                </div>
+                <button onClick={() => setIsMinistryAttendanceModalOpen(false)} className="p-3 hover:bg-slate-200 rounded-full transition-colors"><X className="w-6 h-6" /></button>
+              </div>
+              <form onSubmit={handleAttendanceSubmit} className="flex flex-col flex-1 overflow-hidden">
+                <div className="p-10 space-y-8 overflow-y-auto scrollbar-hide flex-1">
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Session Date *</label>
+                      <input required type="date" value={attendanceForm.session_date} onChange={(e) => setAttendanceForm({...attendanceForm, session_date: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-emerald-500/10 font-bold text-slate-800 shadow-inner" />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center px-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mark Attendees</label>
+                      <span className="text-xs font-bold text-slate-500">{attendanceForm.attendees.length} selected</span>
+                    </div>
+                    <div className="bg-slate-50 border border-slate-100 rounded-3xl p-6 max-h-60 overflow-y-auto space-y-2">
+                       {ministryMembers.filter(m => m.ministry_id === selectedMinistryId).map(member => {
+                         const leader = leaders.find(l => l.id === member.member_id);
+                         if(!leader) return null;
+                         const isSelected = attendanceForm.attendees.includes(leader.id);
+                         return (
+                           <div key={leader.id} onClick={() => {
+                              if(isSelected) setAttendanceForm({...attendanceForm, attendees: attendanceForm.attendees.filter(id => id !== leader.id)});
+                              else setAttendanceForm({...attendanceForm, attendees: [...attendanceForm.attendees, leader.id]});
+                           }} className={`flex items-center gap-4 p-3 rounded-2xl cursor-pointer transition-colors ${isSelected ? 'bg-emerald-100 border border-emerald-200' : 'bg-white border border-slate-100 hover:border-emerald-200'}`}>
+                              <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 ${isSelected ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300'}`}>
+                                 {isSelected && <Check className="w-4 h-4" />}
+                              </div>
+                              <span className={`font-bold ${isSelected ? 'text-emerald-900' : 'text-slate-700'}`}>{leader.first_name} {leader.last_name}</span>
+                              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-auto">{leader.position}</span>
+                           </div>
+                         );
+                       })}
+                       {ministryMembers.filter(m => m.ministry_id === selectedMinistryId).length === 0 && (
+                          <div className="text-center py-8 text-slate-400 font-bold text-sm">No members in this ministry yet.</div>
+                       )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Session Notes / Minutes</label>
+                    <textarea value={attendanceForm.notes} onChange={(e) => setAttendanceForm({...attendanceForm, notes: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-emerald-500/10 font-bold text-slate-800 shadow-inner min-h-[100px]" />
+                  </div>
+                </div>
+                <div className="p-8 border-t border-slate-50 flex justify-end bg-slate-50/50">
+                  <button type="submit" disabled={isSubmitting} className="px-10 py-4 bg-emerald-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl active:scale-95 transition-all flex items-center gap-3 hover:bg-emerald-600">
+                    {isSubmitting ? <Clock className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                    Save Attendance
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Bulk Assign Modal */}
+      <AnimatePresence>
+        {isMinistryBulkAssignModalOpen && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" onClick={() => setIsMinistryBulkAssignModalOpen(false)} />
+            <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} className="relative bg-white w-full max-w-md rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border-b-[12px] border-indigo-600">
+              <div className="p-10 text-center">
+                <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
+                  <Users className="w-10 h-10" />
+                </div>
+                <h2 className="text-2xl font-black uppercase tracking-tight text-slate-800 mb-2">Assign to Ministry</h2>
+                <p className="text-slate-500 mb-8 font-medium">Assigning {selectedLeaderIds.length} leader{selectedLeaderIds.length !== 1 ? 's' : ''}</p>
+                
+                <div className="space-y-2 text-left mb-8">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Select Ministry *</label>
+                  <select value={bulkAssignMinistryId} onChange={(e) => setBulkAssignMinistryId(e.target.value)} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-600/10 font-bold text-slate-800 shadow-inner">
+                    <option value="">Choose...</option>
+                    {ministryItems.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                </div>
+
+                <div className="flex justify-center gap-4">
+                   <button onClick={() => setIsMinistryBulkAssignModalOpen(false)} className="px-8 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all">Cancel</button>
+                   <button onClick={handleBulkAssign} disabled={isSubmitting || !bulkAssignMinistryId} className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl disabled:opacity-50 hover:bg-indigo-700 transition-all">
+                     Confirm
+                   </button>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}

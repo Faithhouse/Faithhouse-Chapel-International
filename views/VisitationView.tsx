@@ -104,7 +104,7 @@ const VisitationView: React.FC<VisitationViewProps> = () => {
       if (error) throw error;
       alert("New Care Case Logged.");
       setIsModalOpen(false);
-      setFormData({ member_id: '', category: 'First-time Visitor', priority: 'Medium', visit_date: new Date().toISOString().split('T')[0], notes: '', status: 'Pending' });
+      setFormData({ member_id: '', category: 'Sick/Hospital', priority: 'Medium', visit_date: new Date().toISOString().split('T')[0], notes: '', status: 'Pending' });
       fetchInitialData();
     } catch (err: any) {
       alert(`Provision Failure: ${err.message}`);

@@ -356,12 +356,19 @@ CREATE INDEX IF NOT EXISTS idx_tithe_member_id ON public.tithe_entries(member_id
 ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tithe_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.member_enrollment_queue ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Allow all for staff" ON public.branches;
 CREATE POLICY "Allow all for staff" ON public.branches FOR ALL USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow all for staff" ON public.members;
 CREATE POLICY "Allow all for staff" ON public.members FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public enrollment" ON public.member_enrollment_queue;
+CREATE POLICY "Allow public enrollment" ON public.member_enrollment_queue FOR INSERT TO public WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow staff manage enrollment" ON public.member_enrollment_queue;
+CREATE POLICY "Allow staff manage enrollment" ON public.member_enrollment_queue FOR ALL TO public USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow all for staff" ON public.tithe_entries;
 CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true) WITH CHECK (true);`;
@@ -1062,6 +1069,7 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
                                   phone: m.phone || '',
                                   email: m.email || '',
                                   gps_address: m.gps_address || '',
+                                  maps_url: m.maps_url || '',
                                   dob: m.dob || '',
                                   date_joined: m.date_joined || '',
                                   branch_id: m.branch_id || '',

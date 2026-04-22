@@ -50,16 +50,30 @@ const PublicEnrollmentView: React.FC = () => {
     ministry: 'N/A'
   });
 
+  const [isSystemReady, setIsSystemReady] = useState<boolean | null>(null);
+
   useEffect(() => {
     const fetchData = async () => {
-      const { data: branchData } = await supabase.from('branches').select('*');
-      setBranches(branchData || []);
-      
-      const { data: ministryData } = await supabase.from('ministries').select('*').order('name');
-      setMinistries(ministryData || []);
-
-      // Fetch slideshow images
       try {
+        const { data: branchData, error: bError } = await supabase.from('branches').select('*');
+        if (bError && (bError.code === '42P01' || bError.message.includes('not found'))) {
+          setIsSystemReady(false);
+          return;
+        }
+
+        const { error: qError } = await supabase.from('member_enrollment_queue').select('id').limit(1);
+        if (qError && qError.code === '42P01') {
+          setIsSystemReady(false);
+          return;
+        }
+
+        setBranches(branchData || []);
+        
+        const { data: ministryData } = await supabase.from('ministries').select('*').order('name');
+        setMinistries(ministryData || []);
+        setIsSystemReady(true);
+
+        // Fetch slideshow images
         const { data: slideshowData } = await supabase
           .from('system_settings')
           .select('value')
@@ -70,7 +84,9 @@ const PublicEnrollmentView: React.FC = () => {
           setImages(slideshowData.value);
         }
       } catch (err) {
-        console.error('Error fetching slideshow images:', err);
+        console.error('Error fetching data:', err);
+        // We don't necessarily block for slideshow errors
+        if (branches.length === 0) setIsSystemReady(false);
       }
     };
     fetchData();
@@ -161,6 +177,43 @@ const PublicEnrollmentView: React.FC = () => {
       setIsSubmitting(false);
     }
   };
+
+  if (isSystemReady === false) {
+    return (
+      <div className="min-h-screen relative flex items-center justify-center p-6 overflow-hidden">
+        <div className="absolute inset-0 z-0 bg-slate-900">
+           <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1548625361-195fe5772df8?auto=format&fit=crop&q=80&w=1000')] bg-cover bg-center mix-blend-overlay opacity-20" />
+        </div>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="max-w-md w-full bg-white relative z-10 rounded-[3rem] p-12 text-center shadow-2xl border-b-[12px] border-rose-500"
+        >
+          <div className="w-20 h-20 bg-rose-100 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse">
+            <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+          </div>
+          <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-4 leading-tight">System Initialization In Progress</h2>
+          <p className="text-slate-600 font-bold leading-relaxed mb-8">
+            The enrollment portal is currently being configured by the administrative board. 
+            Please check back in a few moments or contact church support for assistance.
+          </p>
+          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 mb-8">
+             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Protocol Reference: ERR_RELATION_NOT_FOUND</p>
+          </div>
+          <button onClick={() => window.location.reload()} className="w-full py-5 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs tracking-widest active:scale-[0.98] transition-all">Try Again</button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (isSystemReady === null) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-6">
+        <div className="w-16 h-16 border-4 border-fh-gold border-t-transparent rounded-full animate-spin" />
+        <p className="text-fh-gold font-black uppercase tracking-[0.3em] text-[10px] animate-pulse">Securing Environment...</p>
+      </div>
+    );
+  }
 
   if (isSuccess) {
     return (

@@ -118,6 +118,14 @@ const FollowUpVisitationView: React.FC<FollowUpVisitationViewProps> = ({ setActi
     }
   }, []);
   
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [regForm, setRegForm] = useState({
+    first_name: '', last_name: '', phone: '', location_area: '', landmark: '', 
+    marital_status: 'Single', invited_by: '', visitor_type: 'First-time', 
+    prayer_request: '', date_joined: new Date().toISOString().split('T')[0], 
+    status: 'Visitor'
+  });
+
   const [newRecord, setNewRecord] = useState({
     member_id: '',
     category: 'Sick/Hospital',
