@@ -159,6 +159,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
       const { data: finance, error: finErr } = await supabase.from('financial_records').select('*').order('service_date', { ascending: true });
       if (finErr && finErr.code !== '42P01' && finErr.code !== 'PGRST205') throw finErr;
 
+      // Checking enrollment queue existence (critical for registration)
+      const { error: qErr } = await supabase.from('member_enrollment_queue').select('id').limit(1);
+      if (qErr && (qErr.code === '42P01' || qErr.code === 'PGRST205')) throw qErr;
+
       // Processing Data
       const members = allMembers || [];
       const attendance = allAttendance || [];
@@ -373,7 +377,7 @@ CREATE TABLE IF NOT EXISTS public.members (
 CREATE TABLE IF NOT EXISTS public.member_enrollment_queue (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   first_name TEXT NOT NULL,
-  last_name TEXT NOT NULL,
+  last_name TEXT,
   gender TEXT,
   phone TEXT,
   email TEXT,

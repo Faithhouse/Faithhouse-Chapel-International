@@ -169,7 +169,7 @@ const PublicEnrollmentView: React.FC = () => {
       if (error) {
         console.error("Submission Error:", error);
         if (error.code === '42P01' || error.message.includes('not found') || error.message.includes('schema cache')) {
-          throw new Error("Enrollment system initialization in progress. Please retry in a moment.");
+          throw new Error("Enrollment system initialization in progress. Please contact the administrator to activate this module from the Dashboard.");
         }
         if (error.code === '23503') {
           throw new Error("Invalid branch or ministry selected. Please verify your choices.");
