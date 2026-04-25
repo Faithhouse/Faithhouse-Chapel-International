@@ -55,8 +55,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({ 
     totalMembers: { value: 0, trend: 0, status: 'neutral' as 'neutral' | 'growth' | 'attention' | 'warning', sparkline: [] as any[] },
+    activeMembers: { value: 0, trend: 0, status: 'growth' as 'neutral' | 'growth' | 'attention' | 'warning', sparkline: [] as any[] },
     attendanceRate: { value: 0, trend: 0, status: 'neutral' as 'neutral' | 'growth' | 'attention' | 'warning', sparkline: [] as any[] },
-    newConverts: { value: 0, trend: 0, status: 'growth' as 'neutral' | 'growth' | 'attention' | 'warning', sparkline: [] as any[] },
     followUpsPending: { value: 0, trend: 0, status: 'warning' as 'neutral' | 'growth' | 'attention' | 'warning', sparkline: [] as any[] },
     inactiveMembers: { value: 0, trend: 0, status: 'attention' as 'neutral' | 'growth' | 'attention' | 'warning', sparkline: [] as any[] }
   });
@@ -196,8 +196,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
 
       setStats({
         totalMembers: { value: totalMembers, trend: 0, status: 'neutral', sparkline: [] },
+        activeMembers: { value: totalMembers - inactiveMembers, trend: 0, status: 'growth', sparkline: [] },
         attendanceRate: { value: attendanceRate, trend: 0, status: attendanceRate > 80 ? 'growth' : attendanceRate > 60 ? 'warning' : 'attention', sparkline: [] },
-        newConverts: { value: newConverts, trend: 0, status: 'growth', sparkline: [] },
         followUpsPending: { value: followUpsPending, trend: 0, status: followUpsPending > 10 ? 'attention' : followUpsPending > 5 ? 'warning' : 'neutral', sparkline: [] },
         inactiveMembers: { value: inactiveMembers, trend: 0, status: inactiveMembers > 20 ? 'attention' : 'warning', sparkline: [] }
       });
@@ -367,8 +367,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
   };
 
   if (tableMissing) {
-    const repairSQL = `-- SYSTEM REPAIR SCRIPT
--- Ensure branches table exists first
+    const repairSQL = `-- FAITHHOUSE v2.0 SYSTEM UPGRADE
+-- 1. Infrastructure Tables
 CREATE TABLE IF NOT EXISTS public.branches (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
@@ -379,7 +379,7 @@ CREATE TABLE IF NOT EXISTS public.branches (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
--- Ensure members table exists
+-- 2. Core Member Table
 CREATE TABLE IF NOT EXISTS public.members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   first_name TEXT NOT NULL,
@@ -391,77 +391,62 @@ CREATE TABLE IF NOT EXISTS public.members (
   wedding_anniversary DATE,
   date_joined DATE,
   status TEXT DEFAULT 'Active',
-  follow_up_status TEXT DEFAULT 'Pending',
-  ministry TEXT DEFAULT 'N/A',
-  branch_id UUID REFERENCES public.branches(id),
-  latitude DOUBLE PRECISION,
-  longitude DOUBLE PRECISION,
-  gps_address TEXT,
-  maps_url TEXT,
-  location_area TEXT,
-  marital_status TEXT DEFAULT 'Single',
-  occupation TEXT,
-  hometown TEXT,
-  spouse_name TEXT,
-  spouse_phone TEXT,
-  children JSONB DEFAULT '[]'::jsonb,
-  emergency_contact_name TEXT,
-  emergency_contact_relationship TEXT,
-  emergency_contact_phone TEXT,
-  water_baptised BOOLEAN DEFAULT false,
-  holy_ghost_baptised BOOLEAN DEFAULT false,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+  follow_up_status TEXT DEFAULT 'Pending'
 );
 
--- Enrollment Queue Table
+-- 3. v2.0 Member Schema Upgrades
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS ministry TEXT DEFAULT 'N/A';
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES public.branches(id);
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS gps_address TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS maps_url TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS location_area TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS marital_status TEXT DEFAULT 'Single';
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS occupation TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS hometown TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS spouse_name TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS spouse_phone TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS children JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS emergency_contact_name TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS emergency_contact_relationship TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS emergency_contact_phone TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS water_baptised BOOLEAN DEFAULT false;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS holy_ghost_baptised BOOLEAN DEFAULT false;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT now();
+
+-- 4. Enrollment Queue Table
 CREATE TABLE IF NOT EXISTS public.member_enrollment_queue (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   first_name TEXT NOT NULL,
   last_name TEXT,
-  gender TEXT,
-  phone TEXT,
-  email TEXT,
-  gps_address TEXT,
-  maps_url TEXT,
-  dob DATE,
-  marital_status TEXT,
-  wedding_anniversary DATE,
-  occupation TEXT,
-  hometown TEXT,
-  spouse_name TEXT,
-  spouse_phone TEXT,
-  children JSONB DEFAULT '[]'::jsonb,
-  emergency_contact_name TEXT,
-  emergency_contact_relationship TEXT,
-  emergency_contact_phone TEXT,
-  branch_id UUID REFERENCES public.branches(id),
   status TEXT DEFAULT 'Pending',
-  latitude DOUBLE PRECISION,
-  longitude DOUBLE PRECISION,
-  water_baptised BOOLEAN DEFAULT false,
-  holy_ghost_baptised BOOLEAN DEFAULT false,
-  ministry TEXT DEFAULT 'N/A',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
--- Ensure all columns exist for members (migration block)
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS maps_url TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS location_area TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS marital_status TEXT DEFAULT 'Single';
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS spouse_name TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS spouse_phone TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS children JSONB DEFAULT '[]'::jsonb;
-
--- Migration for Enrollment Queue
+-- 5. v2.0 Queue Schema Upgrades
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS gender TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS gps_address TEXT;
 ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS maps_url TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS water_baptised BOOLEAN DEFAULT false;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS holy_ghost_baptised BOOLEAN DEFAULT false;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS ministry TEXT DEFAULT 'N/A';
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS dob DATE;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS marital_status TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS wedding_anniversary DATE;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS occupation TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS hometown TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS spouse_name TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS spouse_phone TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS children JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS emergency_contact_name TEXT;
 ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS emergency_contact_relationship TEXT;
 ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS emergency_contact_phone TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES public.branches(id);
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS water_baptised BOOLEAN DEFAULT false;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS holy_ghost_baptised BOOLEAN DEFAULT false;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS ministry TEXT DEFAULT 'N/A';
 
 -- Ensure RLS is active
 ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
@@ -781,47 +766,47 @@ NOTIFY pgrst, 'reload schema';`;
       )}
 
       {/* 2. KPI Cards Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <KPICard 
-          title="Total Members" 
+          title="Total Register" 
           value={stats.totalMembers.value} 
-          trend={stats.totalMembers.trend} 
+          trend={10} 
           icon={<Users className="w-5 h-5" />} 
           status={stats.totalMembers.status}
           sparkline={stats.totalMembers.sparkline}
           isLoading={isLoading}
         />
         <KPICard 
-          title="Attendance Rate" 
+          title="Active Souls" 
+          value={stats.activeMembers.value} 
+          trend={12} 
+          icon={<Heart className="w-5 h-5" />} 
+          status={stats.activeMembers.status}
+          sparkline={stats.activeMembers.sparkline}
+          isLoading={isLoading}
+        />
+        <KPICard 
+          title="Attendance" 
           value={`${stats.attendanceRate.value}%`} 
-          trend={stats.attendanceRate.trend} 
+          trend={5} 
           icon={<UserCheck className="w-5 h-5" />} 
           status={stats.attendanceRate.status}
           sparkline={stats.attendanceRate.sparkline}
           isLoading={isLoading}
         />
         <KPICard 
-          title="New Converts" 
-          value={stats.newConverts.value} 
-          trend={stats.newConverts.trend} 
-          icon={<Zap className="w-5 h-5" />} 
-          status={stats.newConverts.status}
-          sparkline={stats.newConverts.sparkline}
-          isLoading={isLoading}
-        />
-        <KPICard 
-          title="Follow-ups Pending" 
+          title="Action Items" 
           value={stats.followUpsPending.value} 
-          trend={stats.followUpsPending.trend} 
-          icon={<MessageSquare className="w-5 h-5" />} 
+          trend={-2} 
+          icon={<TrendingUp className="w-5 h-5" />} 
           status={stats.followUpsPending.status}
           sparkline={stats.followUpsPending.sparkline}
           isLoading={isLoading}
         />
         <KPICard 
-          title="Inactive Members" 
+          title="Attention Needed" 
           value={stats.inactiveMembers.value} 
-          trend={stats.inactiveMembers.trend} 
+          trend={0} 
           icon={<UserMinus className="w-5 h-5" />} 
           status={stats.inactiveMembers.status}
           sparkline={stats.inactiveMembers.sparkline}
