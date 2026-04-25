@@ -13,7 +13,8 @@ import {
   Layout,
   Upload,
   Loader2,
-  ShieldAlert
+  ShieldAlert,
+  Navigation
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -30,6 +31,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
     executive: '',
     youth: ''
   });
+  const [bypassMaps, setBypassMaps] = useState(false);
   const [newImageUrl, setNewImageUrl] = useState('');
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const bgInputRef = React.useRef<HTMLInputElement>(null);
@@ -56,7 +58,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
       const { data: bgData } = await supabase
         .from('system_settings')
         .select('id, value')
-        .in('id', ['dashboard_bg_main', 'dashboard_bg_executive', 'dashboard_bg_youth']);
+        .in('id', ['dashboard_bg_main', 'dashboard_bg_executive', 'dashboard_bg_youth', 'bypass_maps']);
       
       if (bgData) {
         const bgs = { ...dashboardBgs };
@@ -64,6 +66,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
           if (item.id === 'dashboard_bg_main') bgs.main = item.value;
           if (item.id === 'dashboard_bg_executive') bgs.executive = item.value;
           if (item.id === 'dashboard_bg_youth') bgs.youth = item.value;
+          if (item.id === 'bypass_maps') setBypassMaps(item.value === true);
         });
         setDashboardBgs(bgs);
       }
@@ -146,11 +149,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({ currentUser }) => {
         });
       if (sErr) throw sErr;
 
-      // Save Dashboard BGs
+      // Save Dashboard BGs & Map Settings
       const bgPromises = [
         supabase.from('system_settings').upsert({ id: 'dashboard_bg_main', value: dashboardBgs.main, updated_at: new Date().toISOString() }),
         supabase.from('system_settings').upsert({ id: 'dashboard_bg_executive', value: dashboardBgs.executive, updated_at: new Date().toISOString() }),
-        supabase.from('system_settings').upsert({ id: 'dashboard_bg_youth', value: dashboardBgs.youth, updated_at: new Date().toISOString() })
+        supabase.from('system_settings').upsert({ id: 'dashboard_bg_youth', value: dashboardBgs.youth, updated_at: new Date().toISOString() }),
+        supabase.from('system_settings').upsert({ id: 'bypass_maps', value: bypassMaps, updated_at: new Date().toISOString() })
       ];
       
       const results = await Promise.all(bgPromises);
@@ -420,6 +424,30 @@ CREATE POLICY "Allow public manage settings" ON system_settings FOR ALL TO publi
               className="hidden" 
               accept="image/*"
             />
+          </div>
+
+          {/* Map Bypass Setting */}
+          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center">
+                  <Navigation className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-slate-900">Map System Lock Bypass</h2>
+                  <p className="text-xs text-slate-500 font-medium">Enable this if you encounter "navigator lockmanager" errors when loading maps</p>
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={bypassMaps} 
+                  onChange={(e) => setBypassMaps(e.target.checked)} 
+                  className="sr-only peer" 
+                />
+                <div className="w-14 h-7 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-fh-gold"></div>
+              </label>
+            </div>
           </div>
         </div>
 
