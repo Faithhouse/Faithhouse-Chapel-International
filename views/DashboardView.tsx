@@ -64,6 +64,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
   const [growthData, setGrowthData] = useState<any[]>([]);
   const [attendanceData, setAttendanceData] = useState<any[]>([]);
   const [recentMembers, setRecentMembers] = useState<any[]>([]);
+  const [pendingEnrollments, setPendingEnrollments] = useState<any[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
   const [todayTasks, setTodayTasks] = useState<any[]>([]);
   const [upcomingBirthdays, setUpcomingBirthdays] = useState<Member[]>([]);
@@ -159,14 +160,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
       const { data: finance, error: finErr } = await supabase.from('financial_records').select('*').order('service_date', { ascending: true });
       if (finErr && finErr.code !== '42P01' && finErr.code !== 'PGRST205') throw finErr;
 
-      // Checking enrollment queue existence (critical for registration)
-      const { error: qErr } = await supabase.from('member_enrollment_queue').select('id').limit(1);
+      const { data: queue, error: qErr } = await supabase.from('member_enrollment_queue').select('*').eq('status', 'Pending').order('created_at', { ascending: false });
       if (qErr && (qErr.code === '42P01' || qErr.code === 'PGRST205')) throw qErr;
 
       // Processing Data
       const members = allMembers || [];
       const attendance = allAttendance || [];
       const followUps = allFollowUps || [];
+      const enrollmentQueue = queue || [];
       
       // Calculate Stats
       const totalMembers = members.length;
@@ -177,7 +178,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
         return joinDate > thirtyDaysAgo;
       }).length;
 
-      const followUpsPending = followUps.filter(f => f.status === 'Pending').length;
+      const followUpsPending = (followUps.filter(f => f.status === 'Pending').length) + enrollmentQueue.length;
       const inactiveMembers = members.filter(m => m.status === 'Inactive').length;
 
       // Attendance Rate (Last 4 services)
@@ -227,6 +228,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
       })));
 
       setRecentMembers(members.slice(0, 4));
+      setPendingEnrollments(enrollmentQueue);
       setUpcomingEvents(events || []);
       setTodayTasks(tasks || []);
 
@@ -323,6 +325,44 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
       fetchDashboardData();
     } catch (err) {
       console.error("Error updating task:", err);
+    }
+  };
+
+  const approveEnrollment = async (enrollment: any) => {
+    try {
+      const { id, created_at, status, ...memberData } = enrollment;
+      
+      // 1. Move to members table
+      const { error: insertErr } = await supabase.from('members').insert([
+        { ...memberData, status: 'Active' }
+      ]);
+      if (insertErr) throw insertErr;
+
+      // 2. Mark queue item as Approved
+      const { error: updateErr } = await supabase
+        .from('member_enrollment_queue')
+        .update({ status: 'Approved' })
+        .eq('id', id);
+      if (updateErr) throw updateErr;
+
+      toast.success(`${enrollment.first_name} has been enrolled successfully!`);
+      fetchDashboardData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to approve enrollment");
+    }
+  };
+
+  const rejectEnrollment = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('member_enrollment_queue')
+        .update({ status: 'Rejected' })
+        .eq('id', id);
+      if (error) throw error;
+      toast.success("Enrollment rejected.");
+      fetchDashboardData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to reject enrollment");
     }
   };
 
@@ -1064,6 +1104,56 @@ NOTIFY pgrst, 'reload schema';`;
               <div className="py-20 text-center opacity-30">
                 <Users className="w-12 h-12 mx-auto mb-4" />
                 <p className="text-[10px] font-black uppercase tracking-widest">Registry is empty</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Pending Enrollments List */}
+        <div className="bg-white rounded-[2.5rem] border border-slate-200/50 shadow-sm overflow-hidden">
+          <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <UserPlus className="w-4 h-4 text-amber-500" />
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Enrollment Queue</h3>
+            </div>
+            {pendingEnrollments.length > 0 && (
+              <span className="px-2 py-1 bg-amber-100 text-amber-600 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                {pendingEnrollments.length} Pending
+              </span>
+            )}
+          </div>
+          <div className="divide-y divide-slate-50 max-h-[400px] overflow-y-auto">
+            {pendingEnrollments.length > 0 ? pendingEnrollments.map((en, idx) => (
+              <div key={idx} className="flex flex-col md:flex-row md:items-center justify-between p-6 hover:bg-slate-50/50 transition-all group gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black text-sm shadow-lg group-hover:scale-110 transition-transform">
+                    {en.first_name ? en.first_name[0] : '?'}{en.last_name ? en.last_name[0] : ''}
+                  </div>
+                  <div>
+                    <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{en.first_name} {en.last_name}</p>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">{en.phone} • {en.ministry}</p>
+                    <p className="text-[8px] text-slate-400 font-medium italic">{en.gps_address}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button 
+                    onClick={() => approveEnrollment(en)}
+                    className="px-4 py-2 bg-fh-green text-fh-gold rounded-xl text-[9px] font-black uppercase tracking-widest shadow-md hover:bg-black transition-all flex items-center gap-2"
+                  >
+                    <CheckCircle2 className="w-3 h-3" /> Approve
+                  </button>
+                  <button 
+                    onClick={() => rejectEnrollment(en.id)}
+                    className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest text-rose-500 hover:bg-rose-50 transition-all shadow-sm"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            )) : (
+              <div className="py-20 text-center opacity-30">
+                <CheckCircle2 className="w-12 h-12 mx-auto mb-4" />
+                <p className="text-[10px] font-black uppercase tracking-widest">Queue is clear</p>
               </div>
             )}
           </div>
