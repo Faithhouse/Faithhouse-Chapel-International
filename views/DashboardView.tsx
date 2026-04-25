@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
+  PieChart, 
+  Pie, 
+  Cell, 
   Tooltip, 
   ResponsiveContainer,
+  Legend,
   BarChart,
   Bar,
-  Cell,
-  Legend,
+  XAxis,
+  YAxis,
+  CartesianGrid,
   LineChart,
   Line
 } from 'recharts';
@@ -68,7 +68,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
   const [todayTasks, setTodayTasks] = useState<any[]>([]);
   const [upcomingBirthdays, setUpcomingBirthdays] = useState<Member[]>([]);
   const [upcomingAnniversaries, setUpcomingAnniversaries] = useState<Member[]>([]);
-  const [insights, setInsights] = useState<any[]>([]);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState('This Month');
@@ -76,6 +75,31 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
   const [tableMissing, setTableMissing] = useState(false);
   const [missingTableName, setMissingTableName] = useState<string | null>(null);
   const [bgImage, setBgImage] = useState<string>('https://picsum.photos/seed/cathedral/1920/1080?blur=6');
+
+  // Distribution Data for Pie Charts
+  const membershipStatData = useMemo(() => {
+    if (!stats.totalMembers.value) return [];
+    return [
+      { name: 'Active', value: stats.totalMembers.value - stats.inactiveMembers.value, color: '#20c997' },
+      { name: 'Inactive', value: stats.inactiveMembers.value, color: '#f43f5e' },
+      { name: 'Pending', value: stats.followUpsPending.value, color: '#fbbf24' }
+    ].filter(d => d.value > 0);
+  }, [stats]);
+
+  const attendanceAggData = useMemo(() => {
+    if (!attendanceData.length) return [];
+    const totals = attendanceData.reduce((acc, curr) => ({
+      men: acc.men + (curr.men || 0),
+      women: acc.women + (curr.women || 0),
+      children: acc.children + (curr.children || 0)
+    }), { men: 0, women: 0, children: 0 });
+
+    return [
+      { name: 'Men', value: totals.men, color: '#0f172a' },
+      { name: 'Women', value: totals.women, color: '#4f46e5' },
+      { name: 'Children', value: totals.children, color: '#20c997' }
+    ].filter(d => d.value > 0);
+  }, [attendanceData]);
 
   const isMinistryRole = (role: string) => {
     const standardRoles = ['system_admin', 'general_overseer', 'admin', 'pastor', 'finance', 'media', 'worker'];
@@ -197,35 +221,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
         women: a.women_count,
         children: a.children_count
       })));
-
-      // 4. Pastoral Insights
-      const newInsights = [];
-      
-      if (newConverts > 0) {
-        newInsights.push({
-          type: 'success',
-          title: 'Growth Spike',
-          message: `${newConverts} new converts joined this month. Ensure follow-up protocols are active.`,
-          icon: <TrendingUp className="w-5 h-5" />
-        });
-      }
-      if (followUpsPending > 5) {
-        newInsights.push({
-          type: 'warning',
-          title: 'Follow-up Backlog',
-          message: `There are ${followUpsPending} pending follow-ups. Retention risk is increasing.`,
-          icon: <Clock className="w-5 h-5" />
-        });
-      }
-      if (attendanceRate < 70) {
-        newInsights.push({
-          type: 'danger',
-          title: 'Attendance Dip',
-          message: `Attendance rate dropped to ${attendanceRate}%. Consider a community outreach or check-in call.`,
-          icon: <AlertCircle className="w-5 h-5" />
-        });
-      }
-      setInsights(newInsights);
 
       setRecentMembers(members.slice(0, 4));
       setUpcomingEvents(events || []);
@@ -803,40 +798,35 @@ NOTIFY pgrst, 'reload schema';`;
               </div>
             </div>
             <div className="h-[300px] w-full relative z-10">
-              {growthData.length > 0 ? (
+              {membershipStatData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={growthData} id="dashboard-growth-line">
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis 
-                      dataKey="name" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{fill: '#94a3b8', fontSize: 10, fontWeight: '700'}} 
-                      dy={10}
-                      label={{ value: 'Month', position: 'insideBottom', offset: -5, fontSize: 10, fontWeight: 'bold', fill: '#94a3b8' }}
-                    />
-                    <YAxis 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{fill: '#94a3b8', fontSize: 10, fontWeight: '700'}}
-                      label={{ value: 'Members', angle: -90, position: 'insideLeft', fontSize: 10, fontWeight: 'bold', fill: '#94a3b8' }}
-                    />
+                  <PieChart id="dashboard-growth-pie">
+                    <Pie
+                      data={membershipStatData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={80}
+                      outerRadius={110}
+                      paddingAngle={8}
+                      dataKey="value"
+                      animationBegin={0}
+                      animationDuration={1500}
+                    >
+                      {membershipStatData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                      ))}
+                    </Pie>
                     <Tooltip 
                       contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
                       itemStyle={{ fontSize: '12px', fontWeight: 'bold', color: '#0f172a' }}
                     />
-                    <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }} />
-                    <Line 
-                      type="monotone" 
-                      dataKey="count" 
-                      name="Total Members"
-                      stroke="#20c997" 
-                      strokeWidth={4} 
-                      dot={{ r: 6, fill: '#20c997', strokeWidth: 2, stroke: '#fff' }}
-                      activeDot={{ r: 8, strokeWidth: 0 }}
-                      animationDuration={1500}
+                    <Legend 
+                      verticalAlign="bottom" 
+                      height={36} 
+                      iconType="circle" 
+                      wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', paddingTop: '20px' }} 
                     />
-                  </LineChart>
+                  </PieChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="h-full flex items-center justify-center bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
@@ -865,33 +855,34 @@ NOTIFY pgrst, 'reload schema';`;
               </div>
             </div>
             <div className="h-[300px] w-full">
-              {attendanceData.length > 0 ? (
+              {attendanceAggData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={attendanceData} id="dashboard-attendance-bar">
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis 
-                      dataKey="name" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{fill: '#94a3b8', fontSize: 10, fontWeight: '700'}}
-                      dy={10}
-                      label={{ value: 'Service Date', position: 'insideBottom', offset: -5, fontSize: 10, fontWeight: 'bold', fill: '#94a3b8' }}
-                    />
-                    <YAxis 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{fill: '#94a3b8', fontSize: 10, fontWeight: '700'}}
-                      label={{ value: 'Headcount', angle: -90, position: 'insideLeft', fontSize: 10, fontWeight: 'bold', fill: '#94a3b8' }}
-                    />
+                  <PieChart id="dashboard-attendance-pie">
+                    <Pie
+                      data={attendanceAggData}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      paddingAngle={5}
+                      dataKey="value"
+                      animationBegin={500}
+                      animationDuration={1500}
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {attendanceAggData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} stroke="#fff" strokeWidth={2} />
+                      ))}
+                    </Pie>
                     <Tooltip 
-                      cursor={{fill: '#f8fafc'}}
                       contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
                     />
-                    <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }} />
-                    <Bar dataKey="total" name="Total Attendance" fill="#20c997" radius={[6, 6, 0, 0]} barSize={32} />
-                    <Bar dataKey="men" name="Men" fill="#e2e8f0" radius={[6, 6, 0, 0]} barSize={8} />
-                    <Bar dataKey="women" name="Women" fill="#cbd5e1" radius={[6, 6, 0, 0]} barSize={8} />
-                  </BarChart>
+                    <Legend 
+                      verticalAlign="bottom" 
+                      height={36} 
+                      iconType="circle" 
+                      wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', paddingTop: '20px' }} 
+                    />
+                  </PieChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="h-full flex items-center justify-center bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
@@ -905,53 +896,6 @@ NOTIFY pgrst, 'reload schema';`;
         {/* Right Column: Insights & Tasks */}
         <div className="lg:col-span-4 space-y-8">
           
-          {/* Pastoral Insights Panel */}
-          <div className="bg-slate-900 text-white p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
-            <div className="absolute -top-10 -right-10 w-40 h-40 bg-fh-green/10 rounded-full blur-3xl"></div>
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-10 h-10 bg-fh-green/20 text-fh-green rounded-xl flex items-center justify-center">
-                <Activity className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-fh-green/60">Decision Support</h3>
-                <p className="text-lg font-black tracking-tighter">Pastoral Insights</p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              {insights.length > 0 ? insights.map((insight, idx) => (
-                <motion.div 
-                  key={idx}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: idx * 0.1 }}
-                  className={`p-4 rounded-2xl border ${
-                    insight.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
-                    insight.type === 'warning' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
-                    'bg-rose-500/10 border-rose-500/20 text-rose-400'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="mt-1">{insight.icon}</div>
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-widest mb-1">{insight.title}</p>
-                      <p className="text-[11px] font-medium leading-relaxed opacity-80">{insight.message}</p>
-                    </div>
-                  </div>
-                </motion.div>
-              )) : (
-                <div className="py-12 text-center opacity-40">
-                  <CheckCircle2 className="w-12 h-12 mx-auto mb-4" />
-                  <p className="text-[10px] font-black uppercase tracking-widest">All protocols are optimal</p>
-                </div>
-              )}
-            </div>
-
-            <button className="w-full mt-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] transition-all">
-              Generate Full Report
-            </button>
-          </div>
-
           {/* Service Checklist */}
           <div className="bg-white rounded-[2.5rem] overflow-hidden border border-slate-200/50 shadow-sm">
             <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
