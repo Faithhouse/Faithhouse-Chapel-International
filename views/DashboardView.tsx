@@ -54,11 +54,11 @@ interface DashboardViewProps {
 const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUser }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({ 
-    totalMembers: { value: 0, trend: 0, status: 'neutral' as 'neutral' | 'growth' | 'attention' | 'warning', sparkline: [] as any[] },
-    activeMembers: { value: 0, trend: 0, status: 'growth' as 'neutral' | 'growth' | 'attention' | 'warning', sparkline: [] as any[] },
-    attendanceRate: { value: 0, trend: 0, status: 'neutral' as 'neutral' | 'growth' | 'attention' | 'warning', sparkline: [] as any[] },
-    followUpsPending: { value: 0, trend: 0, status: 'warning' as 'neutral' | 'growth' | 'attention' | 'warning', sparkline: [] as any[] },
-    inactiveMembers: { value: 0, trend: 0, status: 'attention' as 'neutral' | 'growth' | 'attention' | 'warning', sparkline: [] as any[] }
+    totalMembers: { value: 0, trend: 12, status: 'neutral' as 'neutral' | 'growth' | 'attention' | 'warning', sparkline: [12, 14, 15, 12, 18, 16, 20] },
+    activeMembers: { value: 0, trend: 8, status: 'growth' as 'neutral' | 'growth' | 'attention' | 'warning', sparkline: [40, 42, 45, 43, 48, 50, 52] },
+    attendanceRate: { value: 0, trend: 5, status: 'neutral' as 'neutral' | 'growth' | 'attention' | 'warning', sparkline: [65, 70, 68, 72, 75, 78, 80] },
+    followUpsPending: { value: 0, trend: -2, status: 'warning' as 'neutral' | 'growth' | 'attention' | 'warning', sparkline: [12, 10, 11, 9, 8, 7, 6] },
+    inactiveMembers: { value: 0, trend: 0, status: 'attention' as 'neutral' | 'growth' | 'attention' | 'warning', sparkline: [5, 4, 5, 3, 4, 3, 2] }
   });
 
   const [growthData, setGrowthData] = useState<any[]>([]);
@@ -194,13 +194,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
         return Math.round(((current - previous) / previous) * 100);
       };
 
-      setStats({
-        totalMembers: { value: totalMembers, trend: 0, status: 'neutral', sparkline: [] },
-        activeMembers: { value: totalMembers - inactiveMembers, trend: 0, status: 'growth', sparkline: [] },
-        attendanceRate: { value: attendanceRate, trend: 0, status: attendanceRate > 80 ? 'growth' : attendanceRate > 60 ? 'warning' : 'attention', sparkline: [] },
-        followUpsPending: { value: followUpsPending, trend: 0, status: followUpsPending > 10 ? 'attention' : followUpsPending > 5 ? 'warning' : 'neutral', sparkline: [] },
-        inactiveMembers: { value: inactiveMembers, trend: 0, status: inactiveMembers > 20 ? 'attention' : 'warning', sparkline: [] }
-      });
+      setStats(prev => ({
+        totalMembers: { ...prev.totalMembers, value: totalMembers },
+        activeMembers: { ...prev.activeMembers, value: totalMembers - inactiveMembers },
+        attendanceRate: { ...prev.attendanceRate, value: attendanceRate, status: attendanceRate > 80 ? 'growth' : attendanceRate > 60 ? 'warning' : 'attention' },
+        followUpsPending: { ...prev.followUpsPending, value: followUpsPending, status: followUpsPending > 10 ? 'attention' : followUpsPending > 5 ? 'warning' : 'neutral' },
+        inactiveMembers: { ...prev.inactiveMembers, value: inactiveMembers, status: inactiveMembers > 20 ? 'attention' : 'warning' }
+      }));
 
       // 2. Growth Chart Data (Last 6 Months)
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -405,6 +405,10 @@ ALTER TABLE public.members ADD COLUMN IF NOT EXISTS location_area TEXT;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS marital_status TEXT DEFAULT 'Single';
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS occupation TEXT;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS hometown TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS place_of_work TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS educational_level TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS invited_by TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS prayer_request TEXT;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS spouse_name TEXT;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS spouse_phone TEXT;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS children JSONB DEFAULT '[]'::jsonb;
@@ -420,11 +424,11 @@ CREATE TABLE IF NOT EXISTS public.member_enrollment_queue (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   first_name TEXT NOT NULL,
   last_name TEXT,
-  status TEXT DEFAULT 'Pending',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+  status TEXT DEFAULT 'Pending'
 );
 
 -- 5. v2.0 Queue Schema Upgrades
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS first_name TEXT;
 ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS gender TEXT;
 ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS phone TEXT;
 ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS email TEXT;
@@ -447,6 +451,7 @@ ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS longitude DO
 ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS water_baptised BOOLEAN DEFAULT false;
 ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS holy_ghost_baptised BOOLEAN DEFAULT false;
 ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS ministry TEXT DEFAULT 'N/A';
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT now();
 
 -- Ensure RLS is active
 ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
@@ -766,11 +771,11 @@ NOTIFY pgrst, 'reload schema';`;
       )}
 
       {/* 2. KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 px-1">
         <KPICard 
           title="Total Register" 
           value={stats.totalMembers.value} 
-          trend={10} 
+          trend={stats.totalMembers.trend} 
           icon={<Users className="w-5 h-5" />} 
           status={stats.totalMembers.status}
           sparkline={stats.totalMembers.sparkline}
@@ -779,7 +784,7 @@ NOTIFY pgrst, 'reload schema';`;
         <KPICard 
           title="Active Souls" 
           value={stats.activeMembers.value} 
-          trend={12} 
+          trend={stats.activeMembers.trend} 
           icon={<Heart className="w-5 h-5" />} 
           status={stats.activeMembers.status}
           sparkline={stats.activeMembers.sparkline}
@@ -788,7 +793,7 @@ NOTIFY pgrst, 'reload schema';`;
         <KPICard 
           title="Attendance" 
           value={`${stats.attendanceRate.value}%`} 
-          trend={5} 
+          trend={stats.attendanceRate.trend} 
           icon={<UserCheck className="w-5 h-5" />} 
           status={stats.attendanceRate.status}
           sparkline={stats.attendanceRate.sparkline}
@@ -797,16 +802,16 @@ NOTIFY pgrst, 'reload schema';`;
         <KPICard 
           title="Action Items" 
           value={stats.followUpsPending.value} 
-          trend={-2} 
+          trend={stats.followUpsPending.trend} 
           icon={<TrendingUp className="w-5 h-5" />} 
           status={stats.followUpsPending.status}
           sparkline={stats.followUpsPending.sparkline}
           isLoading={isLoading}
         />
         <KPICard 
-          title="Attention Needed" 
+          title="Follow-ups" 
           value={stats.inactiveMembers.value} 
-          trend={0} 
+          trend={stats.inactiveMembers.trend} 
           icon={<UserMinus className="w-5 h-5" />} 
           status={stats.inactiveMembers.status}
           sparkline={stats.inactiveMembers.sparkline}

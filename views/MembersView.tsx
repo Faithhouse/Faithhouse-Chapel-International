@@ -235,7 +235,7 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
   };
 
   if (tableMissing) {
-    const repairSQL = `-- MASTER REGISTRY DATABASE REPAIR SCRIPT
+    const repairSQL = `-- MASTER REGISTRY DATABASE REPAIR SCRIPT v2.0
 -- Ensure branches table exists first
 CREATE TABLE IF NOT EXISTS public.branches (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -252,40 +252,30 @@ CREATE TABLE IF NOT EXISTS public.members (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   first_name TEXT NOT NULL,
   last_name TEXT,
-  email TEXT,
-  phone TEXT,
-  gender TEXT DEFAULT 'Male',
-  dob DATE,
-  date_joined DATE,
-  branch_id UUID REFERENCES public.branches(id),
-  status TEXT DEFAULT 'Active',
-  follow_up_status TEXT DEFAULT 'Pending',
-  latitude DOUBLE PRECISION,
-  longitude DOUBLE PRECISION,
-  ministry TEXT DEFAULT 'N/A',
-  gps_address TEXT,
-  emergency_contact_name TEXT,
-  emergency_contact_phone TEXT,
-  notify_birthday BOOLEAN DEFAULT true,
-  notify_events BOOLEAN DEFAULT true,
-  wedding_anniversary DATE,
-  location_area TEXT,
-  marital_status TEXT,
-  invited_by TEXT,
-  prayer_request TEXT,
-  hometown TEXT,
-  occupation TEXT,
-  place_of_work TEXT,
-  educational_level TEXT,
-  water_baptised BOOLEAN DEFAULT false,
-  holy_ghost_baptised BOOLEAN DEFAULT false,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+  status TEXT DEFAULT 'Active'
 );
 
--- Ensure all columns exist for members
+-- Ensure all columns exist for members (Migration Block)
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS gender TEXT DEFAULT 'Male';
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS dob DATE;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS date_joined DATE;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES public.branches(id);
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS ministry TEXT DEFAULT 'N/A';
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS follow_up_status TEXT DEFAULT 'Pending';
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS gps_address TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS maps_url TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS emergency_contact_name TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS emergency_contact_phone TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS emergency_contact_relationship TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS notify_birthday BOOLEAN DEFAULT true;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS notify_events BOOLEAN DEFAULT true;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS wedding_anniversary DATE;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS location_area TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS marital_status TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS marital_status TEXT DEFAULT 'Single';
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS invited_by TEXT;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS prayer_request TEXT;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS hometown TEXT;
@@ -297,46 +287,40 @@ ALTER TABLE public.members ADD COLUMN IF NOT EXISTS holy_ghost_baptised BOOLEAN 
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS spouse_name TEXT;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS spouse_phone TEXT;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS children JSONB DEFAULT '[]'::jsonb;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS emergency_contact_relationship TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS maps_url TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT now();
 
--- Update Enrollment Queue Table columns if they exist
+-- 2. Enrollment Queue Table
+CREATE TABLE IF NOT EXISTS public.member_enrollment_queue (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  first_name TEXT NOT NULL,
+  last_name TEXT,
+  status TEXT DEFAULT 'Pending'
+);
+
+-- Ensure all columns exist for queue
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS gender TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS gps_address TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS maps_url TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS dob DATE;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS marital_status TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS wedding_anniversary DATE;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS occupation TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS hometown TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS spouse_name TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS spouse_phone TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS children JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS emergency_contact_name TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS emergency_contact_relationship TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS emergency_contact_phone TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES public.branches(id);
 ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
 ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
 ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS water_baptised BOOLEAN DEFAULT false;
 ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS holy_ghost_baptised BOOLEAN DEFAULT false;
 ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS ministry TEXT DEFAULT 'N/A';
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS maps_url TEXT;
-
--- Create Enrollment Queue Table
-CREATE TABLE IF NOT EXISTS public.member_enrollment_queue (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  first_name TEXT NOT NULL,
-  last_name TEXT NOT NULL,
-  gender TEXT,
-  phone TEXT,
-  email TEXT,
-  gps_address TEXT,
-  dob DATE,
-  marital_status TEXT,
-  wedding_anniversary DATE,
-  occupation TEXT,
-  hometown TEXT,
-  spouse_name TEXT,
-  spouse_phone TEXT,
-  children JSONB DEFAULT '[]'::jsonb,
-  emergency_contact_name TEXT,
-  emergency_contact_relationship TEXT,
-  emergency_contact_phone TEXT,
-  branch_id UUID REFERENCES public.branches(id),
-  status TEXT DEFAULT 'Pending',
-  latitude DOUBLE PRECISION,
-  longitude DOUBLE PRECISION,
-  water_baptised BOOLEAN DEFAULT false,
-  holy_ghost_baptised BOOLEAN DEFAULT false,
-  ministry TEXT DEFAULT 'N/A',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT now();
 
 CREATE TABLE IF NOT EXISTS public.tithe_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -371,7 +355,10 @@ DROP POLICY IF EXISTS "Allow staff manage enrollment" ON public.member_enrollmen
 CREATE POLICY "Allow staff manage enrollment" ON public.member_enrollment_queue FOR ALL TO public USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow all for staff" ON public.tithe_entries;
-CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true) WITH CHECK (true);`;
+CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true) WITH CHECK (true);
+
+-- RELOAD SCHEMA
+NOTIFY pgrst, 'reload schema';`;
 
     return (
       <div className="max-w-4xl mx-auto py-12 px-4 animate-in zoom-in-95 duration-500">
