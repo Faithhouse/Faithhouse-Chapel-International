@@ -414,6 +414,15 @@ ALTER TABLE public.members ADD COLUMN IF NOT EXISTS spouse_name TEXT;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS spouse_phone TEXT;
 ALTER TABLE public.members ADD COLUMN IF NOT EXISTS children JSONB DEFAULT '[]'::jsonb;
 
+-- Migration for Enrollment Queue
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS maps_url TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS water_baptised BOOLEAN DEFAULT false;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS holy_ghost_baptised BOOLEAN DEFAULT false;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS ministry TEXT DEFAULT 'N/A';
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS emergency_contact_name TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS emergency_contact_relationship TEXT;
+ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS emergency_contact_phone TEXT;
+
 -- Ensure RLS is active
 ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
