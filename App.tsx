@@ -78,31 +78,27 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!currentUser && !isDemoMode) return;
 
-    const INACTIVITY_LIMIT = 5 * 60 * 1000; // 5 minutes
+    const INACTIVITY_LIMIT = 45 * 60 * 1000; // 45 minutes for better tablet sessions
+    let timeoutId: NodeJS.Timeout;
 
-    const checkInactivity = () => {
-      if (Date.now() - lastActivity > INACTIVITY_LIMIT) {
+    const resetTimer = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
         handleLogout();
-      }
+      }, INACTIVITY_LIMIT);
     };
 
-    const interval = setInterval(checkInactivity, 10000); // Check every 10 seconds
+    // Initialize timer
+    resetTimer();
 
-    const resetTimer = () => setLastActivity(Date.now());
-
-    window.addEventListener('mousemove', resetTimer);
-    window.addEventListener('keydown', resetTimer);
-    window.addEventListener('click', resetTimer);
-    window.addEventListener('scroll', resetTimer);
+    const events = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll', 'click', 'visibilitychange', 'pointerdown'];
+    events.forEach(event => window.addEventListener(event, resetTimer));
 
     return () => {
-      clearInterval(interval);
-      window.removeEventListener('mousemove', resetTimer);
-      window.removeEventListener('keydown', resetTimer);
-      window.removeEventListener('click', resetTimer);
-      window.removeEventListener('scroll', resetTimer);
+      if (timeoutId) clearTimeout(timeoutId);
+      events.forEach(event => window.removeEventListener(event, resetTimer));
     };
-  }, [currentUser, isDemoMode, lastActivity]);
+  }, [currentUser, isDemoMode]);
 
   useEffect(() => {
     const handleNavigation = (e: any) => {
@@ -114,12 +110,13 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const checkAuth = async () => {
-      setIsAuthLoading(true);
+      // If we're already loading or transitioning, don't double-trigger heavily
       try {
-        // Check for persisted local user first (for temp password logins)
+        // Check for persisted local user first (Master Password/Demo Mode)
         const savedUser = localStorage.getItem('fh_cms_user');
         if (savedUser) {
-          setCurrentUser(JSON.parse(savedUser));
+          const parsed = JSON.parse(savedUser);
+          setCurrentUser(parsed);
           setIsDemoMode(true);
           setIsAuthLoading(false);
           return;
@@ -136,6 +133,7 @@ const App: React.FC = () => {
           
           if (profile) {
             setCurrentUser(profile);
+            setIsDemoMode(false);
           } else if (session.user.email === 'systemadmin@faithhouse.church') {
             const rootProfile: UserProfile = {
               id: session.user.id,
@@ -145,10 +143,14 @@ const App: React.FC = () => {
               is_active: true
             };
             setCurrentUser(rootProfile);
+            setIsDemoMode(false);
           }
+        } else {
+          // No session found, and no local saved user
+          if (!isDemoMode) setCurrentUser(null);
         }
       } catch (error) {
-        console.error('Auth error:', error);
+        console.error('Auth check failure:', error);
       } finally {
         setIsAuthLoading(false);
       }
@@ -156,11 +158,22 @@ const App: React.FC = () => {
 
     checkAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         checkAuth();
-      } else if (!isDemoMode) {
-        setCurrentUser(null);
+      } else if (event === 'SIGNED_OUT') {
+        // Check if we still have a local master password user before wiping
+        const savedUser = localStorage.getItem('fh_cms_user');
+        if (!savedUser) {
+          setCurrentUser(null);
+          setIsDemoMode(false);
+          toast.info('Session ended');
+        }
+      } else if (event === 'INITIAL_SESSION') {
+        // Only reset if we don't have anyone at all
+        if (!session?.user && !localStorage.getItem('fh_cms_user') && !isDemoMode) {
+          setCurrentUser(null);
+        }
       }
     });
 

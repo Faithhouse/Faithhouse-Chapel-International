@@ -423,40 +423,24 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName })
   };
 
   const fetchPersonnel = async () => {
+    if (!currentMinistryId) return;
     setIsLoading(true);
     try {
-      // 1. Get members currently assigned to this specific ministry
-      const { data: assigned, error: assignedErr } = await supabase
-        .from('members')
-        .select('*')
-        .eq('ministry', ministryName)
-        .order('first_name');
+      // 1. Fetch from join table
+      const { data: assignments, error: assignedErr } = await supabase
+        .from('ministry_members')
+        .select('*, members(*)')
+        .eq('ministry_id', currentMinistryId);
       
       if (assignedErr) throw assignedErr;
 
-      // 2. Fetch roles from ministry_members
-      const { data: roles, error: rolesErr } = await supabase
-        .from('ministry_members')
-        .select('member_id, role')
-        .eq('ministry_name', ministryName);
-
-      if (rolesErr) {
-        if (rolesErr.code === '42P01' || rolesErr.message.includes('not found') || rolesErr.code === 'PGRST205' || rolesErr.message.includes('schema cache') || rolesErr.message.includes('Could not find')) {
-          setTableMissing("ministry_members");
-        }
-        console.warn('Could not fetch roles:', rolesErr);
-      } else {
-        setTableMissing(null);
-      }
-
-      const enrichedMembers = (assigned || []).map(m => {
-        const roleData = (roles || []).find(r => r.member_id === m.id);
-        return { ...m, role: roleData?.role || 'Member' };
+      const enrichedMembers = (assignments || []).map(a => {
+        return { ...a.members, role: a.role || 'Member', assignment_id: a.id };
       });
 
       setMinistryMembers(enrichedMembers);
 
-      // 3. Get ALL members so we can pick from them in the "Add" modal
+      // 2. Get ALL members for assignment dropdown
       const { data: available, error: availableErr } = await supabase
         .from('members')
         .select('*')
@@ -473,29 +457,30 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName })
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedMemberId) return;
+    if (!selectedMemberId || !currentMinistryId) return;
 
     setIsSubmitting(true);
     try {
-      // This updates the 'ministry' column for that specific member in Supabase
       const { error } = await supabase
-        .from('members')
-        .update({ ministry: ministryName })
-        .eq('id', selectedMemberId);
+        .from('ministry_members')
+        .upsert({ 
+          ministry_id: currentMinistryId, 
+          member_id: selectedMemberId,
+          ministry_name: ministryName, // keeping name for legacy
+          role: 'Member'
+        }, { onConflict: 'member_id, ministry_id' });
 
       if (error) throw error;
 
-      // Reset UI state
       setIsAddModalOpen(false);
       setSelectedMemberId('');
       setMemberSearchTerm('');
       
-      // Refresh the list so the new member shows up immediately
       await fetchPersonnel();
-      alert(`Successfully added to ${ministryName}`);
+      toast.success(`Successfully added to ${ministryName}`);
     } catch (err: any) {
       console.error('Member Assignment Error:', err);
-      alert('Failed to provision member: ' + err.message);
+      toast.error('Failed to provision member: ' + err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -664,11 +649,11 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName })
     
     setIsLoading(true);
     try {
-      // Sets the ministry back to 'N/A' or empty
       const { error } = await supabase
-        .from('members')
-        .update({ ministry: 'N/A' })
-        .eq('id', id);
+        .from('ministry_members')
+        .delete()
+        .eq('member_id', id)
+        .eq('ministry_id', currentMinistryId);
 
       if (error) throw error;
       toast.success(`Revoked ministry assignment for ${name}`);

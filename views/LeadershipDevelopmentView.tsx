@@ -1630,14 +1630,14 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Ministry Head</label>
                       <select value={ministryForm.leader_id || ''} onChange={(e) => setMinistryForm({...ministryForm, leader_id: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-fh-green/10 font-bold text-slate-800 shadow-inner">
                         <option value="">Select a Head...</option>
-                        {leaders.map(l => <option key={l.id} value={l.id}>{l.first_name} {l.last_name}</option>)}
+                        {members.map(m => <option key={m.id} value={m.id}>{m.first_name} {m.last_name}</option>)}
                       </select>
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Deputy Head</label>
                       <select value={ministryForm.deputy_id || ''} onChange={(e) => setMinistryForm({...ministryForm, deputy_id: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-fh-green/10 font-bold text-slate-800 shadow-inner">
                         <option value="">Select a Deputy...</option>
-                        {leaders.map(l => <option key={l.id} value={l.id}>{l.first_name} {l.last_name}</option>)}
+                        {members.map(m => <option key={m.id} value={m.id}>{m.first_name} {m.last_name}</option>)}
                       </select>
                     </div>
                   </div>

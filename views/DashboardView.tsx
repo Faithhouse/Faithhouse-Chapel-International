@@ -352,8 +352,25 @@ CREATE TABLE IF NOT EXISTS public.members (
   wedding_anniversary DATE,
   date_joined DATE,
   status TEXT DEFAULT 'Active',
+  follow_up_status TEXT DEFAULT 'Pending',
   ministry TEXT DEFAULT 'N/A',
   branch_id UUID REFERENCES public.branches(id),
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  gps_address TEXT,
+  maps_url TEXT,
+  location_area TEXT,
+  marital_status TEXT DEFAULT 'Single',
+  occupation TEXT,
+  hometown TEXT,
+  spouse_name TEXT,
+  spouse_phone TEXT,
+  children JSONB DEFAULT '[]'::jsonb,
+  emergency_contact_name TEXT,
+  emergency_contact_relationship TEXT,
+  emergency_contact_phone TEXT,
+  water_baptised BOOLEAN DEFAULT false,
+  holy_ghost_baptised BOOLEAN DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
@@ -366,8 +383,10 @@ CREATE TABLE IF NOT EXISTS public.member_enrollment_queue (
   phone TEXT,
   email TEXT,
   gps_address TEXT,
+  maps_url TEXT,
   dob DATE,
   marital_status TEXT,
+  wedding_anniversary DATE,
   occupation TEXT,
   hometown TEXT,
   spouse_name TEXT,
@@ -383,6 +402,78 @@ CREATE TABLE IF NOT EXISTS public.member_enrollment_queue (
   water_baptised BOOLEAN DEFAULT false,
   holy_ghost_baptised BOOLEAN DEFAULT false,
   ministry TEXT DEFAULT 'N/A',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Ensure all columns exist for members (migration block)
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS maps_url TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS location_area TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS marital_status TEXT DEFAULT 'Single';
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS spouse_name TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS spouse_phone TEXT;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS children JSONB DEFAULT '[]'::jsonb;
+
+-- Ensure RLS is active
+ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.member_enrollment_queue ENABLE ROW LEVEL SECURITY;
+
+-- Basic Policies
+DROP POLICY IF EXISTS "Enable all access for authenticated users" ON public.members;
+CREATE POLICY "Enable all access for authenticated users" ON public.members FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Public can enroll" ON public.member_enrollment_queue;
+CREATE POLICY "Public can enroll" ON public.member_enrollment_queue FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Authenticated can manage queue" ON public.member_enrollment_queue;
+CREATE POLICY "Authenticated can manage queue" ON public.member_enrollment_queue FOR ALL USING (true);
+
+CREATE TABLE IF NOT EXISTS public.ministries (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  ministry TEXT, -- Parent category
+  leader_id UUID REFERENCES public.members(id),
+  leader_name TEXT,
+  deputy_id UUID REFERENCES public.members(id),
+  deputy_name TEXT,
+  email TEXT,
+  description TEXT,
+  meeting_schedule TEXT,
+  status TEXT DEFAULT 'Active',
+  color TEXT DEFAULT '#4f46e5',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Ensure columns exist if table already there
+ALTER TABLE public.ministries ADD COLUMN IF NOT EXISTS leader_id UUID REFERENCES public.members(id);
+ALTER TABLE public.ministries ADD COLUMN IF NOT EXISTS deputy_id UUID REFERENCES public.members(id);
+ALTER TABLE public.ministries ADD COLUMN IF NOT EXISTS color TEXT DEFAULT '#4f46e5';
+
+CREATE TABLE IF NOT EXISTS public.ministry_members (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  member_id UUID REFERENCES public.members(id) ON DELETE CASCADE,
+  ministry_id UUID REFERENCES public.ministries(id) ON DELETE CASCADE,
+  ministry_name TEXT, -- Legacy support
+  role TEXT DEFAULT 'Member',
+  status TEXT DEFAULT 'Active',
+  joined_date DATE DEFAULT CURRENT_DATE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  UNIQUE(member_id, ministry_id)
+);
+
+-- Ensure columns exist for ministry_members
+ALTER TABLE public.ministry_members ADD COLUMN IF NOT EXISTS ministry_id UUID REFERENCES public.ministries(id);
+ALTER TABLE public.ministry_members ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Active';
+
+CREATE TABLE IF NOT EXISTS public.ministry_attendance (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ministry_id UUID REFERENCES public.ministries(id) ON DELETE CASCADE,
+  session_date DATE NOT NULL,
+  notes TEXT,
+  attendees JSONB DEFAULT '[]'::jsonb,
+  created_by UUID REFERENCES public.profiles(id),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
@@ -642,7 +733,7 @@ NOTIFY pgrst, 'reload schema';`;
       )}
 
       {/* 2. KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-4">
         <KPICard 
           title="Total Members" 
           value={stats.totalMembers.value} 
@@ -1110,21 +1201,21 @@ const KPICard = ({ title, value, trend, icon, status, sparkline, isLoading }: an
   const trendColor = status === 'growth' ? 'text-emerald-600' : status === 'attention' ? 'text-rose-600' : status === 'warning' ? 'text-amber-600' : 'text-blue-600';
 
   return (
-    <div className="bg-white p-3 md:p-6 rounded-[1.25rem] md:rounded-[2rem] border border-slate-200/50 shadow-sm hover:shadow-md transition-all group">
-      <div className="flex justify-between items-start mb-2 md:mb-4">
-        <div className={`w-7 h-7 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center ${statusClasses[status]}`}>
-          {React.cloneElement(icon as React.ReactElement<any>, { className: 'w-3.5 h-3.5 md:w-5 md:h-5' })}
+    <div className="bg-white p-2 md:p-3 rounded-xl md:rounded-2xl border border-slate-200/50 shadow-sm hover:shadow-md transition-all group">
+      <div className="flex justify-between items-start mb-1 md:mb-2">
+        <div className={`w-6 h-6 md:w-8 md:h-8 rounded-lg flex items-center justify-center ${statusClasses[status]}`}>
+          {React.cloneElement(icon as React.ReactElement<any>, { className: 'w-3 h-3 md:w-4 md:h-4' })}
         </div>
-        <div className={`flex items-center gap-0.5 md:gap-1 text-[7px] md:text-[10px] font-black uppercase tracking-tighter ${trendColor}`}>
-          {isPositive ? <ArrowUpRight className="w-2 h-2 md:w-3 md:h-3" /> : <ArrowDownRight className="w-2 h-2 md:w-3 md:h-3" />}
+        <div className={`flex items-center gap-0.5 text-[6px] md:text-[8px] font-black uppercase tracking-tighter ${trendColor}`}>
+          {isPositive ? <ArrowUpRight className="w-2 h-2 md:w-2.5 md:h-2.5" /> : <ArrowDownRight className="w-2 h-2 md:w-2.5 md:h-2.5" />}
           {Math.abs(trend)}%
         </div>
       </div>
       <div>
-        <h2 className="text-lg md:text-2xl font-black text-slate-900 tracking-tighter">{isLoading ? '...' : value}</h2>
-        <p className="text-[7px] md:text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mt-0.5 md:mt-1">{title}</p>
+        <h2 className="text-sm md:text-base font-black text-slate-900 tracking-tighter leading-none">{isLoading ? '...' : value}</h2>
+        <p className="text-[6px] md:text-[8px] font-black uppercase tracking-widest text-slate-400 mt-0.5">{title}</p>
       </div>
-      <div className="mt-4 h-8 w-full opacity-30 group-hover:opacity-60 transition-opacity">
+      <div className="mt-2 h-5 w-full hidden md:block opacity-30 group-hover:opacity-60 transition-opacity">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={sparkline.map((v: any, i: any) => ({ v, i }))}>
             <Line type="monotone" dataKey="v" stroke="currentColor" strokeWidth={2} dot={false} className={trendColor} />

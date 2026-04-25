@@ -188,7 +188,7 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
 
         // Fetch names for cross-check
         const { data: nameData } = await supabase.from('members').select('first_name, last_name');
-        const nameSet = new Set((nameData || []).map(m => `${m.first_name.toLowerCase()}|${(m.last_name || '').toLowerCase()}`));
+        const nameSet = new Set((nameData || []).filter(m => m.first_name).map(m => `${(m.first_name || '').toLowerCase()}|${((m.last_name || '')).toLowerCase()}`));
         setExistingNames(nameSet);
 
         setEnrollmentQueue(queueData || []);
@@ -953,13 +953,13 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
               ) : isReviewingQueue ? (
                 enrollmentQueue.length > 0 ? (
                   enrollmentQueue.map(e => {
-                    const isExisting = existingNames.has(`${e.first_name.toLowerCase()}|${(e.last_name || '').toLowerCase()}`);
+                    const isExisting = existingNames.has(`${(e.first_name || '').toLowerCase()}|${(e.last_name || '').toLowerCase()}`);
                     return (
                       <tr key={e.id} className="hover:bg-slate-50 transition-all group text-xs">
                         <td className="px-10 py-6" colSpan={2}>
                           <div className="flex items-center gap-5">
                             <div className="w-14 h-14 bg-fh-green text-fh-gold rounded-[1.5rem] flex items-center justify-center font-black text-xs border border-white/10 shadow-lg">
-                              {e.first_name[0]}{e.last_name[0]}
+                              {(e.first_name || '')[0] || '?'}{(e.last_name || '')[0] || ''}
                             </div>
                             <div>
                               <div className="flex items-center gap-2">
@@ -1000,7 +1000,7 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
                   <tr><td colSpan={6} className="px-10 py-32 text-center text-slate-300 font-black uppercase tracking-[0.3em]">Enrollment Queue is Empty</td></tr>
                 )
               ) : members.length > 0 ? (
-                members.map(m => (
+                                   members.map(m => (
                   <tr key={m.id} className={`hover:bg-slate-50/50 transition-all group text-xs ${selectedIds.includes(m.id) ? 'bg-emerald-50/30' : ''}`}>
                     <td className="px-10 py-6">
                       <input 
@@ -1013,7 +1013,7 @@ CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true)
                     <td className="px-10 py-6">
                       <div className="flex items-center gap-5">
                         <div className="w-14 h-14 bg-slate-900 text-fh-gold rounded-[1.5rem] flex items-center justify-center font-black text-xs border border-white/10 shadow-lg group-hover:scale-110 transition-transform">
-                          {m.first_name[0]}{(m.last_name || '')[0]}
+                          {(m.first_name || 'M')[0]?.toUpperCase()}{(m.last_name || '')[0]?.toUpperCase() || ''}
                         </div>
                         <div>
                           <p className="font-black text-slate-900 uppercase leading-none mb-2 tracking-tight">{m.first_name} {m.last_name}</p>

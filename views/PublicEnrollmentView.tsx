@@ -157,21 +157,29 @@ const PublicEnrollmentView: React.FC = () => {
     }
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.from('member_enrollment_queue').insert([
-        {
-          ...formData,
-          status: 'Pending'
-        }
-      ]);
+      // Defensive: Ensure all optional UUIDs are null if empty
+      const payload = {
+        ...formData,
+        branch_id: formData.branch_id || null,
+        status: 'Pending'
+      };
+
+      const { error } = await supabase.from('member_enrollment_queue').insert([payload]);
+      
       if (error) {
+        console.error("Submission Error:", error);
         if (error.code === '42P01' || error.message.includes('not found') || error.message.includes('schema cache')) {
-          throw new Error("The enrollment system is currently being initialized by the administrator. Please try again in a few minutes or contact support.");
+          throw new Error("Enrollment system initialization in progress. Please retry in a moment.");
+        }
+        if (error.code === '23503') {
+          throw new Error("Invalid branch or ministry selected. Please verify your choices.");
         }
         throw error;
       }
       setIsSuccess(true);
-      toast.success("Enrollment submitted for review!");
+      toast.success("Enrollment submitted successfully!");
     } catch (err: any) {
+      console.error("Enrollment error catch:", err);
       toast.error(err.message || "An unexpected error occurred. Please try again.");
     } finally {
       setIsSubmitting(false);
