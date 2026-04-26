@@ -46,6 +46,7 @@ const PublicEnrollmentView: React.FC = () => {
   const [repairSQL, setRepairSQL] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [successAction, setSuccessAction] = useState<'created' | 'updated' | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [branches, setBranches] = useState<any[]>([]);
@@ -175,17 +176,11 @@ NOTIFY pgrst, 'reload schema';`;
       setRepairSQL(sql);
 
       try {
-        const [branchesRes, queueCheckRes, ministriesRes, settingsRes] = await Promise.all([
+        const [branchesRes, ministriesRes, settingsRes] = await Promise.all([
           supabase.from('branches').select('*'),
-          supabase.from('member_enrollment_queue').select('id').limit(1),
           supabase.from('ministries').select('*').order('name'),
           supabase.from('system_settings').select('value').eq('id', 'login_slideshow').single()
         ]);
-
-        if (queueCheckRes.error && (queueCheckRes.error.code === '42P01' || queueCheckRes.error.message.includes('not found'))) {
-          setIsSystemReady(false);
-          return;
-        }
 
         if (branchesRes.data) setBranches(branchesRes.data);
         if (ministriesRes.data) setMinistries(ministriesRes.data);
@@ -273,27 +268,63 @@ NOTIFY pgrst, 'reload schema';`;
     );
   };
 
+  interface SubmitResult {
+    action: 'created' | 'updated' | 'created_duplicate_warning' | 'error';
+    member_id?: string;
+    message: string;
+  }
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.from('members').insert([
-        { ...formData, branch_id: formData.branch_id || null, status: 'Active' }
-      ]);
+      const rpcPayload = {
+        p_first_name: formData.first_name.trim(),
+        p_last_name: formData.last_name.trim(),
+        p_gender: formData.gender,
+        p_dob: formData.dob || null,
+        p_phone: formData.phone || null,
+        p_email: formData.email || null,
+        p_hometown: formData.hometown || null,
+        p_gps_address: formData.gps_address || null,
+        p_latitude: formData.latitude || null,
+        p_longitude: formData.longitude || null,
+        p_maps_url: formData.maps_url || null,
+        p_occupation: formData.occupation || null,
+        p_marital_status: formData.marital_status,
+        p_spouse_name: formData.spouse_name || null,
+        p_spouse_phone: formData.spouse_phone || null,
+        p_children: formData.children,
+        p_emergency_contact_name: formData.emergency_contact_name || null,
+        p_emergency_contact_relationship: formData.emergency_contact_relationship || null,
+        p_emergency_contact_phone: formData.emergency_contact_phone || null,
+        p_branch_id: formData.branch_id || null,
+        p_ministry: formData.ministry,
+        p_water_baptised: formData.water_baptised,
+        p_holy_ghost_baptised: formData.holy_ghost_baptised
+      };
 
-      if (error) {
-        if (error.code === '42P01' || error.message.includes('not found')) {
-          toast.error("Enrollment system initialization in progress.");
-          return;
-        }
-        if (error.code === '23503') {
-          toast.error("Invalid branch or ministry selected.");
-          return;
-        }
-        throw error;
+      const { data, error } = await supabase.rpc('enroll_or_update_member', rpcPayload);
+
+      if (error) throw error;
+      
+      const result = data as SubmitResult;
+
+      if (result.action === 'error') {
+        toast.error(result.message || "Submission failed.");
+        return;
       }
 
+      setSuccessAction(result.action === 'updated' ? 'updated' : 'created');
       setIsSuccess(true);
-      toast.success("Enrollment submitted successfully!");
+
+      if (result.action === 'created') {
+        toast.success("Welcome! Your membership profile has been created.");
+      } else if (result.action === 'updated') {
+        toast.success("Your profile has been updated with the new information.");
+      } else if (result.action === 'created_duplicate_warning') {
+        toast.warning("Profile created. Admin notified to review duplicate names.");
+      }
+
     } catch (err: any) {
       toast.error(err.message || "Unexpected error. Please try again.");
     } finally {
@@ -363,14 +394,37 @@ NOTIFY pgrst, 'reload schema';`;
           initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
           className="max-w-md w-full bg-white relative z-10 rounded-[3rem] p-12 text-center shadow-2xl border-b-[12px] border-fh-green"
         >
-          <div className="w-24 h-24 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-8 shadow-inner">
-            <CheckCircle2 className="w-12 h-12" />
+          <div className="mb-8 flex justify-center">
+            {successAction === 'created' ? (
+              <div className="w-24 h-24 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center shadow-inner animate-bounce">
+                <CheckCircle2 className="w-12 h-12" />
+              </div>
+            ) : (
+              <div className="w-24 h-24 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center shadow-inner animate-pulse">
+                <Zap className="w-12 h-12" />
+              </div>
+            )}
           </div>
-          <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter mb-4">Success!</h2>
+
+          <h2 className="text-3xl md:text-4xl font-black text-slate-900 uppercase tracking-tighter mb-4 leading-tight">
+            {successAction === 'created' ? "Welcome to Faithhouse!" : "Profile Updated"}
+          </h2>
+          
           <p className="text-slate-600 font-bold leading-relaxed mb-8">
-            Your enrollment has been submitted successfully. A representative from Faithhouse Chapel will contact you soon.
+            {successAction === 'created' 
+              ? "Your membership profile has been successfully created. Our team will be in touch with you shortly."
+              : "We found your existing profile and filled in the missing information. Your records are now up to date."
+            }
           </p>
-          <button onClick={() => window.location.reload()} className="w-full py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:shadow-2xl transition-all active:scale-95">Done</button>
+
+          <button 
+            onClick={() => window.location.reload()} 
+            className={`w-full py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl transition-all active:scale-95 ${
+              successAction === 'created' ? 'bg-fh-green text-fh-gold' : 'bg-slate-900 text-white'
+            }`}
+          >
+            {successAction === 'created' ? "Proceed Home" : "Done"}
+          </button>
         </motion.div>
       </div>
     );
