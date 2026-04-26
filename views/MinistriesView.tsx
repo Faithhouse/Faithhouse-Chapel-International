@@ -261,12 +261,108 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem, currentU
   };
 
   if (tableError) {
-    const repairSQL = `-- COMPREHENSIVE ORGANIZATIONAL DATABASE REPAIR SCRIPT v5.0
--- This script ensures all tables, relationships, and RLS policies are established.
+    const repairSQL = `-- FAITHHOUSE COMPREHENSIVE SYSTEM REPAIR v6.0
+-- Ensures all core infrastructure and data tables are fully synchronized.
 
--- 1. Create Leadership Table
+-- 1. EXTENSIONS
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 2. INFRASTRUCTURE: BRANCHES
+CREATE TABLE IF NOT EXISTS public.branches (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  location TEXT,
+  gps_address TEXT,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  maps_url TEXT,
+  pastor_in_charge TEXT,
+  phone TEXT,
+  email TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+-- 3. CORE: MEMBERS
+CREATE TABLE IF NOT EXISTS public.members (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  gender TEXT,
+  dob DATE,
+  wedding_anniversary DATE,
+  date_joined DATE DEFAULT CURRENT_DATE,
+  branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
+  status TEXT DEFAULT 'Active',
+  follow_up_status TEXT DEFAULT 'Pending',
+  last_seen TIMESTAMP WITH TIME ZONE,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  ministry TEXT,
+  role TEXT,
+  gps_address TEXT,
+  maps_url TEXT,
+  location_area TEXT,
+  marital_status TEXT,
+  invited_by TEXT,
+  prayer_request TEXT,
+  occupation TEXT,
+  place_of_work TEXT,
+  educational_level TEXT,
+  water_baptised BOOLEAN DEFAULT false,
+  holy_ghost_baptised BOOLEAN DEFAULT false,
+  hometown TEXT,
+  spouse_name TEXT,
+  spouse_phone TEXT,
+  children JSONB DEFAULT '[]',
+  emergency_contact_name TEXT,
+  emergency_contact_relationship TEXT,
+  emergency_contact_phone TEXT,
+  notify_birthday BOOLEAN DEFAULT true,
+  notify_events BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+-- 4. PIPELINE: ENROLLMENT QUEUE
+CREATE TABLE IF NOT EXISTS public.member_enrollment_queue (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  gender TEXT,
+  dob DATE,
+  wedding_anniversary DATE,
+  date_joined DATE DEFAULT CURRENT_DATE,
+  branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
+  status TEXT DEFAULT 'Pending',
+  follow_up_status TEXT DEFAULT 'Pending',
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  ministry TEXT,
+  gps_address TEXT,
+  maps_url TEXT,
+  location_area TEXT,
+  marital_status TEXT,
+  occupation TEXT,
+  place_of_work TEXT,
+  educational_level TEXT,
+  water_baptised BOOLEAN DEFAULT false,
+  holy_ghost_baptised BOOLEAN DEFAULT false,
+  hometown TEXT,
+  spouse_name TEXT,
+  spouse_phone TEXT,
+  children JSONB DEFAULT '[]',
+  emergency_contact_name TEXT,
+  emergency_contact_relationship TEXT,
+  emergency_contact_phone TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+-- 5. LEADERSHIP & MINISTRIES
 CREATE TABLE IF NOT EXISTS public.leadership (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
   position TEXT NOT NULL,
@@ -275,12 +371,11 @@ CREATE TABLE IF NOT EXISTS public.leadership (
   email TEXT,
   phone TEXT,
   image_url TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- 2. Create Ministries Table
 CREATE TABLE IF NOT EXISTS public.ministries (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
   leader_id UUID REFERENCES public.leadership(id) ON DELETE SET NULL,
   leader_name TEXT,
@@ -289,65 +384,73 @@ CREATE TABLE IF NOT EXISTS public.ministries (
   email TEXT,
   description TEXT,
   meeting_schedule TEXT,
-  meeting_day TEXT,
   status TEXT DEFAULT 'Active',
   color TEXT DEFAULT '#4f46e5',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- 3. Create Ministry Members Table
-CREATE TABLE IF NOT EXISTS public.ministry_members (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  ministry_id UUID REFERENCES public.ministries(id) ON DELETE CASCADE,
-  member_id UUID REFERENCES public.members(id) ON DELETE CASCADE,
-  role TEXT,
-  joined_date DATE DEFAULT CURRENT_DATE,
-  status TEXT DEFAULT 'Active',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
-
--- 4. Create Ministry Attendance Table
-CREATE TABLE IF NOT EXISTS public.ministry_attendance (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  ministry_id UUID REFERENCES public.ministries(id) ON DELETE CASCADE,
-  session_date DATE NOT NULL,
+-- 6. FINANCE: TITHE ENTRIES
+CREATE TABLE IF NOT EXISTS public.tithe_entries (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  member_id UUID NOT NULL REFERENCES public.members(id) ON DELETE CASCADE,
+  amount NUMERIC NOT NULL,
+  payment_date DATE NOT NULL,
+  payment_method TEXT NOT NULL,
+  service_type TEXT,
+  recorded_by UUID,
   notes TEXT,
-  attendees JSONB DEFAULT '[]',
-  created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- 5. Establish RLS and Policies
-ALTER TABLE public.leadership ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.ministries ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.ministry_members ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.ministry_attendance ENABLE ROW LEVEL SECURITY;
-
+-- 7. COLUMN REPAIRS (For existing tables)
 DO $$ 
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow all access to staff on leadership') THEN
-    CREATE POLICY "Allow all access to staff on leadership" ON public.leadership FOR ALL USING (true) WITH CHECK (true);
-  END IF;
+BEGIN 
+  -- Members Table Repairs
+  BEGIN ALTER TABLE public.members ADD COLUMN hometown TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN marital_status TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN phone TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN gps_address TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN maps_url TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN children JSONB DEFAULT '[]'; EXCEPTION WHEN duplicate_column THEN END;
   
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow all access to staff on ministries') THEN
-    CREATE POLICY "Allow all access to staff on ministries" ON public.ministries FOR ALL USING (true) WITH CHECK (true);
-  END IF;
-
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow all access to staff on ministry_members') THEN
-    CREATE POLICY "Allow all access to staff on ministry_members" ON public.ministry_members FOR ALL USING (true) WITH CHECK (true);
-  END IF;
-
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow all access to staff on ministry_attendance') THEN
-    CREATE POLICY "Allow all access to staff on ministry_attendance" ON public.ministry_attendance FOR ALL USING (true) WITH CHECK (true);
-  END IF;
+  -- Queue Table Repairs
+  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN hometown TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN marital_status TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN phone TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN gps_address TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN maps_url TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN children JSONB DEFAULT '[]'; EXCEPTION WHEN duplicate_column THEN END;
 END $$;
 
--- 6. Ensure temporary password support exists
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS temp_password TEXT;
+-- 8. SECURITY (RLS)
+ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.member_enrollment_queue ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.leadership ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ministries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tithe_entries ENABLE ROW LEVEL SECURITY;
 
--- 7. Force Schema Reload
+DROP POLICY IF EXISTS "Allow all access" ON public.branches;
+CREATE POLICY "Allow all access" ON public.branches FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all access" ON public.members;
+CREATE POLICY "Allow all access" ON public.members FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all access" ON public.member_enrollment_queue;
+CREATE POLICY "Allow all access" ON public.member_enrollment_queue FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all access" ON public.leadership;
+CREATE POLICY "Allow all access" ON public.leadership FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all access" ON public.ministries;
+CREATE POLICY "Allow all access" ON public.ministries FOR ALL USING (true) WITH CHECK (true);
+
+-- 9. SCHEMA REFRESH
 NOTIFY pgrst, 'reload schema';
-`;
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';`;
 
     return (
       <div className="max-w-4xl mx-auto py-12 px-4 animate-in zoom-in-95 duration-500">

@@ -65,12 +65,6 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
   const [isPurging, setIsPurging] = useState(false);
   const [showDeleteFinalConfirm, setShowDeleteFinalConfirm] = useState(false);
 
-  // Enrollment Queue State
-  const [enrollmentQueue, setEnrollmentQueue] = useState<any[]>([]);
-  const [isReviewingQueue, setIsReviewingQueue] = useState(false);
-  const [isApproving, setIsApproving] = useState<string | null>(null);
-  const [existingNames, setExistingNames] = useState<Set<string>>(new Set());
-
   // Form State
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [formData, setFormData] = useState({
@@ -187,58 +181,32 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
       const loadedBranches = branchData || [];
       setBranches(loadedBranches);
 
-      if (statusFilter === 'Pending Approval') {
-        setIsReviewingQueue(true);
-        const { data: queueData, error: queueError } = await supabase
-          .from('member_enrollment_queue')
-          .select('*, branches(*)')
-          .eq('status', 'Pending')
-          .order('created_at', { ascending: false });
-        
-        if (queueError) {
-          if (queueError.code === '42P01' || queueError.message.includes('not found') || queueError.code === 'PGRST205' || queueError.message.includes('schema cache') || queueError.message.includes('Could not find')) {
-            setTableMissing(true);
-            return;
-          }
-          throw queueError;
-        }
+      let query = supabase
+        .from('members')
+        .select('*, branches(*)')
+        .order('first_name', { ascending: true });
 
-        // Fetch names for cross-check
-        const { data: nameData } = await supabase.from('members').select('first_name, last_name');
-        const nameSet = new Set((nameData || []).filter(m => m.first_name).map(m => `${(m.first_name || '').toLowerCase()}|${((m.last_name || '')).toLowerCase()}`));
-        setExistingNames(nameSet);
+      if (statusFilter !== 'All') {
+        query = query.eq('status', statusFilter);
+      }
 
-        setEnrollmentQueue(queueData || []);
-        setMembers([]); // Clear regular members list for this view
-      } else {
-        setIsReviewingQueue(false);
-        let query = supabase
-          .from('members')
-          .select('*, branches(*)')
-          .order('first_name', { ascending: true });
+      if (searchTerm) {
+        query = query.or(
+          `first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,gps_address.ilike.%${searchTerm}%`
+        );
+      }
 
-        if (statusFilter !== 'All') {
-          query = query.eq('status', statusFilter);
-        }
+      const { data, error } = await query;
 
-        if (searchTerm) {
-          query = query.or(
-            `first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,gps_address.ilike.%${searchTerm}%`
-          );
-        }
-
-        const { data, error } = await query;
-
-        if (error) {
-          if (error.code === '42P01' || error.message.includes('not found') || error.code === 'PGRST205' || error.message.includes('schema cache') || error.message.includes('Could not find')) {
-            setTableMissing(true);
-          } else {
-            throw error;
-          }
+      if (error) {
+        if (error.code === '42P01' || error.message.includes('not found') || error.code === 'PGRST205' || error.message.includes('schema cache') || error.message.includes('Could not find') || error.message.includes('hometown')) {
+          setTableMissing(true);
         } else {
-          setTableMissing(null);
-          setMembers(data || []);
+          throw error;
         }
+      } else {
+        setTableMissing(null);
+        setMembers(data || []);
       }
     } catch (err: any) {
       console.error("Registry Sync Error:", err);
@@ -252,112 +220,148 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
   };
 
   if (tableMissing) {
-    const repairSQL = `-- MASTER REGISTRY DATABASE REPAIR SCRIPT v2.0
--- Ensure branches table exists first
+    const repairSQL = `-- COMPREHENSIVE REGISTRY DATABASE REPAIR SCRIPT v6.0
+-- This script ensures branches, members, and enrollment queue tables are fully synchronized.
+
+-- 1. EXTENSIONS
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 2. BRANCHES (Prerequisite)
 CREATE TABLE IF NOT EXISTS public.branches (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
-  location TEXT NOT NULL,
+  location TEXT,
+  gps_address TEXT,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  maps_url TEXT,
   pastor_in_charge TEXT,
   phone TEXT,
   email TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- Create members table
+-- 3. MEMBERS (CORE TABLE)
 CREATE TABLE IF NOT EXISTS public.members (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   first_name TEXT NOT NULL,
-  last_name TEXT,
-  status TEXT DEFAULT 'Active'
+  last_name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  gender TEXT,
+  dob DATE,
+  wedding_anniversary DATE,
+  date_joined DATE DEFAULT CURRENT_DATE,
+  branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
+  status TEXT DEFAULT 'Active',
+  follow_up_status TEXT DEFAULT 'Pending',
+  last_seen TIMESTAMP WITH TIME ZONE,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  ministry TEXT,
+  role TEXT,
+  gps_address TEXT,
+  maps_url TEXT,
+  location_area TEXT,
+  marital_status TEXT,
+  invited_by TEXT,
+  prayer_request TEXT,
+  occupation TEXT,
+  place_of_work TEXT,
+  educational_level TEXT,
+  water_baptised BOOLEAN DEFAULT false,
+  holy_ghost_baptised BOOLEAN DEFAULT false,
+  hometown TEXT,
+  spouse_name TEXT,
+  spouse_phone TEXT,
+  children JSONB DEFAULT '[]',
+  emergency_contact_name TEXT,
+  emergency_contact_relationship TEXT,
+  emergency_contact_phone TEXT,
+  notify_birthday BOOLEAN DEFAULT true,
+  notify_events BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- Ensure all columns exist for members (Migration Block)
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS email TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS phone TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS gender TEXT DEFAULT 'Male';
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS dob DATE;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS date_joined DATE;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES public.branches(id);
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS ministry TEXT DEFAULT 'N/A';
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS follow_up_status TEXT DEFAULT 'Pending';
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS gps_address TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS maps_url TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS emergency_contact_name TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS emergency_contact_phone TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS emergency_contact_relationship TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS notify_birthday BOOLEAN DEFAULT true;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS notify_events BOOLEAN DEFAULT true;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS wedding_anniversary DATE;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS location_area TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS marital_status TEXT DEFAULT 'Single';
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS invited_by TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS prayer_request TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS hometown TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS occupation TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS place_of_work TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS educational_level TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS water_baptised BOOLEAN DEFAULT false;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS holy_ghost_baptised BOOLEAN DEFAULT false;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS spouse_name TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS spouse_phone TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS children JSONB DEFAULT '[]'::jsonb;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT now();
-
--- 2. Enrollment Queue Table
+-- 4. ENROLLMENT QUEUE
 CREATE TABLE IF NOT EXISTS public.member_enrollment_queue (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   first_name TEXT NOT NULL,
-  last_name TEXT,
-  status TEXT DEFAULT 'Pending'
+  last_name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  gender TEXT,
+  dob DATE,
+  wedding_anniversary DATE,
+  date_joined DATE DEFAULT CURRENT_DATE,
+  branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
+  status TEXT DEFAULT 'Pending',
+  follow_up_status TEXT DEFAULT 'Pending',
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  ministry TEXT,
+  gps_address TEXT,
+  maps_url TEXT,
+  location_area TEXT,
+  marital_status TEXT,
+  occupation TEXT,
+  place_of_work TEXT,
+  educational_level TEXT,
+  water_baptised BOOLEAN DEFAULT false,
+  holy_ghost_baptised BOOLEAN DEFAULT false,
+  hometown TEXT,
+  spouse_name TEXT,
+  spouse_phone TEXT,
+  children JSONB DEFAULT '[]',
+  emergency_contact_name TEXT,
+  emergency_contact_relationship TEXT,
+  emergency_contact_phone TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- Ensure all columns exist for queue
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS gender TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS phone TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS email TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS gps_address TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS maps_url TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS dob DATE;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS marital_status TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS wedding_anniversary DATE;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS occupation TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS hometown TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS spouse_name TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS spouse_phone TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS children JSONB DEFAULT '[]'::jsonb;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS emergency_contact_name TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS emergency_contact_relationship TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS emergency_contact_phone TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES public.branches(id);
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS water_baptised BOOLEAN DEFAULT false;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS holy_ghost_baptised BOOLEAN DEFAULT false;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS ministry TEXT DEFAULT 'N/A';
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT now();
-
+-- 5. TITHE ENTRIES
 CREATE TABLE IF NOT EXISTS public.tithe_entries (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  member_id UUID NOT NULL,
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  member_id UUID NOT NULL REFERENCES public.members(id) ON DELETE CASCADE,
   amount NUMERIC NOT NULL,
   payment_date DATE NOT NULL,
   payment_method TEXT NOT NULL,
   service_type TEXT,
   recorded_by UUID,
   notes TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  CONSTRAINT fk_member FOREIGN KEY (member_id) REFERENCES public.members(id) ON DELETE CASCADE
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
-CREATE INDEX IF NOT EXISTS idx_tithe_member_id ON public.tithe_entries(member_id);
+-- 6. COLUMN REPAIR (FOR EXISTING TABLES)
+DO $$ 
+BEGIN 
+  -- Members Table Repairs
+  BEGIN ALTER TABLE public.members ADD COLUMN hometown TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN branch_id UUID REFERENCES public.branches(id); EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN gender TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN phone TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN status TEXT DEFAULT 'Active'; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN marital_status TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN gps_address TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN maps_url TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN ministry TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN children JSONB DEFAULT '[]'; EXCEPTION WHEN duplicate_column THEN END;
+  
+  -- Enrollment Queue Repairs
+  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN hometown TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN marital_status TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN occupation TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN phone TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN gps_address TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN maps_url TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN children JSONB DEFAULT '[]'; EXCEPTION WHEN duplicate_column THEN END;
+END $$;
 
+-- 7. RLS SETTINGS
 ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.tithe_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.member_enrollment_queue ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tithe_entries ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Allow all for staff" ON public.branches;
 CREATE POLICY "Allow all for staff" ON public.branches FOR ALL USING (true) WITH CHECK (true);
@@ -365,16 +369,17 @@ CREATE POLICY "Allow all for staff" ON public.branches FOR ALL USING (true) WITH
 DROP POLICY IF EXISTS "Allow all for staff" ON public.members;
 CREATE POLICY "Allow all for staff" ON public.members FOR ALL USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Allow public enrollment" ON public.member_enrollment_queue;
-CREATE POLICY "Allow public enrollment" ON public.member_enrollment_queue FOR INSERT TO public WITH CHECK (true);
-
 DROP POLICY IF EXISTS "Allow staff manage enrollment" ON public.member_enrollment_queue;
 CREATE POLICY "Allow staff manage enrollment" ON public.member_enrollment_queue FOR ALL TO public USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow all for staff" ON public.tithe_entries;
 CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true) WITH CHECK (true);
 
--- RELOAD SCHEMA
+-- 8. SCHEMA REFRESH
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';
 NOTIFY pgrst, 'reload schema';`;
 
     return (
@@ -576,86 +581,6 @@ NOTIFY pgrst, 'reload schema';`;
       occupation: '', place_of_work: '', educational_level: '', hometown: '', water_baptised: false, holy_ghost_baptised: false,
       spouse_name: '', spouse_phone: '', children: [], emergency_contact_relationship: ''
     });
-  };
-
-  const handleApprove = async (entry: any) => {
-    setIsApproving(entry.id);
-    try {
-      // 1. Check if member already exists (Name match)
-      const { data: existingMember } = await supabase
-        .from('members')
-        .select('id')
-        .ilike('first_name', entry.first_name)
-        .ilike('last_name', entry.last_name)
-        .maybeSingle();
-      
-      const payload = {
-        first_name: entry.first_name,
-        last_name: entry.last_name,
-        gender: entry.gender,
-        phone: entry.phone,
-        email: entry.email,
-        gps_address: entry.gps_address,
-        dob: entry.dob,
-        marital_status: entry.marital_status || 'Single',
-        wedding_anniversary: entry.wedding_anniversary,
-        occupation: entry.occupation,
-        hometown: entry.hometown,
-        spouse_name: entry.spouse_name,
-        spouse_phone: entry.spouse_phone,
-        children: entry.children || [],
-        emergency_contact_name: entry.emergency_contact_name,
-        emergency_contact_relationship: entry.emergency_contact_relationship,
-        emergency_contact_phone: entry.emergency_contact_phone,
-        branch_id: entry.branch_id,
-        latitude: entry.latitude,
-        longitude: entry.longitude,
-        maps_url: entry.maps_url,
-        water_baptised: entry.water_baptised || false,
-        holy_ghost_baptised: entry.holy_ghost_baptised || false,
-        ministry: entry.ministry || 'N/A',
-        status: 'Active'
-      };
-
-      if (existingMember) {
-        // Update existing
-        const { error: updateError } = await supabase
-          .from('members')
-          .update(payload)
-          .eq('id', existingMember.id);
-        if (updateError) throw updateError;
-        showNotify("Existing Member Found. Profile Updated Successfully!");
-      } else {
-        // Insert new
-        const { error: insertError } = await supabase
-          .from('members')
-          .insert([payload]);
-        if (insertError) throw insertError;
-        showNotify("New Member Approved & Identity Migrated!");
-      }
-
-      // 2. Update status in queue
-      const { error: qUpdateError } = await supabase.from('member_enrollment_queue').update({ status: 'Approved' }).eq('id', entry.id);
-      if (qUpdateError) throw qUpdateError;
-
-      fetchInitialData();
-    } catch (err: any) {
-      showNotify(err.message, 'error');
-    } finally {
-      setIsApproving(null);
-    }
-  };
-
-  const handleReject = async (id: string) => {
-    if (!window.confirm("Permanently reject this enrollment?")) return;
-    try {
-      const { error } = await supabase.from('member_enrollment_queue').update({ status: 'Rejected' }).eq('id', id);
-      if (error) throw error;
-      showNotify("Enrollment Rejected.");
-      fetchInitialData();
-    } catch (err: any) {
-      showNotify(err.message, 'error');
-    }
   };
 
   const handleChildChange = (index: number, field: string, value: string) => {
@@ -965,7 +890,6 @@ NOTIFY pgrst, 'reload schema';`;
           <option>Active</option>
           <option>Probation</option>
           <option>Inactive</option>
-          <option>Pending Approval</option>
         </select>
         <button 
           onClick={() => {
@@ -1009,55 +933,6 @@ NOTIFY pgrst, 'reload schema';`;
             <tbody className="divide-y divide-slate-50">
               {isLoading ? (
                 <tr><td colSpan={6} className="px-10 py-32 text-center animate-pulse text-slate-300 font-black uppercase tracking-[0.5em]">Synchronizing Registry...</td></tr>
-              ) : isReviewingQueue ? (
-                enrollmentQueue.length > 0 ? (
-                  enrollmentQueue.map(e => {
-                    const isExisting = existingNames.has(`${(e.first_name || '').toLowerCase()}|${(e.last_name || '').toLowerCase()}`);
-                    return (
-                      <tr key={e.id} className="hover:bg-slate-50 transition-all group text-xs">
-                        <td className="px-10 py-6" colSpan={2}>
-                          <div className="flex items-center gap-5">
-                            <div className="w-14 h-14 bg-fh-green text-fh-gold rounded-[1.5rem] flex items-center justify-center font-black text-xs border border-white/10 shadow-lg">
-                              {(e.first_name || '')[0] || '?'}{(e.last_name || '')[0] || ''}
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <p className="font-black text-slate-900 uppercase tracking-tighter text-sm">{e.first_name} {e.last_name}</p>
-                                {isExisting && (
-                                  <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[8px] font-black uppercase tracking-widest rounded-md border border-amber-200">Profile Update</span>
-                                )}
-                              </div>
-                              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Submitted: {new Date(e.created_at).toLocaleDateString()}</p>
-                            </div>
-                          </div>
-                        </td>
-                      <td className="px-10 py-6">
-                        <p className="font-black text-slate-800">{e.phone}</p>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase">{e.email || 'NO EMAIL'}</p>
-                      </td>
-                      <td className="px-10 py-6">
-                        <p className="font-black text-slate-600 uppercase tracking-tight text-[10px]">{e.branches?.name || 'GENERIC'}</p>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase truncate max-w-[120px]">{e.gps_address || '---'}</p>
-                      </td>
-                      <td className="px-10 py-6">
-                         <span className="px-3 py-1 bg-amber-50 text-amber-600 border border-amber-100 rounded-lg font-black uppercase text-[8px] tracking-widest">Pending Audit</span>
-                      </td>
-                      <td className="px-10 py-6 text-right">
-                         <div className="flex justify-end gap-2">
-                            <button onClick={() => handleApprove(e)} disabled={isApproving === e.id} className="p-3 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-xl shadow-sm transition-all">
-                               {isApproving === e.id ? <div className="w-4 h-4 border-2 border-emerald-500/30 border-t-emerald-500 animate-spin rounded-full"></div> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>}
-                            </button>
-                            <button onClick={() => handleReject(e.id)} className="p-3 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white rounded-xl shadow-sm transition-all">
-                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                         </div>
-                      </td>
-                    </tr>
-                    );
-                  })
-                ) : (
-                  <tr><td colSpan={6} className="px-10 py-32 text-center text-slate-300 font-black uppercase tracking-[0.3em]">Enrollment Queue is Empty</td></tr>
-                )
               ) : members.length > 0 ? (
                                    members.map(m => (
                   <tr key={m.id} className={`hover:bg-slate-50/50 transition-all group text-xs ${selectedIds.includes(m.id) ? 'bg-emerald-50/30' : ''}`}>

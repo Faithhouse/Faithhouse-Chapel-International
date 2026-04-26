@@ -64,7 +64,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
   const [growthData, setGrowthData] = useState<any[]>([]);
   const [attendanceData, setAttendanceData] = useState<any[]>([]);
   const [recentMembers, setRecentMembers] = useState<any[]>([]);
-  const [pendingEnrollments, setPendingEnrollments] = useState<any[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
   const [todayTasks, setTodayTasks] = useState<any[]>([]);
   const [upcomingBirthdays, setUpcomingBirthdays] = useState<Member[]>([]);
@@ -160,14 +159,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
       const { data: finance, error: finErr } = await supabase.from('financial_records').select('*').order('service_date', { ascending: true });
       if (finErr && finErr.code !== '42P01' && finErr.code !== 'PGRST205') throw finErr;
 
-      const { data: queue, error: qErr } = await supabase.from('member_enrollment_queue').select('*').eq('status', 'Pending').order('created_at', { ascending: false });
-      if (qErr && (qErr.code === '42P01' || qErr.code === 'PGRST205')) throw qErr;
-
       // Processing Data
       const members = allMembers || [];
       const attendance = allAttendance || [];
       const followUps = allFollowUps || [];
-      const enrollmentQueue = queue || [];
       
       // Calculate Stats
       const totalMembers = members.length;
@@ -178,7 +173,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
         return joinDate > thirtyDaysAgo;
       }).length;
 
-      const followUpsPending = (followUps.filter(f => f.status === 'Pending').length) + enrollmentQueue.length;
+      const followUpsPending = (followUps.filter(f => f.status === 'Pending').length);
       const inactiveMembers = members.filter(m => m.status === 'Inactive').length;
 
       // Attendance Rate (Last 4 services)
@@ -228,7 +223,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
       })));
 
       setRecentMembers(members.slice(0, 4));
-      setPendingEnrollments(enrollmentQueue);
       setUpcomingEvents(events || []);
       setTodayTasks(tasks || []);
 
@@ -275,9 +269,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
       setTableMissing(false);
     } catch (err: any) {
       console.error("Dashboard Data Sync Error:", err);
-      if (err.code === '42P01' || err.code === 'PGRST205') {
+      if (err.code === '42P01' || err.code === 'PGRST205' || err.message?.includes('schema cache') || err.message?.includes('hometown')) {
         setTableMissing(true);
-        setMissingTableName(err.message.match(/'public\.(.*)'/)?.[1] || "database table");
+        setMissingTableName(err.message.match(/'public\.(.*)'/)?.[1] || "database table column");
       } else {
         setError(err.message || "Failed to synchronize with the database.");
       }
@@ -328,314 +322,196 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
     }
   };
 
-  const approveEnrollment = async (enrollment: any) => {
-    try {
-      const { id, created_at, status, ...memberData } = enrollment;
-      
-      // 1. Move to members table
-      const { error: insertErr } = await supabase.from('members').insert([
-        { ...memberData, status: 'Active' }
-      ]);
-      if (insertErr) throw insertErr;
-
-      // 2. Mark queue item as Approved
-      const { error: updateErr } = await supabase
-        .from('member_enrollment_queue')
-        .update({ status: 'Approved' })
-        .eq('id', id);
-      if (updateErr) throw updateErr;
-
-      toast.success(`${enrollment.first_name} has been enrolled successfully!`);
-      fetchDashboardData();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to approve enrollment");
-    }
-  };
-
-  const rejectEnrollment = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('member_enrollment_queue')
-        .update({ status: 'Rejected' })
-        .eq('id', id);
-      if (error) throw error;
-      toast.success("Enrollment rejected.");
-      fetchDashboardData();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to reject enrollment");
-    }
-  };
-
   if (tableMissing) {
-    const repairSQL = `-- FAITHHOUSE v2.0 SYSTEM UPGRADE
--- 1. Infrastructure Tables
+    const repairSQL = `-- FAITHHOUSE COMPREHENSIVE SYSTEM REPAIR v6.0
+-- Ensures all core infrastructure and data tables are fully synchronized.
+
+-- 1. EXTENSIONS
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 2. INFRASTRUCTURE: BRANCHES
 CREATE TABLE IF NOT EXISTS public.branches (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
-  location TEXT NOT NULL,
+  location TEXT,
+  gps_address TEXT,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  maps_url TEXT,
   pastor_in_charge TEXT,
   phone TEXT,
   email TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- 2. Core Member Table
+-- 3. CORE: MEMBERS
 CREATE TABLE IF NOT EXISTS public.members (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   first_name TEXT NOT NULL,
-  last_name TEXT,
+  last_name TEXT NOT NULL,
   email TEXT,
   phone TEXT,
-  gender TEXT DEFAULT 'Male',
+  gender TEXT,
   dob DATE,
   wedding_anniversary DATE,
-  date_joined DATE,
+  date_joined DATE DEFAULT CURRENT_DATE,
+  branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
   status TEXT DEFAULT 'Active',
-  follow_up_status TEXT DEFAULT 'Pending'
+  follow_up_status TEXT DEFAULT 'Pending',
+  last_seen TIMESTAMP WITH TIME ZONE,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  ministry TEXT,
+  role TEXT,
+  gps_address TEXT,
+  maps_url TEXT,
+  location_area TEXT,
+  marital_status TEXT,
+  invited_by TEXT,
+  prayer_request TEXT,
+  occupation TEXT,
+  place_of_work TEXT,
+  educational_level TEXT,
+  water_baptised BOOLEAN DEFAULT false,
+  holy_ghost_baptised BOOLEAN DEFAULT false,
+  hometown TEXT,
+  spouse_name TEXT,
+  spouse_phone TEXT,
+  children JSONB DEFAULT '[]',
+  emergency_contact_name TEXT,
+  emergency_contact_relationship TEXT,
+  emergency_contact_phone TEXT,
+  notify_birthday BOOLEAN DEFAULT true,
+  notify_events BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- 3. v2.0 Member Schema Upgrades
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS ministry TEXT DEFAULT 'N/A';
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES public.branches(id);
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS gps_address TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS maps_url TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS location_area TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS marital_status TEXT DEFAULT 'Single';
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS occupation TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS hometown TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS place_of_work TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS educational_level TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS invited_by TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS prayer_request TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS spouse_name TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS spouse_phone TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS children JSONB DEFAULT '[]'::jsonb;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS emergency_contact_name TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS emergency_contact_relationship TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS emergency_contact_phone TEXT;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS water_baptised BOOLEAN DEFAULT false;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS holy_ghost_baptised BOOLEAN DEFAULT false;
-ALTER TABLE public.members ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT now();
-
--- 4. Enrollment Queue Table
+-- 4. PIPELINE: ENROLLMENT QUEUE
 CREATE TABLE IF NOT EXISTS public.member_enrollment_queue (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   first_name TEXT NOT NULL,
-  last_name TEXT,
-  status TEXT DEFAULT 'Pending'
+  last_name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  gender TEXT,
+  dob DATE,
+  wedding_anniversary DATE,
+  date_joined DATE DEFAULT CURRENT_DATE,
+  branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
+  status TEXT DEFAULT 'Pending',
+  follow_up_status TEXT DEFAULT 'Pending',
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  ministry TEXT,
+  gps_address TEXT,
+  maps_url TEXT,
+  location_area TEXT,
+  marital_status TEXT,
+  occupation TEXT,
+  place_of_work TEXT,
+  educational_level TEXT,
+  water_baptised BOOLEAN DEFAULT false,
+  holy_ghost_baptised BOOLEAN DEFAULT false,
+  hometown TEXT,
+  spouse_name TEXT,
+  spouse_phone TEXT,
+  children JSONB DEFAULT '[]',
+  emergency_contact_name TEXT,
+  emergency_contact_relationship TEXT,
+  emergency_contact_phone TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- 5. v2.0 Queue Schema Upgrades
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS first_name TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS gender TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS phone TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS email TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS gps_address TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS maps_url TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS dob DATE;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS marital_status TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS wedding_anniversary DATE;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS occupation TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS hometown TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS spouse_name TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS spouse_phone TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS children JSONB DEFAULT '[]'::jsonb;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS emergency_contact_name TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS emergency_contact_relationship TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS emergency_contact_phone TEXT;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES public.branches(id);
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS water_baptised BOOLEAN DEFAULT false;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS holy_ghost_baptised BOOLEAN DEFAULT false;
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS ministry TEXT DEFAULT 'N/A';
-ALTER TABLE public.member_enrollment_queue ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT now();
-
--- Ensure RLS is active
-ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.member_enrollment_queue ENABLE ROW LEVEL SECURITY;
-
--- Basic Policies
-DROP POLICY IF EXISTS "Enable all access for authenticated users" ON public.members;
-CREATE POLICY "Enable all access for authenticated users" ON public.members FOR ALL USING (true);
-
-DROP POLICY IF EXISTS "Public can enroll" ON public.member_enrollment_queue;
-CREATE POLICY "Public can enroll" ON public.member_enrollment_queue FOR INSERT WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Authenticated can manage queue" ON public.member_enrollment_queue;
-CREATE POLICY "Authenticated can manage queue" ON public.member_enrollment_queue FOR ALL USING (true);
+-- 5. LEADERSHIP & MINISTRIES
+CREATE TABLE IF NOT EXISTS public.leadership (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  position TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'Worker',
+  ministry TEXT,
+  email TEXT,
+  phone TEXT,
+  image_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
 
 CREATE TABLE IF NOT EXISTS public.ministries (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
-  ministry TEXT, -- Parent category
-  leader_id UUID REFERENCES public.members(id),
+  leader_id UUID REFERENCES public.leadership(id) ON DELETE SET NULL,
   leader_name TEXT,
-  deputy_id UUID REFERENCES public.members(id),
+  deputy_id UUID REFERENCES public.leadership(id) ON DELETE SET NULL,
   deputy_name TEXT,
   email TEXT,
   description TEXT,
   meeting_schedule TEXT,
   status TEXT DEFAULT 'Active',
   color TEXT DEFAULT '#4f46e5',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- Ensure columns exist if table already there
-ALTER TABLE public.ministries ADD COLUMN IF NOT EXISTS leader_id UUID REFERENCES public.members(id);
-ALTER TABLE public.ministries ADD COLUMN IF NOT EXISTS deputy_id UUID REFERENCES public.members(id);
-ALTER TABLE public.ministries ADD COLUMN IF NOT EXISTS color TEXT DEFAULT '#4f46e5';
-
-CREATE TABLE IF NOT EXISTS public.ministry_members (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  member_id UUID REFERENCES public.members(id) ON DELETE CASCADE,
-  ministry_id UUID REFERENCES public.ministries(id) ON DELETE CASCADE,
-  ministry_name TEXT, -- Legacy support
-  role TEXT DEFAULT 'Member',
-  status TEXT DEFAULT 'Active',
-  joined_date DATE DEFAULT CURRENT_DATE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  UNIQUE(member_id, ministry_id)
-);
-
--- Ensure columns exist for ministry_members
-ALTER TABLE public.ministry_members ADD COLUMN IF NOT EXISTS ministry_id UUID REFERENCES public.ministries(id);
-ALTER TABLE public.ministry_members ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Active';
-
-CREATE TABLE IF NOT EXISTS public.ministry_attendance (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  ministry_id UUID REFERENCES public.ministries(id) ON DELETE CASCADE,
-  session_date DATE NOT NULL,
-  notes TEXT,
-  attendees JSONB DEFAULT '[]'::jsonb,
-  created_by UUID REFERENCES public.profiles(id),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.financial_records (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  service_date DATE NOT NULL,
-  service_type TEXT NOT NULL,
-  tithes NUMERIC DEFAULT 0,
-  offerings NUMERIC DEFAULT 0,
-  seed NUMERIC DEFAULT 0,
-  expenses NUMERIC DEFAULT 0,
-  other_income NUMERIC DEFAULT 0,
-  total_income NUMERIC DEFAULT 0,
-  bank_balance NUMERIC DEFAULT 0,
-  momo_balance NUMERIC DEFAULT 0,
-  witness1_name TEXT NOT NULL,
-  witness2_name TEXT NOT NULL,
-  notes TEXT,
-  status TEXT DEFAULT 'Posted',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
-
+-- 6. FINANCE: TITHE ENTRIES
 CREATE TABLE IF NOT EXISTS public.tithe_entries (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  member_id UUID NOT NULL,
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  member_id UUID NOT NULL REFERENCES public.members(id) ON DELETE CASCADE,
   amount NUMERIC NOT NULL,
   payment_date DATE NOT NULL,
   payment_method TEXT NOT NULL,
   service_type TEXT,
   recorded_by UUID,
   notes TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  CONSTRAINT fk_member FOREIGN KEY (member_id) REFERENCES public.members(id) ON DELETE CASCADE
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
-CREATE INDEX IF NOT EXISTS idx_tithe_member_id ON public.tithe_entries(member_id);
+-- 7. COLUMN REPAIRS (For existing tables)
+DO $$ 
+BEGIN 
+  -- Members Table Repairs
+  BEGIN ALTER TABLE public.members ADD COLUMN hometown TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN marital_status TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN phone TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN gps_address TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN maps_url TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN children JSONB DEFAULT '[]'; EXCEPTION WHEN duplicate_column THEN END;
+  
+  -- Queue Table Repairs
+  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN hometown TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN marital_status TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN phone TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN gps_address TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN maps_url TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN children JSONB DEFAULT '[]'; EXCEPTION WHEN duplicate_column THEN END;
+END $$;
 
-CREATE TABLE IF NOT EXISTS public.recurring_task_templates (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  title TEXT NOT NULL,
-  description TEXT,
-  service_type TEXT NOT NULL,
-  assigned_ministry TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.events (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  title TEXT NOT NULL,
-  category TEXT NOT NULL,
-  date DATE NOT NULL,
-  time TIME NOT NULL,
-  location TEXT,
-  description TEXT,
-  branch_id UUID REFERENCES public.branches(id) ON DELETE CASCADE,
-  status TEXT DEFAULT 'Upcoming',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  UNIQUE(date, category, branch_id)
-);
-
-CREATE TABLE IF NOT EXISTS public.task_instances (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  template_id UUID REFERENCES public.recurring_task_templates(id) ON DELETE SET NULL,
-  event_id UUID REFERENCES public.events(id) ON DELETE CASCADE,
-  title TEXT NOT NULL,
-  description TEXT,
-  status TEXT DEFAULT 'Pending',
-  assigned_to TEXT,
-  due_date DATE NOT NULL,
-  completed_at TIMESTAMP WITH TIME ZONE,
-  completed_by UUID REFERENCES public.profiles(id),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.leadership (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  first_name TEXT NOT NULL,
-  last_name TEXT NOT NULL,
-  position TEXT NOT NULL,
-  category TEXT NOT NULL,
-  department TEXT,
-  email TEXT,
-  phone TEXT,
-  image_url TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
-
+-- 8. SECURITY (RLS)
+ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.financial_records ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.tithe_entries ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.recurring_task_templates ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.task_instances ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.leadership ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.member_enrollment_queue ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.leadership ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ministries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tithe_entries ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Allow all for staff" ON public.members;
-CREATE POLICY "Allow all for staff" ON public.members FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all access" ON public.branches;
+CREATE POLICY "Allow all access" ON public.branches FOR ALL USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Allow public enrollment" ON public.member_enrollment_queue;
-CREATE POLICY "Allow public enrollment" ON public.member_enrollment_queue FOR INSERT TO public WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all access" ON public.members;
+CREATE POLICY "Allow all access" ON public.members FOR ALL USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Allow staff manage enrollment" ON public.member_enrollment_queue;
-CREATE POLICY "Allow staff manage enrollment" ON public.member_enrollment_queue FOR ALL TO public USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all access" ON public.member_enrollment_queue;
+CREATE POLICY "Allow all access" ON public.member_enrollment_queue FOR ALL USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Allow all for staff" ON public.financial_records;
-CREATE POLICY "Allow all for staff" ON public.financial_records FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all access" ON public.leadership;
+CREATE POLICY "Allow all access" ON public.leadership FOR ALL USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Allow all for staff" ON public.tithe_entries;
-CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all access" ON public.ministries;
+CREATE POLICY "Allow all access" ON public.ministries FOR ALL USING (true) WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Allow all for staff" ON public.recurring_task_templates;
-CREATE POLICY "Allow all for staff" ON public.recurring_task_templates FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Allow all for staff" ON public.task_instances;
-CREATE POLICY "Allow all for staff" ON public.task_instances FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Allow all for staff" ON public.events;
-CREATE POLICY "Allow all for staff" ON public.events FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Allow all for staff" ON public.leadership;
-CREATE POLICY "Allow all for staff" ON public.leadership FOR ALL USING (true) WITH CHECK (true);
-
--- FORCE SCHEMA CACHE RELOAD
+-- 9. SCHEMA REFRESH
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';
 NOTIFY pgrst, 'reload schema';`;
 
     return (
@@ -1094,56 +970,6 @@ NOTIFY pgrst, 'reload schema';`;
               <div className="py-20 text-center opacity-30">
                 <Users className="w-12 h-12 mx-auto mb-4" />
                 <p className="text-[10px] font-black uppercase tracking-widest">Registry is empty</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Pending Enrollments List */}
-        <div className="bg-white rounded-[2.5rem] border border-slate-200/50 shadow-sm overflow-hidden">
-          <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <UserPlus className="w-4 h-4 text-amber-500" />
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Enrollment Queue</h3>
-            </div>
-            {pendingEnrollments.length > 0 && (
-              <span className="px-2 py-1 bg-amber-100 text-amber-600 rounded-lg text-[9px] font-black uppercase tracking-widest">
-                {pendingEnrollments.length} Pending
-              </span>
-            )}
-          </div>
-          <div className="divide-y divide-slate-50 max-h-[400px] overflow-y-auto">
-            {pendingEnrollments.length > 0 ? pendingEnrollments.map((en, idx) => (
-              <div key={idx} className="flex flex-col md:flex-row md:items-center justify-between p-6 hover:bg-slate-50/50 transition-all group gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black text-sm shadow-lg group-hover:scale-110 transition-transform">
-                    {en.first_name ? en.first_name[0] : '?'}{en.last_name ? en.last_name[0] : ''}
-                  </div>
-                  <div>
-                    <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{en.first_name} {en.last_name}</p>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">{en.phone} • {en.ministry}</p>
-                    <p className="text-[8px] text-slate-400 font-medium italic">{en.gps_address}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button 
-                    onClick={() => approveEnrollment(en)}
-                    className="px-4 py-2 bg-fh-green text-fh-gold rounded-xl text-[9px] font-black uppercase tracking-widest shadow-md hover:bg-black transition-all flex items-center gap-2"
-                  >
-                    <CheckCircle2 className="w-3 h-3" /> Approve
-                  </button>
-                  <button 
-                    onClick={() => rejectEnrollment(en.id)}
-                    className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest text-rose-500 hover:bg-rose-50 transition-all shadow-sm"
-                  >
-                    Reject
-                  </button>
-                </div>
-              </div>
-            )) : (
-              <div className="py-20 text-center opacity-30">
-                <CheckCircle2 className="w-12 h-12 mx-auto mb-4" />
-                <p className="text-[10px] font-black uppercase tracking-widest">Queue is clear</p>
               </div>
             )}
           </div>

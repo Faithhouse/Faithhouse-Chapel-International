@@ -397,36 +397,72 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ currentUser }) => {
   }
 
   if (schemaError) {
-     let repairSQL = '';
-     
-     if (schemaError === "INITIALIZATION_REQUIRED") {
-       repairSQL = `-- MASTER DATABASE REPAIR SCRIPT
--- 1. Create Branches Table
+    const repairSQL = `-- FAITHHOUSE COMPREHENSIVE SYSTEM REPAIR v6.0
+-- Ensures all core infrastructure and data tables are fully synchronized.
+
+-- 1. EXTENSIONS
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 2. INFRASTRUCTURE: BRANCHES
 CREATE TABLE IF NOT EXISTS public.branches (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
   location TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+  gps_address TEXT,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  maps_url TEXT,
+  pastor_in_charge TEXT,
+  phone TEXT,
+  email TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- 2. Create Events Table with Unique Constraint
-CREATE TABLE IF NOT EXISTS public.events (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  title TEXT NOT NULL,
-  category TEXT NOT NULL,
-  date DATE NOT NULL,
-  time TIME NOT NULL,
-  location TEXT,
-  description TEXT,
-  branch_id UUID REFERENCES public.branches(id) ON DELETE CASCADE,
-  status TEXT DEFAULT 'Upcoming',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  UNIQUE(date, category, branch_id)
+-- 3. CORE: MEMBERS
+CREATE TABLE IF NOT EXISTS public.members (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  gender TEXT,
+  dob DATE,
+  wedding_anniversary DATE,
+  date_joined DATE DEFAULT CURRENT_DATE,
+  branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
+  status TEXT DEFAULT 'Active',
+  follow_up_status TEXT DEFAULT 'Pending',
+  last_seen TIMESTAMP WITH TIME ZONE,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  ministry TEXT,
+  role TEXT,
+  gps_address TEXT,
+  maps_url TEXT,
+  location_area TEXT,
+  marital_status TEXT,
+  invited_by TEXT,
+  prayer_request TEXT,
+  occupation TEXT,
+  place_of_work TEXT,
+  educational_level TEXT,
+  water_baptised BOOLEAN DEFAULT false,
+  holy_ghost_baptised BOOLEAN DEFAULT false,
+  hometown TEXT,
+  spouse_name TEXT,
+  spouse_phone TEXT,
+  children JSONB DEFAULT '[]',
+  emergency_contact_name TEXT,
+  emergency_contact_relationship TEXT,
+  emergency_contact_phone TEXT,
+  notify_birthday BOOLEAN DEFAULT true,
+  notify_events BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- 3. Create Attendance Events Table with Unique Constraint
+-- 4. ATTENDANCE SYSTEM
 CREATE TABLE IF NOT EXISTS public.attendance_events (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   event_name TEXT NOT NULL,
   event_type TEXT NOT NULL,
   event_date DATE NOT NULL,
@@ -437,68 +473,62 @@ CREATE TABLE IF NOT EXISTS public.attendance_events (
   children_count INTEGER DEFAULT 0,
   young_adult_count INTEGER DEFAULT 0,
   teen_count INTEGER DEFAULT 0,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
   UNIQUE(event_date, event_type, branch_id)
 );
 
--- 4. Create Attendance Records Table
 CREATE TABLE IF NOT EXISTS public.attendance_records (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  attendance_event_id UUID NOT NULL REFERENCES attendance_events(id) ON DELETE CASCADE,
-  member_id UUID NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  attendance_event_id UUID NOT NULL REFERENCES public.attendance_events(id) ON DELETE CASCADE,
+  member_id UUID NOT NULL REFERENCES public.members(id) ON DELETE CASCADE,
   status TEXT NOT NULL,
   notes TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
   UNIQUE(attendance_event_id, member_id)
 );
 
--- 5. Enable RLS
+-- 5. COLUMN REPAIRS (For existing tables)
+DO $$ 
+BEGIN 
+  -- Members Table Repairs
+  BEGIN ALTER TABLE public.members ADD COLUMN hometown TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN marital_status TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN phone TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN gps_address TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN maps_url TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN children JSONB DEFAULT '[]'; EXCEPTION WHEN duplicate_column THEN END;
+  
+  -- Attendance Events Repairs
+  BEGIN ALTER TABLE public.attendance_events ADD COLUMN men_count INTEGER DEFAULT 0; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.attendance_events ADD COLUMN women_count INTEGER DEFAULT 0; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.attendance_events ADD COLUMN children_count INTEGER DEFAULT 0; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.attendance_events ADD COLUMN total_attendance INTEGER DEFAULT 0; EXCEPTION WHEN duplicate_column THEN END;
+END $$;
+
+-- 6. SECURITY (RLS)
 ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.attendance_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.attendance_records ENABLE ROW LEVEL SECURITY;
 
--- 6. Create Permissive Policies
-DROP POLICY IF EXISTS "Allow all" ON public.branches;
-CREATE POLICY "Allow all" ON public.branches FOR ALL USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Allow all for staff" ON public.events;
-CREATE POLICY "Allow all for staff" ON public.events FOR ALL USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Allow all" ON public.attendance_events;
-CREATE POLICY "Allow all" ON public.attendance_events FOR ALL USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "Allow all" ON public.attendance_records;
-CREATE POLICY "Allow all" ON public.attendance_records FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all access" ON public.branches;
+CREATE POLICY "Allow all access" ON public.branches FOR ALL USING (true) WITH CHECK (true);
 
--- 7. REFRESH SCHEMA CACHE
+DROP POLICY IF EXISTS "Allow all access" ON public.members;
+CREATE POLICY "Allow all access" ON public.members FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all access" ON public.attendance_events;
+CREATE POLICY "Allow all access" ON public.attendance_events FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all access" ON public.attendance_records;
+CREATE POLICY "Allow all access" ON public.attendance_records FOR ALL USING (true) WITH CHECK (true);
+
+-- 7. SCHEMA REFRESH
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';
 NOTIFY pgrst, 'reload schema';`;
-     } else {
-        repairSQL = `-- SCHEMA REPAIR: ADD UUID DEFAULTS & UNIQUE CONSTRAINTS
-ALTER TABLE public.attendance_records 
-ALTER COLUMN id SET DEFAULT gen_random_uuid();
-
--- ENSURE ALL ATTENDANCE COLUMNS EXIST
-ALTER TABLE public.attendance_events ADD COLUMN IF NOT EXISTS total_attendance INTEGER DEFAULT 0;
-ALTER TABLE public.attendance_events ADD COLUMN IF NOT EXISTS children_count INTEGER DEFAULT 0;
-ALTER TABLE public.attendance_events ADD COLUMN IF NOT EXISTS young_adult_count INTEGER DEFAULT 0;
-ALTER TABLE public.attendance_events ADD COLUMN IF NOT EXISTS teen_count INTEGER DEFAULT 0;
-ALTER TABLE public.attendance_events ADD COLUMN IF NOT EXISTS men_count INTEGER DEFAULT 0;
-ALTER TABLE public.attendance_events ADD COLUMN IF NOT EXISTS women_count INTEGER DEFAULT 0;
-
--- VISITOR REGISTRY SYNC
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'unique_event_member') THEN
-    ALTER TABLE public.attendance_records ADD CONSTRAINT unique_event_member UNIQUE (attendance_event_id, member_id);
-  END IF;
-EXCEPTION
-  WHEN duplicate_table THEN NULL;
-  WHEN others THEN
-    -- Fallback if the above fails: try to drop and recreate if it exists under a different name or just force it
-    ALTER TABLE public.attendance_records DROP CONSTRAINT IF EXISTS attendance_records_attendance_event_id_member_id_key;
-    ALTER TABLE public.attendance_records ADD CONSTRAINT unique_event_member UNIQUE (attendance_event_id, member_id);
-END $$;
-
--- REFRESH SCHEMA CACHE
-NOTIFY pgrst, 'reload schema';`;
-     }
 
      return (
        <div className="max-w-4xl mx-auto py-12 px-4 animate-in zoom-in-95">

@@ -43,6 +43,7 @@ const PublicEnrollmentView: React.FC = () => {
   });
 
   const [isSystemReady, setIsSystemReady] = useState<boolean | null>(null);
+  const [repairSQL, setRepairSQL] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
@@ -55,6 +56,124 @@ const PublicEnrollmentView: React.FC = () => {
   // Data Fetching
   useEffect(() => {
     const initPortal = async () => {
+      const sql = `-- FAITHHOUSE COMPREHENSIVE SYSTEM REPAIR v6.0
+-- Ensures all core infrastructure and data tables are fully synchronized.
+
+-- 1. EXTENSIONS
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 2. INFRASTRUCTURE: BRANCHES
+CREATE TABLE IF NOT EXISTS public.branches (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  location TEXT,
+  gps_address TEXT,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  maps_url TEXT,
+  pastor_in_charge TEXT,
+  phone TEXT,
+  email TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+-- 3. CORE: MEMBERS
+CREATE TABLE IF NOT EXISTS public.members (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  gender TEXT,
+  dob DATE,
+  wedding_anniversary DATE,
+  date_joined DATE DEFAULT CURRENT_DATE,
+  branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
+  status TEXT DEFAULT 'Active',
+  follow_up_status TEXT DEFAULT 'Pending',
+  last_seen TIMESTAMP WITH TIME ZONE,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  ministry TEXT,
+  role TEXT,
+  gps_address TEXT,
+  maps_url TEXT,
+  location_area TEXT,
+  marital_status TEXT,
+  invited_by TEXT,
+  prayer_request TEXT,
+  occupation TEXT,
+  place_of_work TEXT,
+  educational_level TEXT,
+  water_baptised BOOLEAN DEFAULT false,
+  holy_ghost_baptised BOOLEAN DEFAULT false,
+  hometown TEXT,
+  spouse_name TEXT,
+  spouse_phone TEXT,
+  children JSONB DEFAULT '[]',
+  emergency_contact_name TEXT,
+  emergency_contact_relationship TEXT,
+  emergency_contact_phone TEXT,
+  notify_birthday BOOLEAN DEFAULT true,
+  notify_events BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+-- 4. PIPELINE: ENROLLMENT QUEUE
+CREATE TABLE IF NOT EXISTS public.member_enrollment_queue (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  gender TEXT,
+  dob DATE,
+  wedding_anniversary DATE,
+  date_joined DATE DEFAULT CURRENT_DATE,
+  branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
+  status TEXT DEFAULT 'Pending',
+  follow_up_status TEXT DEFAULT 'Pending',
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  ministry TEXT,
+  gps_address TEXT,
+  maps_url TEXT,
+  location_area TEXT,
+  marital_status TEXT,
+  occupation TEXT,
+  place_of_work TEXT,
+  educational_level TEXT,
+  water_baptised BOOLEAN DEFAULT false,
+  holy_ghost_baptised BOOLEAN DEFAULT false,
+  hometown TEXT,
+  spouse_name TEXT,
+  spouse_phone TEXT,
+  children JSONB DEFAULT '[]',
+  emergency_contact_name TEXT,
+  emergency_contact_relationship TEXT,
+  emergency_contact_phone TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+-- 5. RLS POLICIES
+ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.member_enrollment_queue ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow all access" ON public.branches;
+CREATE POLICY "Allow all access" ON public.branches FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all access" ON public.members;
+CREATE POLICY "Allow all access" ON public.members FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow staff manage enrollment" ON public.member_enrollment_queue;
+CREATE POLICY "Allow staff manage enrollment" ON public.member_enrollment_queue FOR ALL TO public USING (true) WITH CHECK (true);
+
+-- 6. SCHEMA REFRESH
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';`;
+      setRepairSQL(sql);
+
       try {
         const [branchesRes, queueCheckRes, ministriesRes, settingsRes] = await Promise.all([
           supabase.from('branches').select('*'),
@@ -157,8 +276,8 @@ const PublicEnrollmentView: React.FC = () => {
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.from('member_enrollment_queue').insert([
-        { ...formData, branch_id: formData.branch_id || null, status: 'Pending' }
+      const { error } = await supabase.from('members').insert([
+        { ...formData, branch_id: formData.branch_id || null, status: 'Active' }
       ]);
 
       if (error) {
@@ -213,7 +332,13 @@ const PublicEnrollmentView: React.FC = () => {
           <div className="px-4 py-2 bg-slate-50 rounded-full border border-slate-100 mb-8 inline-block">
              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Code: ERR_RELATION_NOT_FOUND</p>
           </div>
-          <button onClick={() => window.location.reload()} className="w-full py-5 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all active:scale-95">Try Again</button>
+          <pre className="bg-slate-900 text-fh-gold p-4 rounded-xl text-[8px] font-mono text-left h-32 overflow-y-auto mb-8 shadow-inner border border-fh-gold/10">
+            {repairSQL}
+          </pre>
+          <div className="flex gap-4">
+            <button onClick={() => { navigator.clipboard.writeText(repairSQL); toast.success('SQL Script copied.'); }} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-slate-200 transition-all">Copy Script</button>
+            <button onClick={() => window.location.reload()} className="flex-1 py-4 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:shadow-2xl transition-all">Verify Setup</button>
+          </div>
         </motion.div>
       </div>
     );

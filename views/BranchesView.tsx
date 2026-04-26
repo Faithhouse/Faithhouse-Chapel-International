@@ -196,6 +196,99 @@ const BranchesView: React.FC<BranchesViewProps> = () => {
   };
 
   if (tableError) {
+    const repairSQL = `-- FAITHHOUSE COMPREHENSIVE SYSTEM REPAIR v6.0
+-- Ensures all core infrastructure and data tables are fully synchronized.
+
+-- 1. EXTENSIONS
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 2. INFRASTRUCTURE: BRANCHES
+CREATE TABLE IF NOT EXISTS public.branches (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  location TEXT,
+  gps_address TEXT,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  maps_url TEXT,
+  pastor_in_charge TEXT,
+  phone TEXT,
+  email TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+-- 3. CORE: MEMBERS
+CREATE TABLE IF NOT EXISTS public.members (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  gender TEXT,
+  dob DATE,
+  wedding_anniversary DATE,
+  date_joined DATE DEFAULT CURRENT_DATE,
+  branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
+  status TEXT DEFAULT 'Active',
+  follow_up_status TEXT DEFAULT 'Pending',
+  last_seen TIMESTAMP WITH TIME ZONE,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  ministry TEXT,
+  role TEXT,
+  gps_address TEXT,
+  maps_url TEXT,
+  location_area TEXT,
+  marital_status TEXT,
+  invited_by TEXT,
+  prayer_request TEXT,
+  occupation TEXT,
+  place_of_work TEXT,
+  educational_level TEXT,
+  water_baptised BOOLEAN DEFAULT false,
+  holy_ghost_baptised BOOLEAN DEFAULT false,
+  hometown TEXT,
+  spouse_name TEXT,
+  spouse_phone TEXT,
+  children JSONB DEFAULT '[]',
+  emergency_contact_name TEXT,
+  emergency_contact_relationship TEXT,
+  emergency_contact_phone TEXT,
+  notify_birthday BOOLEAN DEFAULT true,
+  notify_events BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+-- 4. COLUMN REPAIRS (For existing tables)
+DO $$ 
+BEGIN 
+  -- Branches Repairs
+  BEGIN ALTER TABLE public.branches ADD COLUMN gps_address TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.branches ADD COLUMN maps_url TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.branches ADD COLUMN latitude DOUBLE PRECISION; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.branches ADD COLUMN longitude DOUBLE PRECISION; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.branches ADD COLUMN pastor_in_charge TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.branches ADD COLUMN phone TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.branches ADD COLUMN email TEXT; EXCEPTION WHEN duplicate_column THEN END;
+END $$;
+
+-- 5. SECURITY (RLS)
+ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow all access" ON public.branches;
+CREATE POLICY "Allow all access" ON public.branches FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all access" ON public.members;
+CREATE POLICY "Allow all access" ON public.members FOR ALL USING (true) WITH CHECK (true);
+
+-- 6. SCHEMA REFRESH
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';`;
+
     return (
       <div className="max-w-4xl mx-auto py-12 px-4 animate-in fade-in zoom-in-95 duration-500">
         <div className="bg-white border border-slate-200 p-10 rounded-3xl shadow-xl text-center">
@@ -203,38 +296,14 @@ const BranchesView: React.FC<BranchesViewProps> = () => {
             <svg className="w-10 h-10 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
           </div>
           <h2 className="text-2xl font-bold text-slate-800 mb-4">Database Error: {tableError}</h2>
-          <p className="text-slate-500 mb-8 max-w-lg mx-auto font-medium">The system detected that your <code>branches</code> table is either missing or missing the <code>email</code> column. Please run this SQL script to repair it.</p>
+          <p className="text-slate-500 mb-8 max-w-lg mx-auto font-medium">The system detected that your <code>branches</code> table is either missing or out of sync. Please run this SQL script to repair it.</p>
           <div className="relative group">
-            <pre className="bg-slate-900 text-slate-300 p-6 rounded-2xl text-left text-[11px] font-mono overflow-x-auto h-64 shadow-inner leading-relaxed border border-slate-800">
-{`-- CLEAN SLATE: Recreate the branches table with the correct columns
-drop table if exists branches cascade;
-
-create table branches (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  location text not null,
-  pastor_in_charge text,
-  phone text,
-  email text,
-  gps_address text,
-  maps_url text,
-  latitude double precision,
-  longitude double precision,
-  created_at timestamp with time zone default now()
-);
-
--- Note: In existing systems, run: 
--- ALTER TABLE branches ADD COLUMN gps_address text, ADD COLUMN maps_url text, ADD COLUMN latitude double precision, ADD COLUMN longitude double precision;
-
-
--- Re-enable security
-alter table branches enable row level security;
-create policy "Allow all actions for now" on branches for all using (true) with check (true);`}
+            <pre className="bg-slate-900 text-slate-300 p-6 rounded-2xl text-left text-[11px] font-mono overflow-x-auto h-64 shadow-inner leading-relaxed border border-slate-800 whitespace-pre-wrap">
+              {repairSQL}
             </pre>
             <button 
               onClick={() => {
-                const sql = `drop table if exists branches cascade; create table branches (id uuid primary key default gen_random_uuid(), name text not null, location text not null, pastor_in_charge text, phone text, email text, gps_address text, maps_url text, latitude double precision, longitude double precision, created_at timestamp with time zone default now()); alter table branches enable row level security; create policy "Allow all actions for now" on branches for all using (true) with check (true);`;
-                navigator.clipboard.writeText(sql);
+                navigator.clipboard.writeText(repairSQL);
                 alert('Repair script copied to clipboard!');
               }}
               className="absolute top-4 right-4 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-lg active:scale-95"
@@ -253,6 +322,7 @@ create policy "Allow all actions for now" on branches for all using (true) with 
       </div>
     );
   }
+
 
   return (
     <div className="space-y-6 md:space-y-10 animate-in fade-in duration-700 pb-20">

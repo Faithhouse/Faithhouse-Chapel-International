@@ -325,50 +325,122 @@ const UsersView: React.FC<UsersViewProps> = ({ currentUser }) => {
   };
 
   if (dbError) {
-    const repairSQL = `-- USER DIRECTORY SCHEMA REPAIR (ROBUST VERSION)
--- This script converts the role column to TEXT to allow dynamic ministry roles
--- and handles dependencies on policies.
+    const repairSQL = `-- FAITHHOUSE COMPREHENSIVE SYSTEM REPAIR v6.0
+-- Ensures all core infrastructure and data tables are fully synchronized.
 
--- 1. Temporarily drop policies that block the alteration
-DROP POLICY IF EXISTS "Only high-level admins can update system settings" ON public.system_settings;
-DROP POLICY IF EXISTS "Allow all for staff" ON public.profiles;
-DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
-DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
-DROP POLICY IF EXISTS "Admins can update temp passwords" ON public.profiles;
-DROP POLICY IF EXISTS "Admins can manage all profiles" ON public.profiles;
-DROP POLICY IF EXISTS "Staff can view all profiles" ON public.profiles;
-DROP POLICY IF EXISTS "Profiles are viewable by authenticated users" ON public.profiles;
-DROP POLICY IF EXISTS "Users can view their own profile" ON public.profiles;
-DROP POLICY IF EXISTS "Admins can do everything" ON public.profiles;
+-- 1. EXTENSIONS
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 2. Alter the column in profiles
-ALTER TABLE public.profiles 
-ALTER COLUMN role TYPE TEXT USING role::text;
-
--- 3. Re-create the policies
-CREATE POLICY "Only high-level admins can update system settings" 
-ON public.system_settings 
-FOR ALL 
-USING (
-  (SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('system_admin', 'general_overseer', 'admin')
+-- 2. INFRASTRUCTURE: BRANCHES
+CREATE TABLE IF NOT EXISTS public.branches (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  location TEXT,
+  gps_address TEXT,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  maps_url TEXT,
+  pastor_in_charge TEXT,
+  phone TEXT,
+  email TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
-CREATE POLICY "Allow all for staff" ON public.profiles FOR ALL USING (true) WITH CHECK (true);
+-- 3. CORE: MEMBERS & PROFILES
+CREATE TABLE IF NOT EXISTS public.members (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  gender TEXT,
+  dob DATE,
+  wedding_anniversary DATE,
+  date_joined DATE DEFAULT CURRENT_DATE,
+  branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
+  status TEXT DEFAULT 'Active',
+  follow_up_status TEXT DEFAULT 'Pending',
+  last_seen TIMESTAMP WITH TIME ZONE,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  ministry TEXT,
+  role TEXT,
+  gps_address TEXT,
+  maps_url TEXT,
+  location_area TEXT,
+  marital_status TEXT,
+  invited_by TEXT,
+  prayer_request TEXT,
+  occupation TEXT,
+  place_of_work TEXT,
+  educational_level TEXT,
+  water_baptised BOOLEAN DEFAULT false,
+  holy_ghost_baptised BOOLEAN DEFAULT false,
+  hometown TEXT,
+  spouse_name TEXT,
+  spouse_phone TEXT,
+  children JSONB DEFAULT '[]',
+  emergency_contact_name TEXT,
+  emergency_contact_relationship TEXT,
+  emergency_contact_phone TEXT,
+  notify_birthday BOOLEAN DEFAULT true,
+  notify_events BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
 
--- Optional: Re-create more specific policies if needed
--- CREATE POLICY "Admins can update temp passwords" ON public.profiles FOR UPDATE USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('admin', 'system_admin') );
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users ON DELETE CASCADE,
+  email TEXT,
+  full_name TEXT,
+  role TEXT DEFAULT 'worker',
+  is_active BOOLEAN DEFAULT true,
+  temp_password TEXT,
+  created_by UUID,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
 
--- 4. Ensure other columns and defaults exist
-ALTER TABLE public.profiles 
-ALTER COLUMN id SET DEFAULT gen_random_uuid();
+-- 4. COLUMN REPAIRS (For existing tables)
+DO $$ 
+BEGIN 
+  -- Profiles Table Repairs
+  BEGIN ALTER TABLE public.profiles ALTER COLUMN role TYPE TEXT USING role::text; EXCEPTION WHEN others THEN END;
+  BEGIN ALTER TABLE public.profiles ADD COLUMN temp_password TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.profiles ADD COLUMN is_active BOOLEAN DEFAULT true; EXCEPTION WHEN duplicate_column THEN END;
+  
+  -- Policy Patching (Allows role alteration)
+  DROP POLICY IF EXISTS "Only high-level admins can update system settings" ON public.system_settings;
+  BEGIN
+    CREATE POLICY "Only high-level admins can update system settings" 
+    ON public.system_settings 
+    FOR ALL 
+    USING (
+      (SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('system_admin', 'general_overseer', 'admin')
+    );
+  EXCEPTION WHEN others THEN END;
+END $$;
 
-ALTER TABLE public.profiles 
-ADD COLUMN IF NOT EXISTS temp_password TEXT,
-ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true,
-ADD COLUMN IF NOT EXISTS created_by UUID;
+-- 5. SECURITY (RLS)
+ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
--- Refresh the schema cache
+DROP POLICY IF EXISTS "Allow all access" ON public.branches;
+CREATE POLICY "Allow all access" ON public.branches FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all access" ON public.members;
+CREATE POLICY "Allow all access" ON public.members FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all access" ON public.profiles;
+CREATE POLICY "Allow all access" ON public.profiles FOR ALL USING (true) WITH CHECK (true);
+
+-- 6. SCHEMA REFRESH
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';
 NOTIFY pgrst, 'reload schema';`;
+
 
     return (
       <div className="max-w-4xl mx-auto py-12 px-4 animate-in zoom-in-95 duration-500">

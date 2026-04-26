@@ -501,25 +501,72 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
   }).format(val);
 
   if (tableMissing || (lastError && lastError.includes('PGRST200'))) {
-    const repairSQL = `-- MASTER FINANCIAL RECORDS REPAIR SCRIPT
--- 1. Ensure members table exists
-CREATE TABLE IF NOT EXISTS public.members (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  first_name TEXT NOT NULL,
-  last_name TEXT,
-  email TEXT,
+    const repairSQL = `-- FAITHHOUSE COMPREHENSIVE SYSTEM REPAIR v6.0
+-- Ensures all core infrastructure and data tables are fully synchronized.
+
+-- 1. EXTENSIONS
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 2. INFRASTRUCTURE: BRANCHES
+CREATE TABLE IF NOT EXISTS public.branches (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  location TEXT,
+  gps_address TEXT,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  maps_url TEXT,
+  pastor_in_charge TEXT,
   phone TEXT,
-  gender TEXT DEFAULT 'Male',
-  dob DATE,
-  date_joined DATE,
-  status TEXT DEFAULT 'Active',
-  ministry TEXT DEFAULT 'N/A',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+  email TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- 2. Ensure financial_records table exists
+-- 3. CORE: MEMBERS
+CREATE TABLE IF NOT EXISTS public.members (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  gender TEXT,
+  dob DATE,
+  wedding_anniversary DATE,
+  date_joined DATE DEFAULT CURRENT_DATE,
+  branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
+  status TEXT DEFAULT 'Active',
+  follow_up_status TEXT DEFAULT 'Pending',
+  last_seen TIMESTAMP WITH TIME ZONE,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  ministry TEXT,
+  role TEXT,
+  gps_address TEXT,
+  maps_url TEXT,
+  location_area TEXT,
+  marital_status TEXT,
+  invited_by TEXT,
+  prayer_request TEXT,
+  occupation TEXT,
+  place_of_work TEXT,
+  educational_level TEXT,
+  water_baptised BOOLEAN DEFAULT false,
+  holy_ghost_baptised BOOLEAN DEFAULT false,
+  hometown TEXT,
+  spouse_name TEXT,
+  spouse_phone TEXT,
+  children JSONB DEFAULT '[]',
+  emergency_contact_name TEXT,
+  emergency_contact_relationship TEXT,
+  emergency_contact_phone TEXT,
+  notify_birthday BOOLEAN DEFAULT true,
+  notify_events BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+-- 4. FINANCE: FINANCIAL RECORDS & TITHES
 CREATE TABLE IF NOT EXISTS public.financial_records (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   service_date DATE NOT NULL,
   service_type TEXT NOT NULL,
   tithes NUMERIC DEFAULT 0,
@@ -534,47 +581,56 @@ CREATE TABLE IF NOT EXISTS public.financial_records (
   witness2_name TEXT NOT NULL,
   notes TEXT,
   status TEXT DEFAULT 'Posted',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- 3. Ensure tithe_entries table exists
 CREATE TABLE IF NOT EXISTS public.tithe_entries (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  member_id UUID NOT NULL,
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  member_id UUID NOT NULL REFERENCES public.members(id) ON DELETE CASCADE,
   amount NUMERIC NOT NULL,
   payment_date DATE NOT NULL,
   payment_method TEXT NOT NULL,
   service_type TEXT,
   recorded_by UUID,
   notes TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- 4. CRITICAL: Fix missing relationship (PGRST200 Error Fix)
+-- 5. COLUMN REPAIRS (For existing tables)
 DO $$ 
 BEGIN 
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_member') THEN
-    ALTER TABLE public.tithe_entries 
-    ADD CONSTRAINT fk_member 
-    FOREIGN KEY (member_id) REFERENCES public.members(id) 
-    ON DELETE CASCADE;
-  END IF;
+  -- Members Table Repairs
+  BEGIN ALTER TABLE public.members ADD COLUMN hometown TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN marital_status TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN phone TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN gps_address TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN maps_url TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN children JSONB DEFAULT '[]'; EXCEPTION WHEN duplicate_column THEN END;
 END $$;
 
--- 5. Enable RLS and Policies
-ALTER TABLE public.financial_records ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Allow all actions for staff" ON public.financial_records;
-CREATE POLICY "Allow all actions for staff" ON public.financial_records FOR ALL USING (true) WITH CHECK (true);
-
-ALTER TABLE public.tithe_entries ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Allow all actions for staff" ON public.tithe_entries;
-CREATE POLICY "Allow all actions for staff" ON public.tithe_entries FOR ALL USING (true) WITH CHECK (true);
-
+-- 6. SECURITY (RLS)
+ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Allow all actions for staff" ON public.members;
-CREATE POLICY "Allow all actions for staff" ON public.members FOR ALL USING (true) WITH CHECK (true);
+ALTER TABLE public.financial_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tithe_entries ENABLE ROW LEVEL SECURITY;
 
--- 6. FORCE SCHEMA CACHE RELOAD
+DROP POLICY IF EXISTS "Allow all access" ON public.branches;
+CREATE POLICY "Allow all access" ON public.branches FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all access" ON public.members;
+CREATE POLICY "Allow all access" ON public.members FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all access" ON public.financial_records;
+CREATE POLICY "Allow all access" ON public.financial_records FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow all access" ON public.tithe_entries;
+CREATE POLICY "Allow all access" ON public.tithe_entries FOR ALL USING (true) WITH CHECK (true);
+
+-- 7. SCHEMA REFRESH
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload schema';
 NOTIFY pgrst, 'reload schema';`;
 
     return (
