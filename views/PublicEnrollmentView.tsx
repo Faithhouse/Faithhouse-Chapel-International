@@ -57,121 +57,44 @@ const PublicEnrollmentView: React.FC = () => {
   // Data Fetching
   useEffect(() => {
     const initPortal = async () => {
-      const sql = `-- FAITHHOUSE COMPREHENSIVE SYSTEM REPAIR v6.0
--- Ensures all core infrastructure and data tables are fully synchronized.
+      const sql = `-- FAITHHOUSE SYSTEM RECOVERY v7.0
+-- 1. DROP ALL VERSIONS OF THE FUNCTION
+DROP FUNCTION IF EXISTS public.enroll_or_update_member;
+DROP FUNCTION IF EXISTS public.enroll_or_update_member(text,text,text,date,text,text,text,text,numeric,numeric,text,text,text,text,text,jsonb,text,text,text,uuid,text,boolean,boolean);
 
--- 1. EXTENSIONS
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- 2. INFRASTRUCTURE: BRANCHES
-CREATE TABLE IF NOT EXISTS public.branches (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name TEXT NOT NULL,
-  location TEXT,
-  gps_address TEXT,
-  latitude DOUBLE PRECISION,
-  longitude DOUBLE PRECISION,
-  maps_url TEXT,
-  pastor_in_charge TEXT,
-  phone TEXT,
-  email TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
-);
-
--- 3. CORE: MEMBERS
-CREATE TABLE IF NOT EXISTS public.members (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  first_name TEXT NOT NULL,
-  last_name TEXT NOT NULL,
-  email TEXT,
-  phone TEXT,
-  gender TEXT,
-  dob DATE,
-  wedding_anniversary DATE,
-  date_joined DATE DEFAULT CURRENT_DATE,
-  branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
-  status TEXT DEFAULT 'Active',
-  follow_up_status TEXT DEFAULT 'Pending',
-  last_seen TIMESTAMP WITH TIME ZONE,
-  latitude DOUBLE PRECISION,
-  longitude DOUBLE PRECISION,
-  ministry TEXT,
-  role TEXT,
-  gps_address TEXT,
-  maps_url TEXT,
-  location_area TEXT,
-  marital_status TEXT,
-  invited_by TEXT,
-  prayer_request TEXT,
-  occupation TEXT,
-  place_of_work TEXT,
-  educational_level TEXT,
-  water_baptised BOOLEAN DEFAULT false,
-  holy_ghost_baptised BOOLEAN DEFAULT false,
-  hometown TEXT,
-  spouse_name TEXT,
-  spouse_phone TEXT,
-  children JSONB DEFAULT '[]',
-  emergency_contact_name TEXT,
-  emergency_contact_relationship TEXT,
-  emergency_contact_phone TEXT,
-  notify_birthday BOOLEAN DEFAULT true,
-  notify_events BOOLEAN DEFAULT true,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
-);
-
--- 4. PIPELINE: ENROLLMENT QUEUE
-CREATE TABLE IF NOT EXISTS public.member_enrollment_queue (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  first_name TEXT NOT NULL,
-  last_name TEXT NOT NULL,
-  email TEXT,
-  phone TEXT,
-  gender TEXT,
-  dob DATE,
-  wedding_anniversary DATE,
-  date_joined DATE DEFAULT CURRENT_DATE,
-  branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
-  status TEXT DEFAULT 'Pending',
-  follow_up_status TEXT DEFAULT 'Pending',
-  latitude DOUBLE PRECISION,
-  longitude DOUBLE PRECISION,
-  ministry TEXT,
-  gps_address TEXT,
-  maps_url TEXT,
-  location_area TEXT,
-  marital_status TEXT,
-  occupation TEXT,
-  place_of_work TEXT,
-  educational_level TEXT,
-  water_baptised BOOLEAN DEFAULT false,
-  holy_ghost_baptised BOOLEAN DEFAULT false,
-  hometown TEXT,
-  spouse_name TEXT,
-  spouse_phone TEXT,
-  children JSONB DEFAULT '[]',
-  emergency_contact_name TEXT,
-  emergency_contact_relationship TEXT,
-  emergency_contact_phone TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
-);
-
--- 5. RLS POLICIES
-ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.member_enrollment_queue ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Allow all access" ON public.branches;
-CREATE POLICY "Allow all access" ON public.branches FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Allow all access" ON public.members;
-CREATE POLICY "Allow all access" ON public.members FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Allow staff manage enrollment" ON public.member_enrollment_queue;
-CREATE POLICY "Allow staff manage enrollment" ON public.member_enrollment_queue FOR ALL TO public USING (true) WITH CHECK (true);
-
--- 6. SCHEMA REFRESH
-NOTIFY pgrst, 'reload schema';
+-- 2. CREATE FUNCTION
+CREATE OR REPLACE FUNCTION public.enroll_or_update_member(
+  p_first_name TEXT, p_last_name TEXT, p_gender TEXT, p_dob DATE, p_phone TEXT, p_email TEXT,
+  p_hometown TEXT, p_gps_address TEXT, p_latitude NUMERIC, p_longitude NUMERIC, p_maps_url TEXT,
+  p_occupation TEXT, p_marital_status TEXT, p_spouse_name TEXT, p_spouse_phone TEXT, p_children JSONB,
+  p_emergency_contact_name TEXT, p_emergency_contact_relationship TEXT, p_emergency_contact_phone TEXT,
+  p_branch_id UUID, p_ministry TEXT, p_water_baptised BOOLEAN, p_holy_ghost_baptised BOOLEAN
+) RETURNS JSONB SECURITY DEFINER LANGUAGE plpgsql AS $$
+DECLARE v_id UUID; v_count INT;
+BEGIN
+  SELECT COUNT(*), MIN(id) INTO v_count, v_id FROM public.members 
+  WHERE LOWER(TRIM(first_name)) = LOWER(TRIM(p_first_name)) AND LOWER(TRIM(last_name)) = LOWER(TRIM(p_last_name));
+  IF v_count = 0 THEN
+    INSERT INTO public.members (first_name, last_name, gender, dob, phone, email, hometown, gps_address, latitude, longitude, maps_url, occupation, marital_status, spouse_name, spouse_phone, children, emergency_contact_name, emergency_contact_relationship, emergency_contact_phone, branch_id, ministry, water_baptised, holy_ghost_baptised, status)
+    VALUES (p_first_name, p_last_name, p_gender, p_dob, p_phone, p_email, p_hometown, p_gps_address, p_latitude, p_longitude, p_maps_url, p_occupation, p_marital_status, p_spouse_name, p_spouse_phone, p_children, p_emergency_contact_name, p_emergency_contact_relationship, p_emergency_contact_phone, p_branch_id, p_ministry, p_water_baptised, p_holy_ghost_baptised, 'Active') RETURNING id INTO v_id;
+    RETURN jsonb_build_object('action', 'created', 'member_id', v_id);
+  ELSIF v_count = 1 THEN
+    UPDATE public.members SET 
+      gender = COALESCE(gender, p_gender),
+      dob = COALESCE(dob, p_dob),
+      phone = COALESCE(NULLIF(phone, ''), p_phone),
+      email = COALESCE(NULLIF(email, ''), p_email),
+      hometown = COALESCE(NULLIF(hometown, ''), p_hometown),
+      occupation = COALESCE(NULLIF(occupation, ''), p_occupation),
+      marital_status = COALESCE(marital_status, p_marital_status),
+      spouse_name = COALESCE(NULLIF(spouse_name, ''), p_spouse_name),
+      spouse_phone = COALESCE(NULLIF(spouse_phone, ''), p_spouse_phone)
+    WHERE id=v_id;
+    RETURN jsonb_build_object('action', 'updated', 'member_id', v_id);
+  ELSE RETURN jsonb_build_object('action', 'created_duplicate_warning', 'member_id', v_id);
+  END IF;
+END; $$;
+GRANT EXECUTE ON FUNCTION public.enroll_or_update_member TO anon;
 NOTIFY pgrst, 'reload schema';`;
       setRepairSQL(sql);
 
@@ -305,7 +228,20 @@ NOTIFY pgrst, 'reload schema';`;
 
       const { data, error } = await supabase.rpc('enroll_or_update_member', rpcPayload);
 
-      if (error) throw error;
+      if (error) {
+        // Handle JWT Expiry or Auth issues
+        if (error.message?.includes('JWT') || error.code === 'PGRST301') {
+          console.warn("JWT expired, retrying anonymously...");
+          await supabase.auth.signOut();
+          const { data: retryData, error: retryError } = await supabase.rpc('enroll_or_update_member', rpcPayload);
+          if (retryError) throw retryError;
+          const retryResult = retryData as SubmitResult;
+          setSuccessAction(retryResult.action === 'updated' ? 'updated' : 'created');
+          setIsSuccess(true);
+          return;
+        }
+        throw error;
+      }
       
       const result = data as SubmitResult;
 
