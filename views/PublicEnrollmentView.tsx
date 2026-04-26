@@ -72,7 +72,7 @@ CREATE OR REPLACE FUNCTION public.enroll_or_update_member(
 ) RETURNS JSONB SECURITY DEFINER LANGUAGE plpgsql AS $$
 DECLARE v_id UUID; v_count INT;
 BEGIN
-  SELECT COUNT(*), MIN(id) INTO v_count, v_id FROM public.members 
+  SELECT COUNT(*), MIN(id::text)::uuid INTO v_count, v_id FROM public.members 
   WHERE LOWER(TRIM(first_name)) = LOWER(TRIM(p_first_name)) AND LOWER(TRIM(last_name)) = LOWER(TRIM(p_last_name));
   IF v_count = 0 THEN
     INSERT INTO public.members (first_name, last_name, gender, dob, phone, email, hometown, gps_address, latitude, longitude, maps_url, occupation, marital_status, spouse_name, spouse_phone, children, emergency_contact_name, emergency_contact_relationship, emergency_contact_phone, branch_id, ministry, water_baptised, holy_ghost_baptised, status)
