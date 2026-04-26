@@ -57,7 +57,7 @@ const PublicEnrollmentView: React.FC = () => {
   // Data Fetching
   useEffect(() => {
     const initPortal = async () => {
-      const sql = `-- FAITHHOUSE SYSTEM RECOVERY v7.0
+      const sql = `-- FAITHHOUSE SYSTEM RECOVERY v8.0
 -- 1. DROP ALL VERSIONS OF THE FUNCTION
 DROP FUNCTION IF EXISTS public.enroll_or_update_member;
 DROP FUNCTION IF EXISTS public.enroll_or_update_member(text,text,text,date,text,text,text,text,numeric,numeric,text,text,text,text,text,jsonb,text,text,text,uuid,text,boolean,boolean);
@@ -72,26 +72,54 @@ CREATE OR REPLACE FUNCTION public.enroll_or_update_member(
 ) RETURNS JSONB SECURITY DEFINER LANGUAGE plpgsql AS $$
 DECLARE v_id UUID; v_count INT;
 BEGIN
+  -- Match by name (case-insensitive and trimmed)
   SELECT COUNT(*), MIN(id::text)::uuid INTO v_count, v_id FROM public.members 
   WHERE LOWER(TRIM(first_name)) = LOWER(TRIM(p_first_name)) AND LOWER(TRIM(last_name)) = LOWER(TRIM(p_last_name));
+
   IF v_count = 0 THEN
-    INSERT INTO public.members (first_name, last_name, gender, dob, phone, email, hometown, gps_address, latitude, longitude, maps_url, occupation, marital_status, spouse_name, spouse_phone, children, emergency_contact_name, emergency_contact_relationship, emergency_contact_phone, branch_id, ministry, water_baptised, holy_ghost_baptised, status)
-    VALUES (p_first_name, p_last_name, p_gender, p_dob, p_phone, p_email, p_hometown, p_gps_address, p_latitude, p_longitude, p_maps_url, p_occupation, p_marital_status, p_spouse_name, p_spouse_phone, p_children, p_emergency_contact_name, p_emergency_contact_relationship, p_emergency_contact_phone, p_branch_id, p_ministry, p_water_baptised, p_holy_ghost_baptised, 'Active') RETURNING id INTO v_id;
+    -- CREATE NEW MEMBER
+    INSERT INTO public.members (
+      first_name, last_name, gender, dob, phone, email, hometown, gps_address, latitude, longitude, maps_url, 
+      occupation, marital_status, spouse_name, spouse_phone, children, emergency_contact_name, 
+      emergency_contact_relationship, emergency_contact_phone, branch_id, ministry, water_baptised, holy_ghost_baptised, status
+    )
+    VALUES (
+      p_first_name, p_last_name, p_gender, p_dob, p_phone, p_email, p_hometown, p_gps_address, p_latitude, p_longitude, p_maps_url, 
+      p_occupation, p_marital_status, p_spouse_name, p_spouse_phone, p_children, p_emergency_contact_name, 
+      p_emergency_contact_relationship, p_emergency_contact_phone, p_branch_id, p_ministry, p_water_baptised, p_holy_ghost_baptised, 'Active'
+    ) RETURNING id INTO v_id;
     RETURN jsonb_build_object('action', 'created', 'member_id', v_id);
+
   ELSIF v_count = 1 THEN
+    -- UPDATE EXISTING (Fill in gaps)
     UPDATE public.members SET 
       gender = COALESCE(gender, p_gender),
       dob = COALESCE(dob, p_dob),
       phone = COALESCE(NULLIF(phone, ''), p_phone),
       email = COALESCE(NULLIF(email, ''), p_email),
       hometown = COALESCE(NULLIF(hometown, ''), p_hometown),
+      gps_address = COALESCE(NULLIF(gps_address, ''), p_gps_address),
+      latitude = COALESCE(latitude, p_latitude),
+      longitude = COALESCE(longitude, p_longitude),
+      maps_url = COALESCE(NULLIF(maps_url, ''), p_maps_url),
       occupation = COALESCE(NULLIF(occupation, ''), p_occupation),
       marital_status = COALESCE(marital_status, p_marital_status),
       spouse_name = COALESCE(NULLIF(spouse_name, ''), p_spouse_name),
-      spouse_phone = COALESCE(NULLIF(spouse_phone, ''), p_spouse_phone)
-    WHERE id=v_id;
+      spouse_phone = COALESCE(NULLIF(spouse_phone, ''), p_spouse_phone),
+      children = CASE WHEN children IS NULL OR children::text = '[]' THEN p_children ELSE children END,
+      emergency_contact_name = COALESCE(NULLIF(emergency_contact_name, ''), p_emergency_contact_name),
+      emergency_contact_relationship = COALESCE(NULLIF(emergency_contact_relationship, ''), p_emergency_contact_relationship),
+      emergency_contact_phone = COALESCE(NULLIF(emergency_contact_phone, ''), p_emergency_contact_phone),
+      branch_id = COALESCE(branch_id, p_branch_id),
+      ministry = CASE WHEN ministry IS NULL OR ministry = 'N/A' THEN p_ministry ELSE ministry END,
+      water_baptised = water_baptised OR p_water_baptised,
+      holy_ghost_baptised = holy_ghost_baptised OR p_holy_ghost_baptised
+    WHERE id = v_id;
     RETURN jsonb_build_object('action', 'updated', 'member_id', v_id);
-  ELSE RETURN jsonb_build_object('action', 'created_duplicate_warning', 'member_id', v_id);
+
+  ELSE 
+    -- MULTIPLE MATCHES (Notify admin)
+    RETURN jsonb_build_object('action', 'created_duplicate_warning', 'member_id', v_id, 'message', 'Multiple profiles found with this name. Admin review required.');
   END IF;
 END; $$;
 GRANT EXECUTE ON FUNCTION public.enroll_or_update_member TO anon;
