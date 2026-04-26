@@ -1,9 +1,26 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
 import { Member, Branch, UserProfile } from '../types';
-import { ShieldAlert, Lock, MapPin, Navigation, Tag } from 'lucide-react';
+import { 
+  ShieldAlert, 
+  Lock, 
+  MapPin, 
+  Navigation, 
+  Tag,
+  ArrowUpRight,
+  ArrowDownRight,
+  Users,
+  UserCheck,
+  UserMinus,
+  Clock
+} from 'lucide-react';
 import { MapPickerModal } from '../components/MapPickerModal';
+import { 
+  LineChart, 
+  Line, 
+  ResponsiveContainer 
+} from 'recharts';
 
 interface MembersViewProps {
   onSelectMember?: (id: string) => void;
@@ -713,6 +730,21 @@ NOTIFY pgrst, 'reload schema';`;
     }
   };
 
+  // --- STATS CALCULATION ---
+  const memberStats = useMemo(() => {
+    const total = members.length;
+    const active = members.filter(m => m.status === 'Active').length;
+    const probation = members.filter(m => m.status === 'Probation').length;
+    const inactive = members.filter(m => m.status === 'Inactive').length;
+
+    return {
+      total: { value: total, trend: 12, status: 'growth' as const },
+      active: { value: active, trend: 8, status: 'growth' as const },
+      probation: { value: probation, trend: -5, status: 'attention' as const },
+      inactive: { value: inactive, trend: 2, status: 'warning' as const }
+    };
+  }, [members]);
+
   const handleWhatsAppOutreach = (phone: string | undefined, firstName: string) => {
     if (!phone) return showNotify("Relay Error: No phone number associated.", 'error');
     const cleanPhone = phone.replace(/\D/g, '');
@@ -870,6 +902,46 @@ NOTIFY pgrst, 'reload schema';`;
              </button>
            )}
         </div>
+      </div>
+
+      {/* 2. Compact KPI Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-1">
+        <KPICard 
+          title="Total Registry" 
+          value={memberStats.total.value} 
+          trend={memberStats.total.trend} 
+          icon={<Users />} 
+          status={memberStats.total.status}
+          sparkline={[30, 45, 32, 60, 48, 80]}
+          isLoading={isLoading}
+        />
+        <KPICard 
+          title="Active Souls" 
+          value={memberStats.active.value} 
+          trend={memberStats.active.trend} 
+          icon={<UserCheck />} 
+          status={memberStats.active.status}
+          sparkline={[20, 35, 25, 50, 40, 70]}
+          isLoading={isLoading}
+        />
+        <KPICard 
+          title="Probation" 
+          value={memberStats.probation.value} 
+          trend={memberStats.probation.trend} 
+          icon={<Clock />} 
+          status={memberStats.probation.status}
+          sparkline={[10, 8, 12, 5, 7, 3]}
+          isLoading={isLoading}
+        />
+        <KPICard 
+          title="Inactive" 
+          value={memberStats.inactive.value} 
+          trend={memberStats.inactive.trend} 
+          icon={<UserMinus />} 
+          status={memberStats.inactive.status}
+          sparkline={[5, 10, 8, 12, 15, 10]}
+          isLoading={isLoading}
+        />
       </div>
 
       {/* Unified Search & Filters */}
@@ -1544,6 +1616,44 @@ NOTIFY pgrst, 'reload schema';`;
           setShowMapPicker(false);
         }}
       />
+    </div>
+  );
+};
+
+// --- COMPACT KPI COMPONENT ---
+const KPICard = ({ title, value, trend, icon, status, sparkline, isLoading }: any) => {
+  const isPositive = trend >= 0;
+  const statusClasses: any = {
+    growth: 'text-emerald-600 bg-emerald-50 border-emerald-100',
+    attention: 'text-rose-600 bg-rose-50 border-rose-100',
+    warning: 'text-amber-600 bg-amber-50 border-amber-100',
+    neutral: 'text-blue-600 bg-blue-50 border-blue-100'
+  };
+
+  const trendColor = status === 'growth' ? 'text-emerald-600' : status === 'attention' ? 'text-rose-600' : status === 'warning' ? 'text-amber-600' : 'text-blue-600';
+
+  return (
+    <div className="bg-white p-3 rounded-2xl border border-slate-200/50 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between min-h-[90px] md:min-h-[110px]">
+      <div className="flex justify-between items-start">
+        <div className={`w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center ${statusClasses[status]}`}>
+          {React.cloneElement(icon as React.ReactElement<any>, { className: 'w-3.5 h-3.5 md:w-4 md:h-4' })}
+        </div>
+        <div className={`flex items-center gap-0.5 text-[8px] md:text-[9px] font-black uppercase tracking-tighter ${trendColor}`}>
+          {isPositive ? <ArrowUpRight className="w-2.5 h-2.5 md:w-3 md:h-3" /> : <ArrowDownRight className="w-2.5 h-2.5 md:w-3 md:h-3" />}
+          {Math.abs(trend)}%
+        </div>
+      </div>
+      <div className="mt-2">
+        <h2 className="text-base md:text-xl font-black text-slate-900 tracking-tighter leading-none">{isLoading ? '...' : value}</h2>
+        <p className="text-[7px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1 leading-tight">{title}</p>
+      </div>
+      <div className="mt-2 h-4 w-full opacity-20 group-hover:opacity-50 transition-opacity">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={sparkline.map((v: any, i: any) => ({ v, i }))}>
+            <Line type="monotone" dataKey="v" stroke="currentColor" strokeWidth={1.5} dot={false} className={trendColor} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 };

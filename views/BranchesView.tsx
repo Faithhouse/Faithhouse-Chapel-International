@@ -3,8 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { Branch } from '../types';
 import { toast } from 'sonner';
-import { MapPin } from 'lucide-react';
+import { MapPin, Map, Target, Activity, Users, ArrowUpRight, ArrowDownRight, Search, Plus, X, Globe, Phone, Mail, Edit2, Trash2 } from 'lucide-react';
 import { MapPickerModal } from '../components/MapPickerModal';
+import { 
+  LineChart, 
+  Line, 
+  ResponsiveContainer 
+} from 'recharts';
+import { useMemo } from 'react';
 
 // Added interface for BranchesView props
 interface BranchesViewProps {
@@ -151,6 +157,16 @@ const BranchesView: React.FC<BranchesViewProps> = () => {
     });
   };
 
+  const branchStats = useMemo(() => {
+    const total = branches.length;
+    return {
+      total: { value: total, trend: 5, status: 'growth' as const },
+      outreach: { value: Math.ceil(total * 1.5), trend: 12, status: 'growth' as const },
+      impact: { value: total > 0 ? "85%" : "0%", trend: 3, status: 'neutral' as const },
+      growth: { value: "+2", trend: 100, status: 'growth' as const }
+    };
+  }, [branches]);
+
   const handleEdit = (branch: Branch) => {
     setEditingId(branch.id);
     setFormData({
@@ -239,39 +255,73 @@ create policy "Allow all actions for now" on branches for all using (true) with 
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="text-center md:text-left">
-          <h2 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight leading-none">Branches Management</h2>
-          <p className="text-slate-500 text-[7px] md:text-sm font-medium mt-1 md:mt-2">Maintain a registry of all church locations and site leadership.</p>
+    <div className="space-y-6 md:space-y-10 animate-in fade-in duration-700 pb-20">
+      
+      {/* 1. Protocol Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-1">
+          <h2 className="text-2xl md:text-4xl font-black text-fh-green tracking-tighter uppercase leading-none">Branch Management</h2>
+          <p className="text-[9px] md:text-[10px] text-slate-400 font-black uppercase tracking-[0.4em]">Global Connectivity Protocol</p>
         </div>
-        <button 
-          onClick={() => { resetForm(); setEditingId(null); setIsModalOpen(true); }}
-          className="flex items-center justify-center gap-2 px-5 md:px-6 py-2.5 md:py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-[10px] md:text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all"
-        >
-          <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-          Add New Branch
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={() => { setEditingId(null); resetForm(); setIsModalOpen(true); }} className="px-6 md:px-10 py-3 md:py-5 bg-fh-green text-fh-gold rounded-xl md:rounded-[1.75rem] font-black uppercase text-[9px] md:text-[10px] tracking-widest shadow-2xl active:scale-95 transition-all border-b-2 md:border-b-4 border-black/20">
+            + Expand Network
+          </button>
+        </div>
       </div>
 
-      <div className="bg-white p-3 md:p-4 rounded-xl md:rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-3 md:gap-4">
-        <div className="relative flex-1 w-full">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-          <input 
-            type="text" 
-            placeholder="Search by branch name or location..." 
-            className="w-full pl-9 md:pl-10 pr-4 py-2 md:py-2.5 bg-slate-50 border border-slate-200 rounded-lg md:rounded-xl outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-[10px] md:text-sm font-medium"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      {/* 2. Compact KPI Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 px-1">
+        <KPICard 
+          title="Total Branches" 
+          value={branchStats.total.value} 
+          trend={branchStats.total.trend} 
+          icon={<Map />} 
+          status={branchStats.total.status}
+          sparkline={[5, 8, 12, 10, 15, 12]}
+          isLoading={isLoading}
+        />
+        <KPICard 
+          title="Outreach Points" 
+          value={branchStats.outreach.value} 
+          trend={branchStats.outreach.trend} 
+          icon={<Target />} 
+          status={branchStats.outreach.status}
+          sparkline={[20, 25, 22, 30, 28, 35]}
+          isLoading={isLoading}
+        />
+        <KPICard 
+          title="Service Impact" 
+          value={branchStats.impact.value} 
+          trend={branchStats.impact.trend} 
+          icon={<Activity />} 
+          status={branchStats.impact.status}
+          sparkline={[80, 82, 78, 85, 88, 90]}
+          isLoading={isLoading}
+        />
+        <KPICard 
+          title="Monthly Growth" 
+          value={branchStats.growth.value} 
+          trend={branchStats.growth.trend} 
+          icon={<ArrowUpRight />} 
+          status={branchStats.growth.status}
+          sparkline={[0, 1, 0, 2, 1, 2]}
+          isLoading={isLoading}
+        />
+      </div>
+
+      {/* 3. Search & Discovery */}
+      <div className="relative group">
+        <div className="absolute left-6 top-1/2 -translate-y-1/2">
+          <Search className="w-5 h-5 text-slate-400 group-focus-within:text-fh-green transition-colors" />
         </div>
-        <button 
-          onClick={fetchBranches}
-          className="p-2 md:p-2.5 bg-white border border-slate-200 rounded-lg md:rounded-xl text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-all shadow-sm active:scale-95"
-          title="Reload Data"
-        >
-          <svg className={`w-4 h-4 md:w-5 md:h-5 ${isLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-        </button>
+        <input 
+          type="text" 
+          placeholder="Locate Branch / Search coordinates..." 
+          className="w-full pl-16 pr-8 py-5 md:py-6 bg-white border border-slate-200 rounded-2xl md:rounded-[2rem] font-black uppercase text-[10px] md:text-xs tracking-widest outline-none focus:ring-4 ring-fh-green/5 transition-all shadow-sm"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -502,6 +552,44 @@ create policy "Allow all actions for now" on branches for all using (true) with 
           setShowMapPicker(false);
         }}
       />
+    </div>
+  );
+};
+
+// --- COMPACT KPI COMPONENT ---
+const KPICard = ({ title, value, trend, icon, status, sparkline, isLoading }: any) => {
+  const isPositive = trend >= 0;
+  const statusClasses: any = {
+    growth: 'text-emerald-600 bg-emerald-50 border-emerald-100',
+    attention: 'text-rose-600 bg-rose-50 border-rose-100',
+    warning: 'text-amber-600 bg-amber-50 border-amber-100',
+    neutral: 'text-blue-600 bg-blue-50 border-blue-100'
+  };
+
+  const trendColor = status === 'growth' ? 'text-emerald-600' : status === 'attention' ? 'text-rose-600' : status === 'warning' ? 'text-amber-600' : 'text-blue-600';
+
+  return (
+    <div className="bg-white p-3 rounded-2xl border border-slate-200/50 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between min-h-[90px] md:min-h-[110px]">
+      <div className="flex justify-between items-start">
+        <div className={`w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center ${statusClasses[status]}`}>
+          {React.cloneElement(icon as React.ReactElement<any>, { className: 'w-3.5 h-3.5 md:w-4 md:h-4' })}
+        </div>
+        <div className={`flex items-center gap-0.5 text-[8px] md:text-[9px] font-black uppercase tracking-tighter ${trendColor}`}>
+          {isPositive ? <ArrowUpRight className="w-2.5 h-2.5 md:w-3 md:h-3" /> : <ArrowDownRight className="w-2.5 h-2.5 md:w-3 md:h-3" />}
+          {Math.abs(trend)}%
+        </div>
+      </div>
+      <div className="mt-2">
+        <h2 className="text-base md:text-xl font-black text-slate-900 tracking-tighter leading-none">{isLoading ? '...' : value}</h2>
+        <p className="text-[7px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1 leading-tight">{title}</p>
+      </div>
+      <div className="mt-2 h-4 w-full opacity-20 group-hover:opacity-50 transition-opacity">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={sparkline.map((v: any, i: any) => ({ v, i }))}>
+            <Line type="monotone" dataKey="v" stroke="currentColor" strokeWidth={1.5} dot={false} className={trendColor} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 };

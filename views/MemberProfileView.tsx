@@ -240,25 +240,40 @@ const MemberProfileView: React.FC<MemberProfileViewProps> = ({ memberId, onBack,
         <div className="lg:col-span-8 space-y-10">
           
           {/* Stats Bar */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-50 shadow-sm">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Service Loyalty</p>
-              <h3 className="text-3xl font-black text-slate-900 tracking-tighter">
-                {attendance.filter(a => a.status === 'Present').length}/5
-              </h3>
-              <p className="text-[8px] text-slate-400 font-bold uppercase mt-2">Last 5 Sessions</p>
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 px-1">
+            <div className="bg-white p-3 md:p-6 rounded-2xl border border-slate-50 shadow-sm flex flex-col justify-between min-h-[90px] md:min-h-[110px]">
+              <div>
+                <p className="text-[7px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Service Loyalty</p>
+                <div className="mt-2 flex items-baseline gap-1">
+                  <h3 className="text-base md:text-xl font-black text-slate-900 tracking-tighter">
+                    {attendance.filter(a => a.status === 'Present').length}/5
+                  </h3>
+                  <span className="text-[8px] md:text-[10px] font-bold text-emerald-500 uppercase">Stable</span>
+                </div>
+              </div>
+              <p className="text-[7px] md:text-[8px] text-slate-400 font-bold uppercase mt-2">Last 5 Sessions</p>
             </div>
-            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-50 shadow-sm">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Care Missions</p>
-              <h3 className="text-3xl font-black text-slate-900 tracking-tighter">{visitations.length}</h3>
-              <p className="text-[8px] text-slate-400 font-bold uppercase mt-2">Total Visitations</p>
+            <div className="bg-white p-3 md:p-6 rounded-2xl border border-slate-50 shadow-sm flex flex-col justify-between min-h-[90px] md:min-h-[110px]">
+              <div>
+                <p className="text-[7px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Care Missions</p>
+                <div className="mt-2 flex items-baseline gap-1">
+                  <h3 className="text-base md:text-xl font-black text-slate-900 tracking-tighter">{visitations.length}</h3>
+                  <span className="text-[8px] md:text-[10px] font-bold text-blue-500 uppercase">Active</span>
+                </div>
+              </div>
+              <p className="text-[7px] md:text-[8px] text-slate-400 font-bold uppercase mt-2">Total Visitations</p>
             </div>
-            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-50 shadow-sm">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Financial Loyalty</p>
-              <h3 className="text-3xl font-black text-fh-green tracking-tighter">
-                GHS {finances.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0).toLocaleString()}
-              </h3>
-              <p className="text-[8px] text-slate-400 font-bold uppercase mt-2">Total Tithes Recorded</p>
+            <div className="bg-white p-3 md:p-6 rounded-2xl border border-slate-50 shadow-sm flex flex-col justify-between min-h-[90px] md:min-h-[110px] col-span-2 lg:col-span-1">
+              <div>
+                <p className="text-[7px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Financial Loyalty</p>
+                <div className="mt-2 flex items-baseline gap-1">
+                  <h3 className="text-base md:text-xl font-black text-fh-green tracking-tighter">
+                    GHS {finances.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0).toLocaleString()}
+                  </h3>
+                  <span className="text-[8px] md:text-[10px] font-bold text-fh-gold uppercase">Giver</span>
+                </div>
+              </div>
+              <p className="text-[7px] md:text-[8px] text-slate-400 font-bold uppercase mt-2">Total Tithes Recorded</p>
             </div>
           </div>
 

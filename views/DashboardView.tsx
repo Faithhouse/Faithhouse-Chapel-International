@@ -771,7 +771,7 @@ NOTIFY pgrst, 'reload schema';`;
       )}
 
       {/* 2. KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 px-1">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-4 px-1">
         <KPICard 
           title="Total Register" 
           value={stats.totalMembers.value} 
@@ -1238,24 +1238,24 @@ const KPICard = ({ title, value, trend, icon, status, sparkline, isLoading }: an
   const trendColor = status === 'growth' ? 'text-emerald-600' : status === 'attention' ? 'text-rose-600' : status === 'warning' ? 'text-amber-600' : 'text-blue-600';
 
   return (
-    <div className="bg-white p-2 md:p-3 rounded-xl md:rounded-2xl border border-slate-200/50 shadow-sm hover:shadow-md transition-all group">
-      <div className="flex justify-between items-start mb-1 md:mb-2">
-        <div className={`w-6 h-6 md:w-8 md:h-8 rounded-lg flex items-center justify-center ${statusClasses[status]}`}>
-          {React.cloneElement(icon as React.ReactElement<any>, { className: 'w-3 h-3 md:w-4 md:h-4' })}
+    <div className="bg-white p-3 rounded-2xl border border-slate-200/50 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between min-h-[90px] md:min-h-[110px]">
+      <div className="flex justify-between items-start">
+        <div className={`w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center ${statusClasses[status]}`}>
+          {React.cloneElement(icon as React.ReactElement<any>, { className: 'w-3.5 h-3.5 md:w-4 md:h-4' })}
         </div>
-        <div className={`flex items-center gap-0.5 text-[6px] md:text-[8px] font-black uppercase tracking-tighter ${trendColor}`}>
-          {isPositive ? <ArrowUpRight className="w-2 h-2 md:w-2.5 md:h-2.5" /> : <ArrowDownRight className="w-2 h-2 md:w-2.5 md:h-2.5" />}
+        <div className={`flex items-center gap-0.5 text-[8px] md:text-[9px] font-black uppercase tracking-tighter ${trendColor}`}>
+          {isPositive ? <ArrowUpRight className="w-2.5 h-2.5 md:w-3 md:h-3" /> : <ArrowDownRight className="w-2.5 h-2.5 md:w-3 md:h-3" />}
           {Math.abs(trend)}%
         </div>
       </div>
-      <div>
-        <h2 className="text-sm md:text-base font-black text-slate-900 tracking-tighter leading-none">{isLoading ? '...' : value}</h2>
-        <p className="text-[6px] md:text-[8px] font-black uppercase tracking-widest text-slate-400 mt-0.5">{title}</p>
+      <div className="mt-2">
+        <h2 className="text-base md:text-xl font-black text-slate-900 tracking-tighter leading-none">{isLoading ? '...' : value}</h2>
+        <p className="text-[7px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1 leading-tight">{title}</p>
       </div>
-      <div className="mt-2 h-5 w-full hidden md:block opacity-30 group-hover:opacity-60 transition-opacity">
+      <div className="mt-2 h-4 w-full opacity-20 group-hover:opacity-50 transition-opacity">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={sparkline.map((v: any, i: any) => ({ v, i }))}>
-            <Line type="monotone" dataKey="v" stroke="currentColor" strokeWidth={2} dot={false} className={trendColor} />
+            <Line type="monotone" dataKey="v" stroke="currentColor" strokeWidth={1.5} dot={false} className={trendColor} />
           </LineChart>
         </ResponsiveContainer>
       </div>

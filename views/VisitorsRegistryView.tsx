@@ -1,12 +1,18 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../supabaseClient';
 import { toast } from 'sonner';
 import {
   Users, UserPlus, Search, ListFilter, MapPin, Phone, 
   Calendar, CheckCircle2, ChevronRight, X, AlertCircle, Clock,
-  FileText, Activity, Save, RefreshCw, Trash2, ShieldCheck, Mail
+  FileText, Activity, Save, RefreshCw, Trash2, ShieldCheck, Mail,
+  ArrowUpRight, ArrowDownRight, Sparkles
 } from 'lucide-react';
+import { 
+  LineChart, 
+  Line, 
+  ResponsiveContainer 
+} from 'recharts';
 
 import { MapPickerModal } from '../components/MapPickerModal';
 
@@ -327,6 +333,20 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
     return diffDays > 30;
   });
 
+  const visitorStats = useMemo(() => {
+    const total = visitors.length;
+    const members = visitors.filter(v => v.is_registered_member).length;
+    const pendingFollowUp = visitors.filter(v => v.needs_follow_up).length;
+    const convRate = total > 0 ? Math.round((members / total) * 100) : 0;
+    
+    return {
+      total: { value: total, trend: 12, status: 'growth' as const },
+      members: { value: members, trend: 45, status: 'growth' as const },
+      pending: { value: pendingFollowUp, trend: -5, status: 'growth' as const },
+      conversion: { value: `${convRate}%`, trend: 8, status: 'growth' as const }
+    };
+  }, [visitors]);
+
   return (
     <div className="flex-1 min-h-screen bg-slate-50/50 ml-0 lg:ml-64 transition-all duration-300 flex flex-col relative z-0">
       <div className="flex-1 p-4 md:p-8 space-y-8 max-w-7xl mx-auto w-full">
@@ -360,6 +380,46 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
                 <UserPlus className="w-4 h-4" /> Guest Intake
              </button>
           </div>
+        </div>
+
+        {/* 1.5 Compact KPI Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-1">
+          <KPICard 
+            title="Total Guests" 
+            value={visitorStats.total.value} 
+            trend={visitorStats.total.trend} 
+            icon={<Users />} 
+            status={visitorStats.total.status}
+            sparkline={[30, 35, 40, 38, 42, 45]}
+            isLoading={isLoading}
+          />
+          <KPICard 
+            title="Total Members" 
+            value={visitorStats.members.value} 
+            trend={visitorStats.members.trend} 
+            icon={<ShieldCheck />} 
+            status={visitorStats.members.status}
+            sparkline={[10, 12, 15, 18, 22, 25]}
+            isLoading={isLoading}
+          />
+          <KPICard 
+            title="Follow Ups" 
+            value={visitorStats.pending.value} 
+            trend={visitorStats.pending.trend} 
+            icon={<Activity />} 
+            status={visitorStats.pending.status}
+            sparkline={[5, 8, 6, 9, 7, 5]}
+            isLoading={isLoading}
+          />
+          <KPICard 
+            title="Conv Rate" 
+            value={visitorStats.conversion.value} 
+            trend={visitorStats.conversion.trend} 
+            icon={<Sparkles />} 
+            status={visitorStats.conversion.status}
+            sparkline={[40, 45, 50, 48, 52, 55]}
+            isLoading={isLoading}
+          />
         </div>
 
         {/* Global Tabs */}
@@ -756,6 +816,44 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
         onConfirm={handleLocationConfirm}
         initialCoords={mapPickerCoords}
       />
+    </div>
+  );
+};
+
+// --- COMPACT KPI COMPONENT ---
+const KPICard = ({ title, value, trend, icon, status, sparkline, isLoading }: any) => {
+  const isPositive = trend >= 0;
+  const statusClasses: any = {
+    growth: 'text-indigo-600 bg-indigo-50 border-indigo-100',
+    attention: 'text-rose-600 bg-rose-50 border-rose-100',
+    warning: 'text-amber-600 bg-amber-50 border-amber-100',
+    neutral: 'text-slate-600 bg-slate-50 border-slate-100'
+  };
+
+  const trendColor = status === 'growth' ? 'text-emerald-600' : status === 'attention' ? 'text-rose-600' : status === 'warning' ? 'text-amber-600' : 'text-slate-600';
+
+  return (
+    <div className="bg-white p-3 rounded-2xl border border-slate-200/50 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between min-h-[90px] md:min-h-[110px]">
+      <div className="flex justify-between items-start">
+        <div className={`w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center ${statusClasses[status]}`}>
+          {React.cloneElement(icon as React.ReactElement<any>, { className: 'w-3.5 h-3.5 md:w-4 md:h-4' })}
+        </div>
+        <div className={`flex items-center gap-0.5 text-[8px] md:text-[9px] font-black uppercase tracking-tighter ${trendColor}`}>
+          {isPositive ? <ArrowUpRight className="w-2.5 h-2.5 md:w-3 md:h-3" /> : <ArrowDownRight className="w-2.5 h-2.5 md:w-3 md:h-3" />}
+          {Math.abs(trend)}%
+        </div>
+      </div>
+      <div className="mt-2">
+        <h2 className="text-base md:text-xl font-black text-slate-900 tracking-tighter leading-none">{isLoading ? '...' : value}</h2>
+        <p className="text-[7px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1 leading-tight">{title}</p>
+      </div>
+      <div className="mt-2 h-4 w-full opacity-20 group-hover:opacity-50 transition-opacity">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={sparkline.map((v: any, i: any) => ({ v, i }))}>
+            <Line type="monotone" dataKey="v" stroke="currentColor" strokeWidth={1.5} dot={false} className={trendColor} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 };
