@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { MapPin, Navigation, X, Check, Search, Plus, Minus, Target } from 'lucide-react';
+import { MapPin, Navigation, X, Check, Search, Plus, Minus, Target, Globe } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+import LeafletMapPicker from './LeafletMapPicker';
 
 declare global {
   interface Window {
@@ -50,6 +51,7 @@ export const MapPickerModal: React.FC<MapPickerModalProps> = ({
 
   // NEW FEATURE: Handle API Authentication Errors
   const [authError, setAuthError] = useState(false);
+  const [useFallback, setUseFallback] = useState(false);
 
   // NEW FEATURE 6: Recent Pins
   const [recentPins, setRecentPins] = useState<{lat: number, lng: number, address: string, timestamp: number}[]>([]);
@@ -80,6 +82,7 @@ export const MapPickerModal: React.FC<MapPickerModalProps> = ({
   useEffect(() => {
     window.gm_authFailure = () => {
       setAuthError(true);
+      setUseFallback(true);
       setIsLoading(false);
     };
 
@@ -92,7 +95,7 @@ export const MapPickerModal: React.FC<MapPickerModalProps> = ({
     }
     
     if (!apiKey) {
-      toast.error('Google Maps API Key is missing. Please set VITE_GOOGLE_MAPS_API_KEY in Settings.');
+      setUseFallback(true);
       setIsLoading(false);
       return;
     }
@@ -380,11 +383,22 @@ export const MapPickerModal: React.FC<MapPickerModalProps> = ({
 
             {/* Map Canvas */}
           <div className="flex-1 relative bg-slate-100">
-            {authError ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center text-rose-500 bg-rose-50/50">
-                <X className="w-8 h-8 mb-2 opacity-80" />
-                <p className="font-bold uppercase tracking-widest text-[10px] mb-1">Google Maps Authentication Error</p>
-                <p className="text-xs mt-2 max-w-sm text-slate-600">Your API key was rejected. Please ensure <b>Maps JavaScript API</b> and <b>Places API</b> are activated in your Google Cloud Console, and that there are no URL restrictions blocking this preview.</p>
+            {useFallback || authError ? (
+              <div className="w-full h-full relative">
+                <LeafletMapPicker 
+                  initialCenter={selectedCoords || { lat: 5.6037, lng: -0.1870 }}
+                  onLocationSelect={(lat, lng, address) => {
+                    setSelectedCoords({ lat, lng });
+                    setSelectedAddress(address);
+                    if (inputRef.current) inputRef.current.value = address;
+                  }}
+                />
+                <div className="absolute top-4 left-4 z-[1000]">
+                  <div className="bg-amber-100/90 backdrop-blur-sm text-amber-900 px-3 py-2 rounded-xl border border-amber-200 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg">
+                    <Globe className="w-3 h-3" />
+                    {authError ? 'Auth Error: Leaflet Active' : 'Leaflet Fallback Active'}
+                  </div>
+                </div>
               </div>
             ) : !apiKey ? (
               <div className="absolute inset-0 flex items-center justify-center p-6 text-center text-slate-500 font-bold uppercase tracking-widest text-[10px]">

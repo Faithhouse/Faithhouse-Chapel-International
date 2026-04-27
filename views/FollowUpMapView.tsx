@@ -3,8 +3,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow, DirectionsRenderer } from '@react-google-maps/api';
 import { supabase } from '../supabaseClient';
 import { Member, UserProfile } from '../types';
-import { MapPin, Phone, User, Navigation, Search, Filter, Map as MapIcon, Loader2, Compass, AlertCircle, HelpCircle, Download, ShieldAlert } from 'lucide-react';
+import { MapPin, Phone, User, Navigation, Search, Filter, Map as MapIcon, Loader2, Compass, AlertCircle, HelpCircle, Download, ShieldAlert, Globe } from 'lucide-react';
 import { toast } from 'sonner';
+import LeafletFollowUpMap from '../components/LeafletFollowUpMap';
 
 interface FollowUpMapViewProps {
   currentUser: UserProfile | null;
@@ -217,21 +218,60 @@ const FollowUpMapView: React.FC<FollowUpMapViewProps> = ({ currentUser }) => {
 
   if (!import.meta.env.VITE_GOOGLE_MAPS_API_KEY) {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200 p-8 text-center">
-        <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mb-4">
-          <AlertCircle className="w-8 h-8" />
+      <div className="space-y-6">
+        {/* Header section repeated for consistent UI even in fallback */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-3xl bg-slate-900 text-fh-gold flex items-center justify-center text-2xl shadow-xl">
+              <MapIcon className="w-8 h-8" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-black text-slate-900 tracking-tight">Follow-Up Map</h1>
+              <p className="text-slate-500 font-medium tracking-tight flex items-center gap-2">
+                <Globe className="w-3 h-3 text-fh-gold" />
+                Regional Mapping Mode (No API Key Required)
+              </p>
+            </div>
+          </div>
         </div>
-        <h3 className="text-xl font-bold text-slate-900 mb-2">Google Maps API Key Missing</h3>
-        <p className="text-slate-500 text-sm max-w-md mb-6">
-          To use the Follow-Up Map, you must provide a Google Maps API Key in the application settings.
-        </p>
-        <div className="bg-white p-4 rounded-xl border border-slate-200 text-left text-xs space-y-2 max-w-lg">
-          <p className="font-bold text-slate-700">How to fix:</p>
-          <ol className="list-decimal list-inside space-y-1 text-slate-500">
-            <li>Go to the <b>Settings</b> menu in the AI Studio sidebar.</li>
-            <li>Add a new variable: <code>VITE_GOOGLE_MAPS_API_KEY</code></li>
-            <li>Paste your Google Maps API Key from the Google Cloud Console.</li>
-          </ol>
+
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-3 h-[calc(100vh-250px)]">
+            <LeafletFollowUpMap 
+              members={filteredMembers} 
+              userLocation={userLocation}
+              onStartVisit={(member) => {
+                setSelectedMember(member);
+                toast.info(`View details for ${member.first_name}`);
+              }}
+            />
+          </div>
+          <div className="space-y-6">
+            <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">Nearby Members</h2>
+                <div className="p-2 bg-cms-blue/10 text-cms-blue rounded-lg">
+                  <Compass className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="space-y-4 max-h-[calc(100vh-450px)] overflow-y-auto pr-2 custom-scrollbar">
+                {filteredMembers.map(member => {
+                  const dist = userLocation ? calculateDistance(userLocation.lat, userLocation.lng, member.latitude!, member.longitude!) : null;
+                  return (
+                    <button
+                      key={member.id}
+                      onClick={() => setSelectedMember(member)}
+                      className={`w-full text-left p-4 rounded-2xl border transition-all ${selectedMember?.id === member.id ? 'bg-slate-50 border-cms-blue' : 'bg-white border-slate-100'}`}
+                    >
+                      <p className="font-black text-slate-900 text-sm">{member.first_name} {member.last_name}</p>
+                      <p className="text-[10px] text-slate-500">{member.gps_address}</p>
+                      {dist !== null && <p className="text-[10px] font-black text-cms-blue mt-1">{dist.toFixed(1)}km away</p>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -352,14 +392,21 @@ const FollowUpMapView: React.FC<FollowUpMapViewProps> = ({ currentUser }) => {
       )}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3 relative">
-          {isBypassed ? (
-            <div className="w-full h-full min-h-[500px] flex flex-col items-center justify-center bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2.5rem] p-12 text-center">
-              <ShieldAlert className="w-16 h-16 text-amber-500 mb-6" />
-              <h3 className="text-2xl font-black text-slate-900 mb-2">Map Interface Bypassed</h3>
-              <p className="text-slate-500 max-w-md">
-                The interactive map has been disabled to prevent browser resource lock errors. 
-                You can still view member locations in the list view.
-              </p>
+          {(isBypassed || authError) ? (
+            <div className="w-full h-full min-h-[500px] relative">
+              {authError && (
+                <div className="absolute top-4 left-4 z-[1000]">
+                  <div className="bg-rose-100/90 backdrop-blur-sm text-rose-900 px-3 py-2 rounded-xl border border-rose-200 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg">
+                    <Globe className="w-3 h-3" />
+                    Auth Error: Leaflet Fallback Active
+                  </div>
+                </div>
+              )}
+              <LeafletFollowUpMap 
+                members={filteredMembers} 
+                userLocation={userLocation}
+                onStartVisit={(member) => setSelectedMember(member)}
+              />
             </div>
           ) : (
             <GoogleMap
