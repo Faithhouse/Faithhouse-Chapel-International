@@ -425,7 +425,6 @@ END $$;
 -- 8. SECURITY (RLS)
 ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.member_enrollment_queue ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.leadership ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ministries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tithe_entries ENABLE ROW LEVEL SECURITY;
@@ -435,9 +434,6 @@ CREATE POLICY "Allow all access" ON public.branches FOR ALL USING (true) WITH CH
 
 DROP POLICY IF EXISTS "Allow all access" ON public.members;
 CREATE POLICY "Allow all access" ON public.members FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Allow all access" ON public.member_enrollment_queue;
-CREATE POLICY "Allow all access" ON public.member_enrollment_queue FOR ALL USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow all access" ON public.leadership;
 CREATE POLICY "Allow all access" ON public.leadership FOR ALL USING (true) WITH CHECK (true);

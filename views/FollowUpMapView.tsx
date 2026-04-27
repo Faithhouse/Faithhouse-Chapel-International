@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow, DirectionsRenderer } from '@react-google-maps/api';
 import { supabase } from '../supabaseClient';
 import { Member, UserProfile } from '../types';
-import { MapPin, Phone, User, Navigation, Search, Filter, Map as MapIcon, Loader2, Compass, AlertCircle, HelpCircle, Download, ShieldAlert, Globe } from 'lucide-react';
+import { MapPin, Phone, User, Navigation, Search, Filter, Map as MapIcon, Loader2, AlertCircle, HelpCircle, Download, ShieldAlert, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 import LeafletFollowUpMap from '../components/LeafletFollowUpMap';
 
@@ -269,7 +269,7 @@ const FollowUpMapView: React.FC<FollowUpMapViewProps> = ({ currentUser }) => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">1. Google Console</p>
-                    <p className="text-xs text-slate-600 font-medium italic">Go to APIs & Services &gt; Credentials</p>
+                    <p className="text-xs text-slate-600 font-medium italic">Go to APIs & Services {' > '} Credentials</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">2. Website Restrictions</p>
@@ -341,7 +341,7 @@ const FollowUpMapView: React.FC<FollowUpMapViewProps> = ({ currentUser }) => {
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">Nearby Members</h2>
                 <div className="p-2 bg-cms-blue/10 text-cms-blue rounded-lg">
-                  <Compass className="w-4 h-4" />
+                  <Navigation className="w-4 h-4" />
                 </div>
               </div>
               <div className="space-y-4 max-h-[calc(100vh-450px)] overflow-y-auto pr-2 custom-scrollbar">

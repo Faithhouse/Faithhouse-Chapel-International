@@ -17,7 +17,9 @@ import {
   Droplets, 
   Zap, 
   Loader2, 
-  AlertTriangle 
+  AlertTriangle,
+  Navigation,
+  Globe
 } from 'lucide-react';
 import { MapPickerModal } from '../components/MapPickerModal';
 
@@ -62,21 +64,41 @@ const PublicEnrollmentView: React.FC = () => {
 DROP FUNCTION IF EXISTS public.enroll_or_update_member;
 DROP FUNCTION IF EXISTS public.enroll_or_update_member(text,text,text,date,text,text,text,text,numeric,numeric,text,text,text,text,text,jsonb,text,text,text,uuid,text,boolean,boolean);
 
--- 2. CREATE FUNCTION
+-- 2. CREATE FUNCTION WITH DEFAULTS
 CREATE OR REPLACE FUNCTION public.enroll_or_update_member(
-  p_first_name TEXT, p_last_name TEXT, p_gender TEXT, p_dob DATE, p_phone TEXT, p_email TEXT,
-  p_hometown TEXT, p_gps_address TEXT, p_latitude NUMERIC, p_longitude NUMERIC, p_maps_url TEXT,
-  p_occupation TEXT, p_marital_status TEXT, p_spouse_name TEXT, p_spouse_phone TEXT, p_children JSONB,
-  p_emergency_contact_name TEXT, p_emergency_contact_relationship TEXT, p_emergency_contact_phone TEXT,
-  p_branch_id UUID, p_ministry TEXT, p_water_baptised BOOLEAN, p_holy_ghost_baptised BOOLEAN
+  p_first_name TEXT, 
+  p_last_name TEXT DEFAULT '', 
+  p_gender TEXT DEFAULT 'Male', 
+  p_dob DATE DEFAULT NULL, 
+  p_phone TEXT DEFAULT '', 
+  p_email TEXT DEFAULT '',
+  p_hometown TEXT DEFAULT '', 
+  p_gps_address TEXT DEFAULT '', 
+  p_latitude NUMERIC DEFAULT 0, 
+  p_longitude NUMERIC DEFAULT 0, 
+  p_maps_url TEXT DEFAULT '',
+  p_occupation TEXT DEFAULT '', 
+  p_marital_status TEXT DEFAULT 'Single', 
+  p_spouse_name TEXT DEFAULT '', 
+  p_spouse_phone TEXT DEFAULT '', 
+  p_children JSONB DEFAULT '[]',
+  p_emergency_contact_name TEXT DEFAULT '', 
+  p_emergency_contact_relationship TEXT DEFAULT '', 
+  p_emergency_contact_phone TEXT DEFAULT '',
+  p_branch_id UUID DEFAULT NULL, 
+  p_ministry TEXT DEFAULT 'N/A', 
+  p_water_baptised BOOLEAN DEFAULT false, 
+  p_holy_ghost_baptised BOOLEAN DEFAULT false
 ) RETURNS JSONB SECURITY DEFINER LANGUAGE plpgsql AS $$
-DECLARE v_id UUID; v_count INT;
+DECLARE v_id UUID;
 BEGIN
-  -- Match by name (case-insensitive and trimmed)
-  SELECT COUNT(*), MIN(id::text)::uuid INTO v_count, v_id FROM public.members 
-  WHERE LOWER(TRIM(first_name)) = LOWER(TRIM(p_first_name)) AND LOWER(TRIM(last_name)) = LOWER(TRIM(p_last_name));
+  -- Direct Match (Match by first and last name)
+  SELECT id INTO v_id FROM public.members 
+  WHERE LOWER(TRIM(first_name)) = LOWER(TRIM(p_first_name)) 
+    AND LOWER(TRIM(last_name)) = LOWER(TRIM(p_last_name))
+  ORDER BY created_at DESC LIMIT 1;
 
-  IF v_count = 0 THEN
+  IF v_id IS NULL THEN
     -- CREATE NEW MEMBER
     INSERT INTO public.members (
       first_name, last_name, gender, dob, phone, email, hometown, gps_address, latitude, longitude, maps_url, 
@@ -90,36 +112,32 @@ BEGIN
     ) RETURNING id INTO v_id;
     RETURN jsonb_build_object('action', 'created', 'member_id', v_id);
 
-  ELSIF v_count = 1 THEN
-    -- UPDATE EXISTING (Fill in gaps)
+  ELSE
+    -- UPDATE EXISTING (DIRECT SYNC)
     UPDATE public.members SET 
-      gender = COALESCE(gender, p_gender),
-      dob = COALESCE(dob, p_dob),
-      phone = COALESCE(NULLIF(phone, ''), p_phone),
-      email = COALESCE(NULLIF(email, ''), p_email),
-      hometown = COALESCE(NULLIF(hometown, ''), p_hometown),
-      gps_address = COALESCE(NULLIF(gps_address, ''), p_gps_address),
-      latitude = COALESCE(latitude, p_latitude),
-      longitude = COALESCE(longitude, p_longitude),
-      maps_url = COALESCE(NULLIF(maps_url, ''), p_maps_url),
-      occupation = COALESCE(NULLIF(occupation, ''), p_occupation),
-      marital_status = COALESCE(marital_status, p_marital_status),
-      spouse_name = COALESCE(NULLIF(spouse_name, ''), p_spouse_name),
-      spouse_phone = COALESCE(NULLIF(spouse_phone, ''), p_spouse_phone),
-      children = CASE WHEN children IS NULL OR children::text = '[]' THEN p_children ELSE children END,
-      emergency_contact_name = COALESCE(NULLIF(emergency_contact_name, ''), p_emergency_contact_name),
-      emergency_contact_relationship = COALESCE(NULLIF(emergency_contact_relationship, ''), p_emergency_contact_relationship),
-      emergency_contact_phone = COALESCE(NULLIF(emergency_contact_phone, ''), p_emergency_contact_phone),
-      branch_id = COALESCE(branch_id, p_branch_id),
-      ministry = CASE WHEN ministry IS NULL OR ministry = 'N/A' THEN p_ministry ELSE ministry END,
+      gender = COALESCE(NULLIF(p_gender, 'Male'), gender),
+      dob = COALESCE(p_dob, dob),
+      phone = CASE WHEN p_phone != '' THEN p_phone ELSE phone END,
+      email = CASE WHEN p_email != '' THEN p_email ELSE email END,
+      hometown = CASE WHEN p_hometown != '' THEN p_hometown ELSE hometown END,
+      gps_address = CASE WHEN p_gps_address != '' THEN p_gps_address ELSE gps_address END,
+      latitude = CASE WHEN p_latitude != 0 THEN p_latitude ELSE latitude END,
+      longitude = CASE WHEN p_longitude != 0 THEN p_longitude ELSE longitude END,
+      maps_url = CASE WHEN p_maps_url != '' THEN p_maps_url ELSE maps_url END,
+      occupation = CASE WHEN p_occupation != '' THEN p_occupation ELSE occupation END,
+      marital_status = COALESCE(p_marital_status, marital_status),
+      spouse_name = CASE WHEN p_spouse_name != '' THEN p_spouse_name ELSE spouse_name END,
+      spouse_phone = CASE WHEN p_spouse_phone != '' THEN p_spouse_phone ELSE spouse_phone END,
+      children = CASE WHEN p_children IS NOT NULL AND p_children::text != '[]' THEN p_children ELSE children END,
+      emergency_contact_name = CASE WHEN p_emergency_contact_name != '' THEN p_emergency_contact_name ELSE emergency_contact_name END,
+      emergency_contact_relationship = CASE WHEN p_emergency_contact_relationship != '' THEN p_emergency_contact_relationship ELSE emergency_contact_relationship END,
+      emergency_contact_phone = CASE WHEN p_emergency_contact_phone != '' THEN p_emergency_contact_phone ELSE emergency_contact_phone END,
+      branch_id = COALESCE(p_branch_id, branch_id),
+      ministry = CASE WHEN p_ministry != 'N/A' THEN p_ministry ELSE ministry END,
       water_baptised = water_baptised OR p_water_baptised,
       holy_ghost_baptised = holy_ghost_baptised OR p_holy_ghost_baptised
     WHERE id = v_id;
     RETURN jsonb_build_object('action', 'updated', 'member_id', v_id);
-
-  ELSE 
-    -- MULTIPLE MATCHES (Notify admin)
-    RETURN jsonb_build_object('action', 'created_duplicate_warning', 'member_id', v_id, 'message', 'Multiple profiles found with this name. Admin review required.');
   END IF;
 END; $$;
 GRANT EXECUTE ON FUNCTION public.enroll_or_update_member TO anon;
@@ -285,8 +303,8 @@ NOTIFY pgrst, 'reload schema';`;
         toast.success("Welcome! Your membership profile has been created.");
       } else if (result.action === 'updated') {
         toast.success("Your profile has been updated with the new information.");
-      } else if (result.action === 'created_duplicate_warning') {
-        toast.warning("Profile created. Admin notified to review duplicate names.");
+      } else {
+        toast.success("Enrollment processed successfully.");
       }
 
     } catch (err: any) {
@@ -520,7 +538,7 @@ NOTIFY pgrst, 'reload schema';`;
                   <div className="space-y-1">
                     <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-2">Home Digital Address / GPS</label>
                     <div className="relative group">
-                      <div className="absolute left-6 top-1/2 -track-y-1/2 -translate-y-1/2 text-fh-green z-10">
+                      <div className="absolute left-6 top-1/2 -translate-y-1/2 text-fh-green z-10">
                         <MapPin className="w-4 h-4" />
                       </div>
                       <input 
@@ -549,7 +567,7 @@ NOTIFY pgrst, 'reload schema';`;
                       disabled={isLocating}
                       className="w-full py-4 bg-white border-2 border-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 hover:bg-slate-50 transition-all"
                     >
-                      {isLocating ? <Loader2 className="w-4 h-4 animate-spin text-fh-green" /> : <Compass className="w-4 h-4 text-fh-green" />}
+                      {isLocating ? <Loader2 className="w-4 h-4 animate-spin text-fh-green" /> : <Navigation className="w-4 h-4 text-fh-green" />}
                       {isLocating ? "Locating house..." : "Detect Home at Current Spot"}
                     </button>
                   </div>
