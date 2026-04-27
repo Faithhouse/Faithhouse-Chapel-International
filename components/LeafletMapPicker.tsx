@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { Crosshair, Navigation } from 'lucide-react';
 
 // Fix for default marker icons in Leaflet with React
 // @ts-ignore
@@ -40,6 +41,14 @@ const LocationMarker = ({ initialCenter, onLocationSelect }: LeafletMapPickerPro
     }
   };
 
+  const locateUser = () => {
+    map.locate().on("locationfound", function (e) {
+      setPosition(e.latlng);
+      map.flyTo(e.latlng, map.getZoom());
+      updateAddress(e.latlng.lat, e.latlng.lng);
+    });
+  };
+
   useEffect(() => {
     if (initialCenter) {
       const newPos = new L.LatLng(initialCenter.lat, initialCenter.lng);
@@ -48,8 +57,23 @@ const LocationMarker = ({ initialCenter, onLocationSelect }: LeafletMapPickerPro
     }
   }, [initialCenter, map]);
 
-  return position === null ? null : (
-    <Marker position={position}></Marker>
+  return (
+    <>
+      {position && <Marker position={position}></Marker>}
+      <div className="absolute bottom-6 right-6 z-[1000] flex flex-col gap-2">
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            locateUser();
+          }}
+          className="p-3 bg-white text-slate-900 rounded-full shadow-2xl hover:bg-slate-50 transition-all border border-slate-200 active:scale-95"
+          title="Detect Current Location"
+        >
+          <Crosshair className="w-6 h-6" />
+        </button>
+      </div>
+    </>
   );
 };
 

@@ -66,6 +66,17 @@ const FollowUpMapView: React.FC<FollowUpMapViewProps> = ({ currentUser }) => {
   const [isBypassed, setIsBypassed] = useState(false);
 
   useEffect(() => {
+    (window as any).gm_authFailure = () => {
+      setAuthError(true);
+      setShowTroubleshooting(true);
+      toast.error('Google Maps Authentication Failed', {
+        description: 'Please check your API key and restrictions.',
+        duration: 8000,
+      });
+    };
+  }, []);
+
+  useEffect(() => {
     const checkBypass = async () => {
       try {
         const { data } = await supabase
@@ -81,19 +92,6 @@ const FollowUpMapView: React.FC<FollowUpMapViewProps> = ({ currentUser }) => {
       }
     };
     checkBypass();
-  }, []);
-
-  useEffect(() => {
-    (window as any).gm_authFailure = () => {
-      setAuthError(true);
-      toast.error('Google Maps Authentication Failed', {
-        description: 'Please check your API key and restrictions.',
-        duration: 10000,
-      });
-    };
-    return () => {
-      delete (window as any).gm_authFailure;
-    };
   }, []);
 
   const fetchMembers = useCallback(async () => {
@@ -216,24 +214,89 @@ const FollowUpMapView: React.FC<FollowUpMapViewProps> = ({ currentUser }) => {
     }
   };
 
-  if (!import.meta.env.VITE_GOOGLE_MAPS_API_KEY) {
+  if (!import.meta.env.VITE_GOOGLE_MAPS_API_KEY || authError) {
     return (
       <div className="space-y-6">
-        {/* Header section repeated for consistent UI even in fallback */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-3xl bg-slate-900 text-fh-gold flex items-center justify-center text-2xl shadow-xl">
-              <MapIcon className="w-8 h-8" />
+              {authError ? <AlertCircle className="w-8 h-8 text-rose-500 animate-pulse" /> : <MapIcon className="w-8 h-8" />}
             </div>
             <div>
               <h1 className="text-3xl font-black text-slate-900 tracking-tight">Follow-Up Map</h1>
               <p className="text-slate-500 font-medium tracking-tight flex items-center gap-2">
                 <Globe className="w-3 h-3 text-fh-gold" />
-                Regional Mapping Mode (No API Key Required)
+                {authError ? "Auth Error: Leaflet Fallback Active" : "Regional Mapping Mode (OpenStreet)"}
               </p>
             </div>
           </div>
+          <button 
+            onClick={() => setShowTroubleshooting(!showTroubleshooting)}
+            className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-900 hover:border-slate-900 transition-all shadow-sm active:scale-95"
+          >
+            <ShieldAlert className="w-4 h-4" />
+            Fix Key Restrictions
+          </button>
         </div>
+
+        {showTroubleshooting && (
+          <div className={`p-6 rounded-[2rem] border animate-in slide-in-from-top duration-300 ${authError ? 'bg-rose-50/50 border-rose-100' : 'bg-slate-50 border-slate-200'}`}>
+            <div className="flex flex-col md:flex-row gap-6 items-start">
+              <div className="flex-1 space-y-4">
+                <div>
+                  <h3 className="font-black text-slate-900 uppercase tracking-tight text-sm mb-2">Fix RefererNotAllowedMapError</h3>
+                  <p className="text-slate-500 text-xs font-medium leading-relaxed">
+                    Your Google Maps API key is working, but it blocks requests from this domain. Since you are hosting on Vercel or testing in this preview, you must add this URL to your Google Cloud Console.
+                  </p>
+                </div>
+                
+                <div className="bg-white p-4 rounded-2xl border border-slate-100 flex items-center justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Copy this pattern</p>
+                    <code className="text-slate-900 font-bold text-xs block truncate">{window.location.hostname}/*</code>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.hostname}/*`);
+                      toast.success("Pattern copied!");
+                    }}
+                    className="px-4 py-2 bg-slate-900 text-fh-gold rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
+                  >
+                    Copy
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">1. Google Console</p>
+                    <p className="text-xs text-slate-600 font-medium italic">Go to APIs & Services &gt; Credentials</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">2. Website Restrictions</p>
+                    <p className="text-xs text-slate-600 font-medium italic">Add the copied URL above</p>
+                  </div>
+                </div>
+              </div>
+              <div className="w-px h-32 bg-slate-200 hidden md:block" />
+              <div className="w-full md:w-64 space-y-4">
+                <div className="p-4 bg-white/50 rounded-2xl border border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">API Requirements</p>
+                  <ul className="text-[10px] space-y-1 text-slate-600 font-bold">
+                    <li className="flex items-center gap-2">✓ Maps JavaScript API</li>
+                    <li className="flex items-center gap-2">✓ Places API</li>
+                    <li className="flex items-center gap-2">✓ Directions API</li>
+                  </ul>
+                </div>
+                <button 
+                  onClick={() => setShowTroubleshooting(false)}
+                  className="w-full py-3 bg-slate-900 text-white rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-black transition-all"
+                >
+                  Dismiss Guide
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3 h-[calc(100vh-250px)]">
@@ -247,6 +310,33 @@ const FollowUpMapView: React.FC<FollowUpMapViewProps> = ({ currentUser }) => {
             />
           </div>
           <div className="space-y-6">
+            {selectedMember && (
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-2">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-black text-slate-900 uppercase text-xs">Navigator</h4>
+                  <span className="text-[9px] font-black text-fh-green">ACTIVE SESSION</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      const url = `https://www.google.com/maps/dir/?api=1&destination=${selectedMember.latitude},${selectedMember.longitude}`;
+                      window.open(url, '_blank');
+                    }}
+                    className="flex items-center justify-center gap-2 py-3 bg-fh-green text-fh-gold rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:scale-105 transition-all"
+                  >
+                    <Navigation className="w-3 h-3" />
+                    Route
+                  </button>
+                  <a
+                    href={`tel:${selectedMember.phone}`}
+                    className="flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:scale-105 transition-all"
+                  >
+                    <Phone className="w-3 h-3" />
+                    Call
+                  </a>
+                </div>
+              </div>
+            )}
             <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">Nearby Members</h2>
@@ -258,15 +348,65 @@ const FollowUpMapView: React.FC<FollowUpMapViewProps> = ({ currentUser }) => {
                 {filteredMembers.map(member => {
                   const dist = userLocation ? calculateDistance(userLocation.lat, userLocation.lng, member.latitude!, member.longitude!) : null;
                   return (
-                    <button
+                    <div
                       key={member.id}
                       onClick={() => setSelectedMember(member)}
-                      className={`w-full text-left p-4 rounded-2xl border transition-all ${selectedMember?.id === member.id ? 'bg-slate-50 border-cms-blue' : 'bg-white border-slate-100'}`}
+                      className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer hover:shadow-md ${
+                        selectedMember?.id === member.id ? 'bg-slate-50 border-cms-blue' : 'bg-white border-slate-100'
+                      }`}
                     >
-                      <p className="font-black text-slate-900 text-sm">{member.first_name} {member.last_name}</p>
-                      <p className="text-[10px] text-slate-500">{member.gps_address}</p>
-                      {dist !== null && <p className="text-[10px] font-black text-cms-blue mt-1">{dist.toFixed(1)}km away</p>}
-                    </button>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-black text-slate-900 text-sm truncate uppercase tracking-tight">
+                            {member.first_name} {member.last_name}
+                          </p>
+                          <p className="text-[10px] text-slate-400 font-bold flex items-center gap-1 mt-0.5">
+                            <MapPin className="w-2.5 h-2.5" />
+                            {member.gps_address || 'No GPS'}
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                            member.follow_up_status === 'Completed' ? 'bg-emerald-100 text-emerald-600' :
+                            member.follow_up_status === 'Visited' ? 'bg-blue-100 text-blue-600' :
+                            member.follow_up_status === 'Contacted' ? 'bg-amber-100 text-amber-600' :
+                            'bg-rose-100 text-rose-600'
+                          }`}>
+                            {member.follow_up_status || 'Pending'}
+                          </span>
+                          {dist !== null && (
+                            <p className="text-[9px] font-black text-cms-blue">
+                              {dist.toFixed(1)}km
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="mt-3 flex items-center justify-between gap-2 pt-3 border-t border-slate-50">
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Details</span>
+                        <div className="flex gap-1">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const url = `https://www.google.com/maps/dir/?api=1&destination=${member.latitude},${member.longitude}`;
+                              window.open(url, '_blank');
+                            }}
+                            className="w-8 h-8 rounded-xl bg-fh-green/10 flex items-center justify-center text-fh-green hover:bg-fh-green hover:text-fh-gold transition-all shadow-sm active:scale-90"
+                            title="Navigate to house"
+                          >
+                            <Navigation className="w-4 h-4" />
+                          </button>
+                          <a 
+                            href={`tel:${member.phone}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center text-white hover:bg-black transition-all shadow-sm active:scale-90"
+                            title="Call member"
+                          >
+                            <Phone className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
@@ -532,6 +672,34 @@ const FollowUpMapView: React.FC<FollowUpMapViewProps> = ({ currentUser }) => {
         </div>
 
         <div className="space-y-6">
+          {selectedMember && (
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-4 animate-in slide-in-from-right duration-300">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-black text-slate-900 uppercase text-xs">Navigator</h4>
+                <span className="text-[9px] font-black text-fh-green">ACTIVE SESSION</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => {
+                    const url = `https://www.google.com/maps/dir/?api=1&destination=${selectedMember.latitude},${selectedMember.longitude}`;
+                    window.open(url, '_blank');
+                  }}
+                  className="flex items-center justify-center gap-2 py-3 bg-fh-green text-fh-gold rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:scale-105 transition-all"
+                >
+                  <Navigation className="w-3 h-3" />
+                  Route
+                </button>
+                <a
+                  href={`tel:${selectedMember.phone}`}
+                  className="flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:scale-105 transition-all"
+                >
+                  <Phone className="w-3 h-3" />
+                  Call
+                </a>
+              </div>
+            </div>
+          )}
+
           <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">Nearby Members</h2>
@@ -545,20 +713,23 @@ const FollowUpMapView: React.FC<FollowUpMapViewProps> = ({ currentUser }) => {
                 filteredMembers.map(member => {
                   const dist = userLocation ? calculateDistance(userLocation.lat, userLocation.lng, member.latitude!, member.longitude!) : null;
                   return (
-                    <button
+                    <div
                       key={member.id}
                       onClick={() => {
                         setSelectedMember(member);
                         if (map) map.panTo({ lat: member.latitude!, lng: member.longitude! });
                       }}
-                      className={`w-full text-left p-4 rounded-2xl border transition-all hover:shadow-md ${
+                      className={`w-full text-left p-4 rounded-2xl border transition-all hover:shadow-md cursor-pointer ${
                         selectedMember?.id === member.id ? 'bg-slate-50 border-cms-blue' : 'bg-white border-slate-100'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <p className="font-black text-slate-900 text-sm leading-tight">{member.first_name} {member.last_name}</p>
-                          <p className="text-[10px] text-slate-500 font-medium mt-1">{member.gps_address || 'No address'}</p>
+                          <p className="font-black text-slate-900 text-sm leading-tight uppercase truncate">{member.first_name} {member.last_name}</p>
+                          <p className="text-[10px] text-slate-500 font-medium mt-1 inline-flex items-center gap-1">
+                            <MapPin className="w-2.5 h-2.5" />
+                            {member.gps_address || 'No address'}
+                          </p>
                         </div>
                         {dist !== null && (
                           <span className="text-[10px] font-black text-cms-blue whitespace-nowrap">
@@ -566,7 +737,7 @@ const FollowUpMapView: React.FC<FollowUpMapViewProps> = ({ currentUser }) => {
                           </span>
                         )}
                       </div>
-                      <div className="mt-3 flex items-center justify-between">
+                      <div className="mt-3 flex items-center justify-between border-t border-slate-50 pt-3">
                         <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
                           member.follow_up_status === 'Completed' ? 'bg-emerald-50 text-emerald-600' :
                           member.follow_up_status === 'Visited' ? 'bg-blue-50 text-blue-600' :
@@ -576,15 +747,28 @@ const FollowUpMapView: React.FC<FollowUpMapViewProps> = ({ currentUser }) => {
                           {member.follow_up_status || 'Pending'}
                         </span>
                         <div className="flex gap-1">
-                          <div className="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400">
-                            <Phone className="w-3 h-3" />
-                          </div>
-                          <div className="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400">
-                            <Navigation className="w-3 h-3" />
-                          </div>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const url = `https://www.google.com/maps/dir/?api=1&destination=${member.latitude},${member.longitude}`;
+                              window.open(url, '_blank');
+                            }}
+                            className="w-7 h-7 rounded-lg bg-fh-green/10 flex items-center justify-center text-fh-green hover:bg-fh-green hover:text-fh-gold transition-all active:scale-90"
+                            title="Navigation"
+                          >
+                            <Navigation className="w-3.5 h-3.5" />
+                          </button>
+                          <a 
+                            href={`tel:${member.phone}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-900 hover:text-white transition-all active:scale-90"
+                            title="Call"
+                          >
+                            <Phone className="w-3.5 h-3.5" />
+                          </a>
                         </div>
                       </div>
-                    </button>
+                    </div>
                   );
                 })
               ) : (

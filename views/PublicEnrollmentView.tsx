@@ -518,25 +518,39 @@ NOTIFY pgrst, 'reload schema';`;
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-2">GPS / Digital Address</label>
-                    <input name="gps_address" value={formData.gps_address} onChange={handleInputChange} className="w-full px-6 py-4 bg-slate-50 rounded-2xl font-bold outline-none" placeholder="e.g. GA-123-4567" />
+                    <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-2">Home Digital Address / GPS</label>
+                    <div className="relative group">
+                      <div className="absolute left-6 top-1/2 -track-y-1/2 -translate-y-1/2 text-fh-green z-10">
+                        <MapPin className="w-4 h-4" />
+                      </div>
+                      <input 
+                        name="gps_address" 
+                        value={formData.gps_address} 
+                        onChange={handleInputChange} 
+                        readOnly
+                        onClick={() => setShowMapPicker(true)}
+                        className="w-full pl-14 pr-32 py-5 bg-slate-50 border-2 border-slate-100 rounded-[2rem] font-bold focus:border-fh-green focus:bg-white outline-none transition-all placeholder:text-slate-300 cursor-pointer text-sm" 
+                        placeholder="Pin your home on the map..." 
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowMapPicker(true)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 px-5 py-2.5 bg-slate-900 text-fh-gold rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest shadow-xl hover:scale-105 transition-all flex items-center gap-2"
+                      >
+                        <Navigation className="w-3 h-3" />
+                        Pin Map
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="px-2">
                     <button 
                       onClick={getCurrentLocation}
                       disabled={isLocating}
-                      className="py-4 bg-slate-900 border border-slate-800 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 hover:bg-slate-800"
+                      className="w-full py-4 bg-white border-2 border-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 hover:bg-slate-50 transition-all"
                     >
-                      {isLocating ? <Loader2 className="w-3 h-3 animate-spin text-fh-gold" /> : <MapPin className="w-3 h-3 text-fh-gold" />}
-                      Use My Current Location
-                    </button>
-                    <button 
-                      onClick={() => setShowMapPicker(true)}
-                      className="py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 hover:bg-slate-50"
-                    >
-                      <Droplets className="w-3 h-3 text-fh-green" />
-                      Pick on Map
+                      {isLocating ? <Loader2 className="w-4 h-4 animate-spin text-fh-green" /> : <Compass className="w-4 h-4 text-fh-green" />}
+                      {isLocating ? "Locating house..." : "Detect Home at Current Spot"}
                     </button>
                   </div>
 

@@ -86,13 +86,24 @@ const LeafletFollowUpMap: React.FC<LeafletFollowUpMapProps> = ({ members, userLo
                     {member.gps_address || 'No GPS'}
                   </div>
                 </div>
-                <button
-                  onClick={() => onStartVisit(member)}
-                  className="w-full py-2 bg-slate-900 text-fh-gold rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
-                >
-                  <Navigation className="w-3 h-3" />
-                  Details
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      const url = `https://www.google.com/maps/dir/?api=1&destination=${member.latitude},${member.longitude}`;
+                      window.open(url, '_blank');
+                    }}
+                    className="flex-1 py-2 bg-fh-green text-fh-gold rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-black transition-all flex items-center justify-center gap-2"
+                  >
+                    <Navigation className="w-3 h-3" />
+                    Navigate
+                  </button>
+                  <button
+                    onClick={() => onStartVisit(member)}
+                    className="flex-1 py-2 bg-slate-900 text-white rounded-lg font-black uppercase text-[10px] tracking-widest hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
+                  >
+                    Details
+                  </button>
+                </div>
               </div>
             </Popup>
           </Marker>
