@@ -79,7 +79,59 @@ BEGIN
   BEGIN ALTER TABLE public.members ADD COLUMN marital_status TEXT; EXCEPTION WHEN duplicate_column THEN END;
 END $$;
 
--- 3. CREATE FUNCTION WITH DEFAULTS
+-- 3. ACTIVE STATUS PROTOCOL (5-CONTINUOUS-ATTENDANCE RULE)
+CREATE OR REPLACE FUNCTION public.calculate_active_status(p_member_id UUID)
+RETURNS TEXT AS $$
+DECLARE
+    v_branch_id UUID;
+    v_attendance_count INTEGER;
+    v_recent_events UUID[];
+BEGIN
+    SELECT branch_id INTO v_branch_id FROM public.members WHERE id = p_member_id;
+    
+    SELECT array_agg(id) INTO v_recent_events
+    FROM (
+        SELECT id FROM public.attendance_events
+        WHERE (branch_id = v_branch_id OR v_branch_id IS NULL)
+        ORDER BY event_date DESC
+        LIMIT 5
+    ) sub;
+
+    IF array_length(v_recent_events, 1) < 5 THEN
+        RETURN 'Probation';
+    END IF;
+
+    SELECT count(*) INTO v_attendance_count
+    FROM public.attendance_records
+    WHERE member_id = p_member_id
+      AND attendance_event_id = ANY(v_recent_events)
+      AND status = 'Present';
+
+    IF v_attendance_count = 5 THEN
+        RETURN 'Active';
+    ELSE
+        RETURN 'Probation';
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION public.trigger_refresh_member_status()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE public.members 
+    SET status = public.calculate_active_status(NEW.member_id)
+    WHERE id = NEW.member_id 
+      AND status IN ('Active', 'Probation', 'Inactive', 'Visitor');
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS tr_refresh_member_status ON public.attendance_records;
+CREATE TRIGGER tr_refresh_member_status
+AFTER INSERT OR UPDATE ON public.attendance_records
+FOR EACH ROW EXECUTE FUNCTION public.trigger_refresh_member_status();
+
+-- 4. CREATE FUNCTION WITH DEFAULTS
 CREATE OR REPLACE FUNCTION public.enroll_or_update_member(
   p_first_name TEXT, 
   p_last_name TEXT DEFAULT '', 
@@ -126,7 +178,7 @@ BEGIN
     VALUES (
       p_first_name, p_last_name, p_gender, p_dob, p_phone, p_email, p_hometown, p_gps_address, p_latitude, p_longitude, p_maps_url, 
       p_occupation, p_place_of_work, p_educational_level, p_marital_status, p_spouse_name, p_spouse_phone, p_date_joined, p_children, p_emergency_contact_name, 
-      p_emergency_contact_relationship, p_emergency_contact_phone, p_branch_id, p_ministry, p_water_baptised, p_holy_ghost_baptised, 'Active'
+      p_emergency_contact_relationship, p_emergency_contact_phone, p_branch_id, p_ministry, p_water_baptised, p_holy_ghost_baptised, 'Probation'
     ) RETURNING id INTO v_id;
     RETURN jsonb_build_object('action', 'created', 'member_id', v_id);
 

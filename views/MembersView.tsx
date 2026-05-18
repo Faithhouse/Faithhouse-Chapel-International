@@ -82,7 +82,7 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
     emergency_contact_phone: '',
     notify_birthday: true,
     notify_events: true,
-    status: 'Active' as Member['status'],
+    status: 'Probation' as Member['status'],
     follow_up_status: 'Pending' as Member['follow_up_status'],
     latitude: 0,
     longitude: 0,
@@ -264,7 +264,7 @@ CREATE TABLE IF NOT EXISTS public.members (
   dob DATE,
   date_joined DATE DEFAULT CURRENT_DATE,
   branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
-  status TEXT DEFAULT 'Active',
+  status TEXT DEFAULT 'Probation',
   follow_up_status TEXT DEFAULT 'Pending',
   last_seen TIMESTAMP WITH TIME ZONE,
   latitude DOUBLE PRECISION,
@@ -294,7 +294,59 @@ CREATE TABLE IF NOT EXISTS public.members (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- 4. TITHE ENTRIES
+-- 4. ACTIVE STATUS PROTOCOL (5-CONTINUOUS-ATTENDANCE RULE)
+CREATE OR REPLACE FUNCTION public.calculate_active_status(p_member_id UUID)
+RETURNS TEXT AS $$
+DECLARE
+    v_branch_id UUID;
+    v_attendance_count INTEGER;
+    v_recent_events UUID[];
+BEGIN
+    SELECT branch_id INTO v_branch_id FROM public.members WHERE id = p_member_id;
+    
+    SELECT array_agg(id) INTO v_recent_events
+    FROM (
+        SELECT id FROM public.attendance_events
+        WHERE (branch_id = v_branch_id OR v_branch_id IS NULL)
+        ORDER BY event_date DESC
+        LIMIT 5
+    ) sub;
+
+    IF array_length(v_recent_events, 1) < 5 THEN
+        RETURN 'Probation';
+    END IF;
+
+    SELECT count(*) INTO v_attendance_count
+    FROM public.attendance_records
+    WHERE member_id = p_member_id
+      AND attendance_event_id = ANY(v_recent_events)
+      AND status = 'Present';
+
+    IF v_attendance_count = 5 THEN
+        RETURN 'Active';
+    ELSE
+        RETURN 'Probation';
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION public.trigger_refresh_member_status()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE public.members 
+    SET status = public.calculate_active_status(NEW.member_id)
+    WHERE id = NEW.member_id 
+      AND status IN ('Active', 'Probation', 'Inactive', 'Visitor');
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS tr_refresh_member_status ON public.attendance_records;
+CREATE TRIGGER tr_refresh_member_status
+AFTER INSERT OR UPDATE ON public.attendance_records
+FOR EACH ROW EXECUTE FUNCTION public.trigger_refresh_member_status();
+
+-- 5. TITHE ENTRIES
 CREATE TABLE IF NOT EXISTS public.tithe_entries (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   member_id UUID NOT NULL REFERENCES public.members(id) ON DELETE CASCADE,
@@ -315,7 +367,7 @@ BEGIN
   BEGIN ALTER TABLE public.members ADD COLUMN branch_id UUID REFERENCES public.branches(id); EXCEPTION WHEN duplicate_column THEN END;
   BEGIN ALTER TABLE public.members ADD COLUMN gender TEXT; EXCEPTION WHEN duplicate_column THEN END;
   BEGIN ALTER TABLE public.members ADD COLUMN phone TEXT; EXCEPTION WHEN duplicate_column THEN END;
-  BEGIN ALTER TABLE public.members ADD COLUMN status TEXT DEFAULT 'Active'; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN status TEXT DEFAULT 'Probation'; EXCEPTION WHEN duplicate_column THEN END;
   BEGIN ALTER TABLE public.members ADD COLUMN marital_status TEXT; EXCEPTION WHEN duplicate_column THEN END;
   BEGIN ALTER TABLE public.members ADD COLUMN gps_address TEXT; EXCEPTION WHEN duplicate_column THEN END;
   BEGIN ALTER TABLE public.members ADD COLUMN maps_url TEXT; EXCEPTION WHEN duplicate_column THEN END;
@@ -326,6 +378,12 @@ BEGIN
   BEGIN ALTER TABLE public.members ADD COLUMN date_joined DATE DEFAULT CURRENT_DATE; EXCEPTION WHEN duplicate_column THEN END;
   BEGIN ALTER TABLE public.members ADD COLUMN water_baptised BOOLEAN DEFAULT false; EXCEPTION WHEN duplicate_column THEN END;
   BEGIN ALTER TABLE public.members ADD COLUMN holy_ghost_baptised BOOLEAN DEFAULT false; EXCEPTION WHEN duplicate_column THEN END;
+
+  -- Reforce Active Protocol
+  UPDATE public.members SET status = 'Probation' WHERE status = 'Active' AND id NOT IN (
+    SELECT member_id FROM public.attendance_records 
+    GROUP BY member_id HAVING count(*) >= 5
+  );
 END $$;
 
 -- 7. RLS SETTINGS
@@ -536,7 +594,7 @@ NOTIFY pgrst, 'reload schema';`;
     }
   };
 
-  const resetForm = (status: Member['status'] = 'Active') => {
+  const resetForm = (status: Member['status'] = 'Probation') => {
     setEditingId(null);
     setFormData({
       first_name: '', last_name: '', gender: 'Male', phone: '', email: '', gps_address: '', dob: '',

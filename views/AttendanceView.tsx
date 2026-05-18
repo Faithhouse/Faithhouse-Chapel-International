@@ -430,7 +430,7 @@ CREATE TABLE IF NOT EXISTS public.members (
   wedding_anniversary DATE,
   date_joined DATE DEFAULT CURRENT_DATE,
   branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
-  status TEXT DEFAULT 'Active',
+  status TEXT DEFAULT 'Probation',
   follow_up_status TEXT DEFAULT 'Pending',
   last_seen TIMESTAMP WITH TIME ZONE,
   latitude DOUBLE PRECISION,
@@ -487,7 +487,59 @@ CREATE TABLE IF NOT EXISTS public.attendance_records (
   UNIQUE(attendance_event_id, member_id)
 );
 
--- 5. COLUMN REPAIRS (For existing tables)
+-- 5. ACTIVE STATUS PROTOCOL (5-CONTINUOUS-ATTENDANCE RULE)
+CREATE OR REPLACE FUNCTION public.calculate_active_status(p_member_id UUID)
+RETURNS TEXT AS $$
+DECLARE
+    v_branch_id UUID;
+    v_attendance_count INTEGER;
+    v_recent_events UUID[];
+BEGIN
+    SELECT branch_id INTO v_branch_id FROM public.members WHERE id = p_member_id;
+    
+    SELECT array_agg(id) INTO v_recent_events
+    FROM (
+        SELECT id FROM public.attendance_events
+        WHERE (branch_id = v_branch_id OR v_branch_id IS NULL)
+        ORDER BY event_date DESC
+        LIMIT 5
+    ) sub;
+
+    IF array_length(v_recent_events, 1) < 5 THEN
+        RETURN 'Probation';
+    END IF;
+
+    SELECT count(*) INTO v_attendance_count
+    FROM public.attendance_records
+    WHERE member_id = p_member_id
+      AND attendance_event_id = ANY(v_recent_events)
+      AND status = 'Present';
+
+    IF v_attendance_count = 5 THEN
+        RETURN 'Active';
+    ELSE
+        RETURN 'Probation';
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION public.trigger_refresh_member_status()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE public.members 
+    SET status = public.calculate_active_status(NEW.member_id)
+    WHERE id = NEW.member_id 
+      AND status IN ('Active', 'Probation', 'Inactive', 'Visitor');
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS tr_refresh_member_status ON public.attendance_records;
+CREATE TRIGGER tr_refresh_member_status
+AFTER INSERT OR UPDATE ON public.attendance_records
+FOR EACH ROW EXECUTE FUNCTION public.trigger_refresh_member_status();
+
+-- 6. COLUMN REPAIRS (For existing tables)
 DO $$ 
 BEGIN 
   -- Members Table Repairs
