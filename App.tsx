@@ -149,8 +149,40 @@ const App: React.FC = () => {
           // No session found, and no local saved user
           if (!isDemoMode) setCurrentUser(null);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Auth check failure:', error);
+        
+        const { isUnreachable } = await import('./supabaseClient');
+        const isNetworkError = error.message === 'Failed to fetch' || 
+                             error.message?.includes('fetch') ||
+                             error.message?.includes('NetworkError') ||
+                             isUnreachable;
+                             
+        if (isNetworkError) {
+          // Check backend reachability as a diagnostic
+          let backendStatus = '';
+          try {
+            const res = await fetch('/api/supabase-health');
+            const status = await res.json();
+            backendStatus = status.ok ? 
+              ' (The backend can reach Supabase, so this is likely a block in your local network or browser).' : 
+              ' (The backend also cannot reach Supabase, confirming the project might be down).';
+          } catch (e) {
+            backendStatus = ' (Could not verify backend reachability).';
+          }
+
+          toast.error(`Connection failed (Supabase unreachable)${backendStatus}`, {
+            duration: Infinity,
+            id: 'network-error',
+            action: {
+              label: 'Retry Connection',
+              onClick: () => {
+                toast.dismiss('network-error');
+                checkAuth();
+              }
+            }
+          });
+        }
       } finally {
         setIsAuthLoading(false);
       }

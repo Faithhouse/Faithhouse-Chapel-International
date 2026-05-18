@@ -6,7 +6,7 @@ import {
   Users, UserPlus, Search, ListFilter, MapPin, Phone, 
   Calendar, CheckCircle2, ChevronRight, X, AlertCircle, Clock,
   FileText, Activity, Save, RefreshCw, Trash2, ShieldCheck, Mail,
-  ArrowUpRight, ArrowDownRight, Sparkles
+  ArrowUpRight, ArrowDownRight, Sparkles, Printer
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -15,6 +15,7 @@ import {
 } from 'recharts';
 
 import { MapPickerModal } from '../components/MapPickerModal';
+import VisitorReportDocument from '../src/components/VisitorReportDocument';
 
 const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
   const [activeTab, setActiveTab] = useState<'Directory' | 'Log Visit' | 'Follow Up' | 'Reports'>('Directory');
@@ -30,6 +31,7 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [tableError, setTableError] = useState<string | null>(null);
+  const [isPrintMode, setIsPrintMode] = useState(false);
 
   const [regForm, setRegForm] = useState({
     full_name: '',
@@ -347,6 +349,36 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
     };
   }, [visitors]);
 
+  if (isPrintMode) {
+    return (
+      <div className="bg-white min-h-screen">
+        <div className="fixed top-4 right-4 flex gap-2 no-print z-[200]">
+          <button 
+            onClick={() => window.print()} 
+            className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-2xl hover:scale-105 transition-all"
+          >
+            <Printer className="w-4 h-4" />
+            Print Report
+          </button>
+          <button 
+            onClick={() => setIsPrintMode(false)} 
+            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-2xl hover:scale-105 transition-all"
+          >
+            <X className="w-4 h-4" />
+            Exit Report
+          </button>
+        </div>
+        <VisitorReportDocument 
+          organizationName="Faithhouse Chapel International"
+          reportPeriod={`Registry Export ${new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}`}
+          dateGenerated={new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+          visitors={visitors}
+          attendance={attendance}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 min-h-screen bg-slate-50/50 ml-0 lg:ml-64 transition-all duration-300 flex flex-col relative z-0">
       <div className="flex-1 p-4 md:p-8 space-y-8 max-w-7xl mx-auto w-full">
@@ -575,7 +607,16 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
              </div>
 
              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
-               <h3 className="font-bold text-slate-800 mb-4">Guests Missing 30+ Days</h3>
+               <div className="flex justify-between items-center mb-6">
+                 <h3 className="font-bold text-slate-800">Guests Missing 30+ Days</h3>
+                 <button 
+                   onClick={() => setIsPrintMode(true)}
+                   className="flex items-center gap-2 px-6 py-3 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all shadow-sm"
+                 >
+                   <FileText className="w-4 h-4" />
+                   Print Registry Report
+                 </button>
+               </div>
                {thirtyDaysNoReturn.length > 0 ? (
                  <ul className="space-y-3">
                    {thirtyDaysNoReturn.map(v => (

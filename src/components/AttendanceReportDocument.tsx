@@ -67,7 +67,7 @@ const AttendanceReportDocument: React.FC<AttendanceReportDocumentProps> = ({
     .document-container { 
       background: white; 
       color: black; 
-      padding: 60px; 
+      padding: 50mm 60px 60px 60px; 
       max-width: 210mm; 
       margin: 20px auto; 
       font-family: 'Inter', sans-serif; 
@@ -77,28 +77,69 @@ const AttendanceReportDocument: React.FC<AttendanceReportDocumentProps> = ({
       position: relative;
       overflow: hidden;
     }
-    .header-accent {
+    .letterhead-border {
       position: absolute;
       top: 0;
       left: 0;
-      right: 0;
-      height: 10px;
-      background: linear-gradient(to right, #004d40, #d4af37, #004d40, #d4af37, #004d40);
-    }
-    .official-stamp {
-      position: absolute;
-      top: 45px;
-      right: -45px;
-      background: #004d40;
-      color: white;
-      padding: 10px 70px;
-      transform: rotate(45deg);
-      font-size: 9pt;
-      font-weight: 900;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      height: 40mm;
+      border-bottom: 2px solid #004d40;
+      background: #fdfdfd;
       z-index: 10;
+      padding: 40px 60px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .letterhead-logo {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .letterhead-info {
+      text-align: right;
+      color: #004d40;
+    }
+    .official-seal {
+      position: absolute;
+      bottom: 60px;
+      right: 60px;
+      width: 120px;
+      height: 120px;
+      border: 4px double #004d40;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 10px;
+      opacity: 0.15;
+      transform: rotate(-15deg);
+      pointer-events: none;
+    }
+    .official-seal p {
+      font-size: 8pt;
+      font-weight: 900;
+      text-transform: uppercase;
+      line-height: 1;
+      color: #004d40;
+    }
+    @media print {
+      body { background: white !important; margin: 0; padding: 0; }
+      .no-print { display: none !important; }
+      @page { margin: 0; size: A4; }
+      .document-container { 
+        box-shadow: none !important; 
+        border: none !important; 
+        width: 100% !important; 
+        max-width: none !important; 
+        padding: 45mm 20mm 20mm 20mm !important;
+        margin: 0 !important;
+      }
+      .letterhead-border {
+        position: fixed;
+        padding: 10mm 20mm !important;
+      }
     }
     table { border-collapse: collapse; width: 100%; margin-bottom: 30px; }
     th, td { border: 1px solid #e2e8f0; padding: 12px 15px; text-align: left; font-size: 9pt; }
@@ -145,32 +186,50 @@ const AttendanceReportDocument: React.FC<AttendanceReportDocumentProps> = ({
     }
   `;
 
+  const Letterhead = () => (
+    <div className="letterhead-border">
+      <div className="letterhead-logo">
+        <img src={logoUrl} alt="FHCI Logo" className="w-16 h-16 object-contain" referrerPolicy="no-referrer" />
+        <div>
+          <h2 className="text-xl font-black tracking-tighter text-[#004d40] uppercase leading-none">Faithhouse Chapel</h2>
+          <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">International (Wonders Cathedral)</p>
+        </div>
+      </div>
+      <div className="letterhead-info">
+        <p className="text-[8pt] font-black uppercase tracking-widest">Global Headquarters</p>
+        <p className="text-[7pt] font-medium opacity-70">P.O. Box DS 1234, Dansoman - Accra</p>
+        <p className="text-[7pt] font-medium opacity-70">+233 24 000 0000 | info@faithhousechapel.org</p>
+      </div>
+    </div>
+  );
+
   return (
     <div className="document-container">
       <style dangerouslySetInnerHTML={{ __html: styles }} />
-      <div className="header-accent" />
-      <div className="official-stamp">Official Report</div>
+      <Letterhead />
+      <div className="official-seal">
+         <p>Church<br/>Census<br/>Validated</p>
+      </div>
 
       {/* HEADER */}
-      <div className="flex flex-col items-center text-center mb-16">
-        <img src={logoUrl} alt="Logo" className="w-24 h-24 object-contain mb-6" referrerPolicy="no-referrer" />
+      <div className="flex justify-between items-end mb-12 relative z-10 pt-10">
         <div>
-          <h1 className="text-2xl font-black text-fh-green tracking-tighter uppercase leading-none mb-2">{organizationName}</h1>
-          <p className="text-sm font-bold text-slate-500 mb-4">(Wonders Cathedral)</p>
-          <div className="inline-block px-6 py-2 bg-fh-green text-white text-[10pt] font-black uppercase tracking-[0.3em] rounded-full">
-            {reportType} Attendance Report
-          </div>
+          <h1 className="text-4xl font-black text-slate-900 tracking-tighter font-serif uppercase">{reportType} Attendance Report</h1>
+          <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-3">Statistical Summary</p>
+        </div>
+        <div className="text-right">
+          <span className="px-5 py-2 bg-[#004d40] text-white text-[10pt] font-black uppercase tracking-[0.2em] rounded-lg">Official Statistics</span>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-16 mb-12 pb-8 border-b-2 border-slate-100">
-        <div className="space-y-3">
-          <p className="text-slate-400 uppercase text-[8pt] font-black tracking-widest">Reporting Period</p>
-          <p className="text-xl font-black text-slate-900 font-serif">{reportPeriod}</p>
+        <div className="space-y-4">
+          <p className="text-slate-400 uppercase text-[8pt] font-black tracking-widest bg-slate-50 px-3 py-1 inline-block rounded">Census Period</p>
+          <p className="text-2xl font-black text-slate-900 font-serif leading-tight">{reportPeriod}</p>
         </div>
-        <div className="text-right space-y-3">
-          <p className="text-slate-400 uppercase text-[8pt] font-black tracking-widest">Date Generated</p>
-          <p className="text-xl font-black text-slate-900 font-serif">{dateGenerated}</p>
+        <div className="text-right space-y-4">
+          <p className="text-slate-400 uppercase text-[8pt] font-black tracking-widest bg-slate-50 px-3 py-1 inline-block rounded">Generation Date</p>
+          <p className="text-2xl font-black text-slate-900 font-serif leading-tight">{dateGenerated}</p>
         </div>
       </div>
 

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow, DirectionsRenderer } from '@react-google-maps/api';
 import { supabase } from '../supabaseClient';
 import { Member, UserProfile } from '../types';
-import { MapPin, Phone, User, Navigation, Search, Filter, Map as MapIcon, Loader2, AlertCircle, HelpCircle, Download, ShieldAlert, Globe } from 'lucide-react';
+import { MapPin, Phone, User, Navigation, Search, Filter, Map as MapIcon, Loader2, AlertCircle, HelpCircle, Download, ShieldAlert, Globe, Compass } from 'lucide-react';
 import { toast } from 'sonner';
 import LeafletFollowUpMap from '../components/LeafletFollowUpMap';
 

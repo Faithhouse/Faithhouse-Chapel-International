@@ -58,7 +58,7 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
     .document-container { 
       background: white; 
       color: black; 
-      padding: 60px; 
+      padding: 50mm 60px 60px 60px; /* Leave space for the letterhead */
       max-width: 210mm; 
       margin: 20px auto; 
       font-family: 'Inter', sans-serif; 
@@ -68,18 +68,69 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
       position: relative;
       overflow: hidden;
     }
-    @media (max-width: 768px) {
-      .document-container { padding: 30px 20px; box-shadow: none; border: none; width: 100%; max-width: none; margin: 0; }
-      .bento-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-      .side-by-side { flex-direction: column; gap: 20px; }
-      .header-flex { flex-direction: column; align-items: center; text-align: center; gap: 15px; }
-      .header-flex-right { align-items: center; text-align: center; width: 100%; }
-      .official-stamp { transform: rotate(45deg) scale(0.7); top: 25px; right: -55px; }
-      .section-title { font-size: 10pt; }
-      .summary-item-value { font-size: 12pt; }
-      .signature-box { width: 100%; margin-bottom: 20px; }
-      .grid-cols-3 { grid-template-columns: 1fr; gap: 20px; }
-      .grid-cols-2 { grid-template-columns: 1fr; gap: 20px; }
+    .letterhead-border {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 40mm;
+      border-bottom: 2px solid #004d40;
+      background: #fdfdfd;
+      z-index: 10;
+      padding: 40px 60px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .letterhead-logo {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .letterhead-info {
+      text-align: right;
+      color: #004d40;
+    }
+    .official-seal {
+      position: absolute;
+      bottom: 60px;
+      right: 60px;
+      width: 120px;
+      height: 120px;
+      border: 4px double #004d40;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 10px;
+      opacity: 0.15;
+      transform: rotate(-15deg);
+      pointer-events: none;
+    }
+    .official-seal p {
+      font-size: 8pt;
+      font-weight: 900;
+      text-transform: uppercase;
+      line-height: 1;
+      color: #004d40;
+    }
+    @media print {
+      body { background: white !important; margin: 0; padding: 0; }
+      .no-print { display: none !important; }
+      @page { margin: 0; size: A4; }
+      .document-container { 
+        box-shadow: none !important; 
+        border: none !important; 
+        width: 100% !important; 
+        max-width: none !important; 
+        padding: 45mm 20mm 20mm 20mm !important;
+        margin: 0 !important;
+      }
+      .letterhead-border {
+        position: fixed;
+        padding: 10mm 20mm !important;
+      }
     }
     .bg-pattern {
       position: absolute;
@@ -240,50 +291,58 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
     </div>
   );
 
+  const Letterhead = () => (
+    <div className="letterhead-border">
+      <div className="letterhead-logo">
+        <img src={logoUrl} alt="FHCI Logo" className="w-16 h-16 object-contain" referrerPolicy="no-referrer" />
+        <div>
+          <h2 className="text-xl font-black tracking-tighter text-[#004d40] uppercase leading-none">Faithhouse Chapel</h2>
+          <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">International (Wonders Cathedral)</p>
+        </div>
+      </div>
+      <div className="letterhead-info">
+        <p className="text-[8pt] font-black uppercase tracking-widest">Global Headquarters</p>
+        <p className="text-[7pt] font-medium opacity-70">P.O. Box DS 1234, Dansoman - Accra</p>
+        <p className="text-[7pt] font-medium opacity-70">+233 24 000 0000 | info@faithhousechapel.org</p>
+      </div>
+    </div>
+  );
+
+  const OfficialSeal = () => (
+    <div className="official-seal">
+      <p>Faithhouse Chapel<br/>Official<br/>Treasury Seal<br/>{new Date().getFullYear()}</p>
+    </div>
+  );
+
   if (reportType === 'Audit') {
     return (
       <div className="document-container">
         <style dangerouslySetInnerHTML={{ __html: styles }} />
+        <Letterhead />
         <div className="bg-pattern" />
-        <div className="watermark">CONFIDENTIAL AUDIT</div>
-        <div className="header-accent" />
-        <div className="official-stamp">Authorized
-         <p className="text-[9px] font-black text-fh-white uppercase tracking-[0.4em]">financial audit</p>
+        <div className="watermark">OFFICIAL AUDIT</div>
+        <div className="official-seal">
+           <p>Audit<br/>Verified<br/>Financials</p>
         </div>
-        {reportType === 'Audit' && (
-          <div className="absolute top-[105px] right-[25px] text-right z-10">
+        
+        <div className="flex justify-between items-end mb-12 relative z-10 pt-10">
+          <div>
+            <h1 className="text-4xl font-black text-slate-900 tracking-tighter font-serif uppercase">Financial Audit Report</h1>
+            <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-3">Document ID: AUD-{new Date().getFullYear()}-{Math.floor(Math.random() * 9000) + 1000}</p>
           </div>
-        )}
-
-        {/* 1. HEADER */}
-        <div className="flex justify-between items-start mb-16 relative z-10 header-flex">
-          <div className="flex items-center gap-8 header-flex">
-            <img src={logoUrl} alt="Logo" className="w-24 h-24 object-contain" referrerPolicy="no-referrer" />
-            <div>
-              <h1 className="text-3xl font-black text-fh-green tracking-tighter uppercase leading-none">Faithhouse Chapel International</h1>
-              <p className="text-sm font-bold text-slate-500 mt-1">(Wonders Cathedral)</p>
-              <p className="text-[11px] text-slate-400 font-black uppercase tracking-[0.6em] mt-3">Treasury & Audit Department</p>
-              <div className="flex items-center gap-3 mt-4">
-                <span className="px-3 py-1 bg-fh-green text-white text-[8pt] font-black uppercase tracking-widest rounded-full">Official Audit</span>
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-6 header-flex-right">
-            <div className="text-right header-flex-right">
-              <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight font-serif">Financial Audit</h2>
-              <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em] mt-2">ID: AUD-{new Date().getFullYear()}-{Math.floor(Math.random() * 9000) + 1000}</p>
-            </div>
+          <div className="text-right">
+            <span className="px-5 py-2 bg-slate-900 text-white text-[10pt] font-black uppercase tracking-[0.2em] rounded-lg">Confidential</span>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-16 mb-12 pb-8 border-b-2 border-slate-100 relative z-10">
-          <div className="space-y-3">
-            <p className="text-slate-400 uppercase text-[8pt] font-black tracking-widest">Reporting Period</p>
-            <p className="text-xl font-black text-slate-900 font-serif">{reportPeriod}</p>
+          <div className="space-y-4">
+            <p className="text-slate-400 uppercase text-[8pt] font-black tracking-widest bg-slate-50 px-3 py-1 inline-block rounded">Examined Period</p>
+            <p className="text-2xl font-black text-slate-900 font-serif leading-tight">{reportPeriod}</p>
           </div>
-          <div className="text-right space-y-3">
-            <p className="text-slate-400 uppercase text-[8pt] font-black tracking-widest">Date of Issue</p>
-            <p className="text-xl font-black text-slate-900 font-serif">{dateGenerated}</p>
+          <div className="text-right space-y-4">
+            <p className="text-slate-400 uppercase text-[8pt] font-black tracking-widest bg-slate-50 px-3 py-1 inline-block rounded">Certification Date</p>
+            <p className="text-2xl font-black text-slate-900 font-serif leading-tight">{dateGenerated}</p>
           </div>
         </div>
 
@@ -458,34 +517,19 @@ const FinancialReportDocument: React.FC<FinancialReportDocumentProps> = ({
   return (
     <div className="document-container">
       <style dangerouslySetInnerHTML={{ __html: styles }} />
-      <div className="watermark">MONTHLY REPORT</div>
-      <div className="header-accent" />
-      <div className="official-stamp">Monthly
-         <p className="text-[9px] font-black text-fh-white uppercase tracking-[0.4em]">Financial Report</p>
+      <Letterhead />
+      <div className="watermark">STATEMENT</div>
+      <div className="official-seal">
+         <p>Treasury<br/>Validated<br/>Monthly</p>
       </div>
-      {reportType === 'Monthly' && (
-        <div className="absolute top-[105px] right-[25px] text-right z-10">
-        </div>
-      )}
 
-      {/* 1. TITLE SECTION */}
-      <div className="flex justify-between items-start mb-16 relative z-10 header-flex">
-        <div className="flex items-center gap-8 header-flex">
-          <img src={logoUrl} alt="Logo" className="w-24 h-24 object-contain" referrerPolicy="no-referrer" />
-          <div>
-            <h1 className="text-3xl font-black text-fh-green tracking-tighter uppercase leading-none">Faithhouse Chapel International</h1>
-            <p className="text-sm font-bold text-slate-500 mt-1">(Wonders Cathedral)</p>
-            <p className="text-[11px] text-slate-400 font-black uppercase tracking-[0.6em] mt-3">Treasury Department</p>
-            <div className="flex items-center gap-3 mt-4">
-              <span className="px-3 py-1 bg-fh-green text-white text-[8pt] font-black uppercase tracking-widest rounded-full">Monthly Statement</span>
-            </div>
-          </div>
+      <div className="flex justify-between items-end mb-12 relative z-10 pt-10">
+        <div>
+          <h1 className="text-4xl font-black text-slate-900 tracking-tighter font-serif uppercase">Financial Statement</h1>
+          <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-3">{reportPeriod}</p>
         </div>
-        <div className="flex flex-col items-end gap-6 header-flex-right">
-          <div className="text-right header-flex-right">
-            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight font-serif">Financial Report</h2>
-            <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em] mt-2">{reportPeriod}</p>
-          </div>
+        <div className="text-right">
+          <span className="px-5 py-2 border-2 border-slate-900 text-slate-900 text-[10pt] font-black uppercase tracking-[0.2em] rounded-lg">Official Record</span>
         </div>
       </div>
 

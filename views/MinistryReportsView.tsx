@@ -10,7 +10,7 @@ import {
   BarChart3, PieChart, Layers, Briefcase
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import MinistryReportDocument from '../src/components/MinistryReportDocument';
+import { MinistryReportDocument } from '../src/components/MinistryReportDocument';
 
 interface MinistryReport {
   id: string;

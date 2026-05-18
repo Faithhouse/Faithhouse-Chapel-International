@@ -46,6 +46,10 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
 
   const fetchSlideshowImages = async () => {
     try {
+      // Don't even try if we know it's dead to avoid redundant fetch errors in console
+      const { isUnreachable } = await import('../supabaseClient');
+      if (isUnreachable) return;
+
       const { data, error } = await supabase
         .from('system_settings')
         .select('value')
@@ -56,7 +60,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
         setImages(data.value);
       }
     } catch (err) {
-      console.error('Error fetching slideshow images:', err);
+      // Silently fail for background tasks when offline/unreachable
     }
   };
 
@@ -94,39 +98,53 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
         toast.success('Account created! Please check your email for confirmation or try logging in.');
         setIsSignUp(false);
       } else {
-        // Try standard Supabase Auth first
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (!authError) {
-          toast.success('Welcome back to FaithHouse CMS');
-          onLoginSuccess();
-          return;
-        }
-
-        // If standard auth fails, check for internal "Temporary Password" in profiles
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .ilike('email', email.trim())
-          .eq('temp_password', password)
-          .single();
-
-        if (profile) {
-          if (!profile.is_active) {
-            toast.error('This account has been deactivated. Please contact the administrator.');
+        // Attempt authentication
+        let authError: any = null;
+        try {
+          const { error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+          authError = error;
+          
+          if (!authError) {
+            toast.success('Welcome back to FaithHouse CMS');
+            onLoginSuccess();
             return;
           }
-          localStorage.setItem('fh_cms_user', JSON.stringify(profile));
-          toast.success(`Welcome back, ${profile.full_name}`);
-          onLoginSuccess(profile);
-          return;
+        } catch (err: any) {
+          console.warn('Supabase Auth fetch failed, attempting internal profile check...', err);
+          authError = err;
         }
 
-        // If both fail, show the original error
-        throw authError;
+        // If standard auth fails or is unreachable, check for internal "Temporary Password" in profiles
+        try {
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .ilike('email', email.trim())
+            .eq('temp_password', password)
+            .single();
+
+          if (profile) {
+            if (!profile.is_active) {
+              toast.error('This account has been deactivated. Please contact the administrator.');
+              return;
+            }
+            localStorage.setItem('fh_cms_user', JSON.stringify(profile));
+            toast.success(`Welcome back, ${profile.full_name}`);
+            onLoginSuccess(profile);
+            return;
+          }
+        } catch (profileErr: any) {
+          console.error('Internal profile check failed:', profileErr);
+        }
+
+        // If both fail, show the most relevant error
+        if (authError && authError.message === 'Failed to fetch') {
+          throw new Error("Unable to reach authentication server. Please check your internet connection or try again later.");
+        }
+        throw authError || new Error("Invalid credentials");
       }
     } catch (error: any) {
       console.error('Auth error:', error);
@@ -258,6 +276,24 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                   </>
                 )}
               </button>
+
+              {!isSignUp && (
+                <div className="pt-4 text-center">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="h-px flex-1 bg-slate-100" />
+                    <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Connectivity Support</span>
+                    <div className="h-px flex-1 bg-slate-100" />
+                  </div>
+                  <button
+                    onClick={handleDemoLogin}
+                    type="button"
+                    className="w-full py-4 border-2 border-dashed border-slate-200 text-slate-400 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:border-fh-gold hover:text-fh-gold transition-all flex items-center justify-center gap-2"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    Enter Demo Mode (Local Only)
+                  </button>
+                </div>
+              )}
             </form>
 
           </div>

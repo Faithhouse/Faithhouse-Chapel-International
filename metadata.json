@@ -1,6 +1,7 @@
 {
   "name": "Faithhouse Chapel International",
   "description": "Official Church Management System for Faithhouse Chapel International. Features include member registry, attendance tracking, financial management, and automated outreach.",
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"],
   "requestFramePermissions": [
     "geolocation"
   ]

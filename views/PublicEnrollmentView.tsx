@@ -36,7 +36,8 @@ const PublicEnrollmentView: React.FC = () => {
   const [formData, setFormData] = useState({
     first_name: '', last_name: '', gender: 'Male', phone: '', email: '',
     gps_address: '', dob: '', marital_status: 'Single', occupation: '',
-    hometown: '', spouse_name: '', spouse_phone: '',
+    place_of_work: '', educational_level: '', hometown: '', 
+    spouse_name: '', spouse_phone: '', date_joined: new Date().toISOString().split('T')[0],
     children: [] as { name: string; dob: string; gender: string; phone: string }[],
     emergency_contact_name: '', emergency_contact_relationship: '',
     emergency_contact_phone: '', branch_id: '',
@@ -59,12 +60,26 @@ const PublicEnrollmentView: React.FC = () => {
   // Data Fetching
   useEffect(() => {
     const initPortal = async () => {
-      const sql = `-- FAITHHOUSE SYSTEM RECOVERY v8.0
+      const sql = `-- FAITHHOUSE SYSTEM RECOVERY v9.0
 -- 1. DROP ALL VERSIONS OF THE FUNCTION
 DROP FUNCTION IF EXISTS public.enroll_or_update_member;
 DROP FUNCTION IF EXISTS public.enroll_or_update_member(text,text,text,date,text,text,text,text,numeric,numeric,text,text,text,text,text,jsonb,text,text,text,uuid,text,boolean,boolean);
+DROP FUNCTION IF EXISTS public.enroll_or_update_member(text,text,text,date,text,text,text,text,numeric,numeric,text,text,text,text,text,text,text,date,jsonb,text,text,text,uuid,text,boolean,boolean);
+DROP FUNCTION IF EXISTS public.enroll_or_update_member(text,text,text,date,text,text,text,text,numeric,numeric,text,text,text,text,text,text,text,date,jsonb,text,text,text,uuid,text,bool,bool);
 
--- 2. CREATE FUNCTION WITH DEFAULTS
+-- 2. ENSURE COLUMNS EXIST (IN CASE RECENT UPDATES WERE MISSED)
+DO $$ 
+BEGIN 
+  BEGIN ALTER TABLE public.members ADD COLUMN place_of_work TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN educational_level TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN date_joined DATE DEFAULT CURRENT_DATE; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN water_baptised BOOLEAN DEFAULT false; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN holy_ghost_baptised BOOLEAN DEFAULT false; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN hometown TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN marital_status TEXT; EXCEPTION WHEN duplicate_column THEN END;
+END $$;
+
+-- 3. CREATE FUNCTION WITH DEFAULTS
 CREATE OR REPLACE FUNCTION public.enroll_or_update_member(
   p_first_name TEXT, 
   p_last_name TEXT DEFAULT '', 
@@ -78,9 +93,12 @@ CREATE OR REPLACE FUNCTION public.enroll_or_update_member(
   p_longitude NUMERIC DEFAULT 0, 
   p_maps_url TEXT DEFAULT '',
   p_occupation TEXT DEFAULT '', 
+  p_place_of_work TEXT DEFAULT '',
+  p_educational_level TEXT DEFAULT '',
   p_marital_status TEXT DEFAULT 'Single', 
   p_spouse_name TEXT DEFAULT '', 
   p_spouse_phone TEXT DEFAULT '', 
+  p_date_joined DATE DEFAULT CURRENT_DATE,
   p_children JSONB DEFAULT '[]',
   p_emergency_contact_name TEXT DEFAULT '', 
   p_emergency_contact_relationship TEXT DEFAULT '', 
@@ -102,12 +120,12 @@ BEGIN
     -- CREATE NEW MEMBER
     INSERT INTO public.members (
       first_name, last_name, gender, dob, phone, email, hometown, gps_address, latitude, longitude, maps_url, 
-      occupation, marital_status, spouse_name, spouse_phone, children, emergency_contact_name, 
+      occupation, place_of_work, educational_level, marital_status, spouse_name, spouse_phone, date_joined, children, emergency_contact_name, 
       emergency_contact_relationship, emergency_contact_phone, branch_id, ministry, water_baptised, holy_ghost_baptised, status
     )
     VALUES (
       p_first_name, p_last_name, p_gender, p_dob, p_phone, p_email, p_hometown, p_gps_address, p_latitude, p_longitude, p_maps_url, 
-      p_occupation, p_marital_status, p_spouse_name, p_spouse_phone, p_children, p_emergency_contact_name, 
+      p_occupation, p_place_of_work, p_educational_level, p_marital_status, p_spouse_name, p_spouse_phone, p_date_joined, p_children, p_emergency_contact_name, 
       p_emergency_contact_relationship, p_emergency_contact_phone, p_branch_id, p_ministry, p_water_baptised, p_holy_ghost_baptised, 'Active'
     ) RETURNING id INTO v_id;
     RETURN jsonb_build_object('action', 'created', 'member_id', v_id);
@@ -125,9 +143,12 @@ BEGIN
       longitude = CASE WHEN p_longitude != 0 THEN p_longitude ELSE longitude END,
       maps_url = CASE WHEN p_maps_url != '' THEN p_maps_url ELSE maps_url END,
       occupation = CASE WHEN p_occupation != '' THEN p_occupation ELSE occupation END,
+      place_of_work = CASE WHEN p_place_of_work != '' THEN p_place_of_work ELSE place_of_work END,
+      educational_level = CASE WHEN p_educational_level != '' THEN p_educational_level ELSE educational_level END,
       marital_status = COALESCE(p_marital_status, marital_status),
       spouse_name = CASE WHEN p_spouse_name != '' THEN p_spouse_name ELSE spouse_name END,
       spouse_phone = CASE WHEN p_spouse_phone != '' THEN p_spouse_phone ELSE spouse_phone END,
+      date_joined = COALESCE(p_date_joined, date_joined),
       children = CASE WHEN p_children IS NOT NULL AND p_children::text != '[]' THEN p_children ELSE children END,
       emergency_contact_name = CASE WHEN p_emergency_contact_name != '' THEN p_emergency_contact_name ELSE emergency_contact_name END,
       emergency_contact_relationship = CASE WHEN p_emergency_contact_relationship != '' THEN p_emergency_contact_relationship ELSE emergency_contact_relationship END,
@@ -259,9 +280,12 @@ NOTIFY pgrst, 'reload schema';`;
         p_longitude: formData.longitude || null,
         p_maps_url: formData.maps_url || null,
         p_occupation: formData.occupation || null,
+        p_place_of_work: formData.place_of_work || null,
+        p_educational_level: formData.educational_level || null,
         p_marital_status: formData.marital_status,
         p_spouse_name: formData.spouse_name || null,
         p_spouse_phone: formData.spouse_phone || null,
+        p_date_joined: formData.date_joined || null,
         p_children: formData.children,
         p_emergency_contact_name: formData.emergency_contact_name || null,
         p_emergency_contact_relationship: formData.emergency_contact_relationship || null,
@@ -275,6 +299,13 @@ NOTIFY pgrst, 'reload schema';`;
       const { data, error } = await supabase.rpc('enroll_or_update_member', rpcPayload);
 
       if (error) {
+        // If function is missing, trigger system repair UI
+        if (error.message?.includes('could not find the function') || error.code === 'PGRST202') {
+          setIsSystemReady(false);
+          toast.error("Enrollment system requires update. Please run the repair script below.");
+          return;
+        }
+
         // Handle JWT Expiry or Auth issues
         if (error.message?.includes('JWT') || error.code === 'PGRST301') {
           console.warn("JWT expired, retrying anonymously...");
@@ -486,6 +517,10 @@ NOTIFY pgrst, 'reload schema';`;
                       <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-2">Date of Birth *</label>
                       <input type="date" name="dob" value={formData.dob} onChange={handleInputChange} className="w-full px-6 py-4 bg-slate-50 rounded-2xl font-bold outline-none" />
                     </div>
+                    <div className="space-y-1">
+                      <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-2">Date Joined *</label>
+                      <input type="date" name="date_joined" value={formData.date_joined} onChange={handleInputChange} className="w-full px-6 py-4 bg-slate-50 rounded-2xl font-bold outline-none border-2 border-fh-gold/20" />
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -508,14 +543,37 @@ NOTIFY pgrst, 'reload schema';`;
                       <input name="hometown" value={formData.hometown} onChange={handleInputChange} className="w-full px-6 py-4 bg-slate-50 rounded-2xl font-bold outline-none" placeholder="Region / Town" />
                     </div>
                     <div className="space-y-1">
+                      <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-2">Educational Level</label>
+                      <select name="educational_level" value={formData.educational_level} onChange={handleInputChange} className="w-full px-6 py-4 bg-slate-50 rounded-2xl font-bold outline-none">
+                        <option value="">Select Level</option>
+                        <option>None</option>
+                        <option>Primary</option>
+                        <option>JHS</option>
+                        <option>SHS</option>
+                        <option>Vocational/Tech</option>
+                        <option>Diploma</option>
+                        <option>First Degree</option>
+                        <option>Master's</option>
+                        <option>PhD</option>
+                        <option>Professional</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
                       <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-2">Occupation</label>
                       <input name="occupation" value={formData.occupation} onChange={handleInputChange} className="w-full px-6 py-4 bg-slate-50 rounded-2xl font-bold outline-none" placeholder="Job Title" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-2">Place of Work</label>
+                      <input name="place_of_work" value={formData.place_of_work} onChange={handleInputChange} className="w-full px-6 py-4 bg-slate-50 rounded-2xl font-bold outline-none" placeholder="Company/Business/Shop" />
                     </div>
                   </div>
 
                   <button 
                     onClick={() => {
-                      if (!formData.first_name || !formData.last_name || !formData.phone || !formData.email || !formData.dob) {
+                      if (!formData.first_name || !formData.last_name || !formData.phone || !formData.email || !formData.dob || !formData.date_joined) {
                         toast.error("Please fill all required fields marked with *");
                         return;
                       }

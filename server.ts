@@ -17,10 +17,62 @@ const SUPABASE_URL = process.env.SUPABASE_URL || "https://bhujaqeledtkmwhoqfcd.s
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "sb_publishable_CT9Y87U7ZbdTOsKDzWg37g_RqcAHbgv";
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+
 // Health Check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
+
+// Supabase Proxy to solve CORS / "Failed to fetch" issues
+app.all('/api/supabase-proxy/*all', async (req, res) => {
+  const path = req.params.all || req.url.split('/api/supabase-proxy/')[1];
+  if (!path) return res.status(400).json({ error: 'Missing path' });
+
+  const url = `${SUPABASE_URL}/${path.replace(/^\/+/, '')}`;
+  
+  const headers: Record<string, string> = {};
+  // Pass through relevant headers
+  const allowedHeaders = ['authorization', 'apikey', 'content-type', 'prefer', 'x-client-info', 'range'];
+  for (const h of allowedHeaders) {
+    if (req.headers[h]) headers[h] = req.headers[h] as string;
+  }
+
+  try {
+    const fetchOptions: RequestInit = {
+      method: req.method,
+      headers: headers,
+    };
+
+    if (!['GET', 'HEAD'].includes(req.method)) {
+      fetchOptions.body = JSON.stringify(req.body);
+    }
+
+    const response = await fetch(url, fetchOptions);
+    const contentType = response.headers.get('content-type');
+    const data = await response.text();
+
+    if (contentType) res.setHeader('content-type', contentType);
+    res.status(response.status).send(data);
+  } catch (error: any) {
+    console.error('Proxy Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Proxy Supabase Auth health check to verify connectivity from server
+app.get('/api/supabase-health', async (req, res) => {
+  try {
+    const response = await fetch(SUPABASE_URL + '/auth/v1/health');
+    res.status(response.status).json({ 
+      ok: response.ok, 
+      status: response.status,
+      message: 'Supabase is reachable from backend'
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Supabase unreachable from backend', details: error.message });
+  }
+});
+
 
 async function setupVite() {
   if (process.env.NODE_ENV === "production") {

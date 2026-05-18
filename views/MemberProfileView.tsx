@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '../supabaseClient';
 import { Member, AttendanceRecord, FinancialRecord, VisitationRecord } from '../types';
+import MemberDossierDocument from '../src/components/MemberDossierDocument';
 
 interface MemberProfileViewProps {
   memberId: string;
@@ -79,8 +80,19 @@ const MemberProfileView: React.FC<MemberProfileViewProps> = ({ memberId, onBack,
 
   return (
     <div className="space-y-10 animate-in fade-in duration-700 pb-20">
-      {/* 1. Header Protocol */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+      {/* Print Document (Hidden in UI, visible in Print) */}
+      <div className="hidden print:block absolute inset-0 z-0">
+        <MemberDossierDocument 
+          member={member}
+          attendance={attendance}
+          finances={finances}
+          visitations={visitations}
+          dateGenerated={new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}
+        />
+      </div>
+
+      {/* 1. Header Protocol (Hidden in Print) */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 print:hidden">
         <div className="flex items-center gap-6">
           <button 
             onClick={onBack}
@@ -101,7 +113,7 @@ const MemberProfileView: React.FC<MemberProfileViewProps> = ({ memberId, onBack,
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 print:hidden">
         
         {/* Left Column: Core Identity */}
         <div className="lg:col-span-4 space-y-8">

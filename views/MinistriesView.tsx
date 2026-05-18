@@ -11,13 +11,16 @@ import {
   ArrowUpRight, 
   ArrowDownRight,
   Briefcase,
-  Layers
+  Layers,
+  FileText,
+  X
 } from 'lucide-react';
 import { 
   LineChart, 
   Line, 
   ResponsiveContainer 
 } from 'recharts';
+import { MinistryReportDocument } from '../src/components/MinistryReportDocument';
 
 interface MinistriesViewProps {
   setActiveItem: (item: NavItem | string) => void;
@@ -52,6 +55,7 @@ const MinistriesView: React.FC<MinistriesViewProps> = ({ setActiveItem, currentU
   }, [searchTerm]);
 
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isPrintMode, setIsPrintMode] = useState(false);
 
   const isMinistryRole = (role: string) => {
     const standardRoles = ['system_admin', 'general_overseer', 'admin', 'pastor', 'finance', 'media', 'worker'];
@@ -324,43 +328,7 @@ CREATE TABLE IF NOT EXISTS public.members (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- 4. PIPELINE: ENROLLMENT QUEUE
-CREATE TABLE IF NOT EXISTS public.member_enrollment_queue (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  first_name TEXT NOT NULL,
-  last_name TEXT NOT NULL,
-  email TEXT,
-  phone TEXT,
-  gender TEXT,
-  dob DATE,
-  wedding_anniversary DATE,
-  date_joined DATE DEFAULT CURRENT_DATE,
-  branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
-  status TEXT DEFAULT 'Pending',
-  follow_up_status TEXT DEFAULT 'Pending',
-  latitude DOUBLE PRECISION,
-  longitude DOUBLE PRECISION,
-  ministry TEXT,
-  gps_address TEXT,
-  maps_url TEXT,
-  location_area TEXT,
-  marital_status TEXT,
-  occupation TEXT,
-  place_of_work TEXT,
-  educational_level TEXT,
-  water_baptised BOOLEAN DEFAULT false,
-  holy_ghost_baptised BOOLEAN DEFAULT false,
-  hometown TEXT,
-  spouse_name TEXT,
-  spouse_phone TEXT,
-  children JSONB DEFAULT '[]',
-  emergency_contact_name TEXT,
-  emergency_contact_relationship TEXT,
-  emergency_contact_phone TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
-);
-
--- 5. LEADERSHIP & MINISTRIES
+-- 4. LEADERSHIP & MINISTRIES
 CREATE TABLE IF NOT EXISTS public.leadership (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   first_name TEXT NOT NULL,
@@ -412,14 +380,6 @@ BEGIN
   BEGIN ALTER TABLE public.members ADD COLUMN gps_address TEXT; EXCEPTION WHEN duplicate_column THEN END;
   BEGIN ALTER TABLE public.members ADD COLUMN maps_url TEXT; EXCEPTION WHEN duplicate_column THEN END;
   BEGIN ALTER TABLE public.members ADD COLUMN children JSONB DEFAULT '[]'; EXCEPTION WHEN duplicate_column THEN END;
-  
-  -- Queue Table Repairs
-  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN hometown TEXT; EXCEPTION WHEN duplicate_column THEN END;
-  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN marital_status TEXT; EXCEPTION WHEN duplicate_column THEN END;
-  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN phone TEXT; EXCEPTION WHEN duplicate_column THEN END;
-  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN gps_address TEXT; EXCEPTION WHEN duplicate_column THEN END;
-  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN maps_url TEXT; EXCEPTION WHEN duplicate_column THEN END;
-  BEGIN ALTER TABLE public.member_enrollment_queue ADD COLUMN children JSONB DEFAULT '[]'; EXCEPTION WHEN duplicate_column THEN END;
 END $$;
 
 -- 8. SECURITY (RLS)
@@ -509,13 +469,22 @@ NOTIFY pgrst, 'reload schema';`;
             />
           </div>
           {!isReadOnly && (
-            <button 
-              onClick={() => { resetForm(); setEditingId(null); setIsModalOpen(true); }}
-              className="flex items-center justify-center gap-2 md:gap-3 px-6 md:px-8 py-3 md:py-4 bg-fh-green text-fh-gold rounded-xl md:rounded-2xl font-black text-[8px] md:text-xs uppercase tracking-widest shadow-2xl active:scale-95 transition-all border-b-2 md:border-b-4 border-black/30"
-            >
-              <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-              Provision Ministry
-            </button>
+            <div className="flex flex-col sm:flex-row gap-2 md:gap-4">
+              <button 
+                onClick={() => setIsReportModalOpen(true)}
+                className="flex items-center justify-center gap-2 md:gap-3 px-6 md:px-8 py-3 md:py-4 bg-white text-slate-600 border-2 border-slate-200 rounded-xl md:rounded-2xl font-black text-[8px] md:text-xs uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all active:scale-95"
+              >
+                <FileText className="w-4 h-4 md:w-5 md:h-5" />
+                Export Structure
+              </button>
+              <button 
+                onClick={() => { resetForm(); setEditingId(null); setIsModalOpen(true); }}
+                className="flex items-center justify-center gap-2 md:gap-3 px-6 md:px-8 py-3 md:py-4 bg-fh-green text-fh-gold rounded-xl md:rounded-2xl font-black text-[8px] md:text-xs uppercase tracking-widest shadow-2xl active:scale-95 transition-all border-b-2 md:border-b-4 border-black/30"
+              >
+                <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                Provision Ministry
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -672,77 +641,88 @@ NOTIFY pgrst, 'reload schema';`;
           <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md animate-in fade-in" onClick={() => setIsReportModalOpen(false)} />
           <div className="relative bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 flex flex-col max-h-[90vh]">
             <div className="p-10 border-b border-slate-50 flex items-center justify-between no-print">
-              <h3 className="text-2xl font-black text-fh-green uppercase tracking-tighter">Organizational Structure Report</h3>
+              <div className="flex items-center gap-4">
+                 <div className="w-12 h-12 bg-fh-green text-fh-gold rounded-2xl flex items-center justify-center">
+                    <FileText className="w-6 h-6" />
+                 </div>
+                 <div>
+                    <h3 className="text-2xl font-black text-fh-green uppercase tracking-tighter">Organizational Structure</h3>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Management Oversight Report</p>
+                 </div>
+              </div>
               <div className="flex gap-4">
-                <button onClick={() => window.print()} className="px-6 py-3 bg-slate-900 text-fh-gold rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg">Print Report</button>
-                <button onClick={() => setIsReportModalOpen(false)} className="p-3 hover:bg-slate-100 rounded-full transition-all text-slate-400"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg></button>
+                <button 
+                  onClick={() => {
+                    setIsPrintMode(true);
+                    setTimeout(() => {
+                      window.print();
+                      setIsPrintMode(false);
+                    }, 500);
+                  }} 
+                  className="px-8 py-4 bg-slate-900 text-fh-gold rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl active:scale-95 transition-all"
+                >
+                  Generate PDF Report
+                </button>
+                <button onClick={() => setIsReportModalOpen(false)} className="p-4 hover:bg-slate-100 rounded-full transition-all text-slate-300">
+                  <X className="w-6 h-6" />
+                </button>
               </div>
             </div>
             
             <div className="p-12 overflow-y-auto print:p-0">
-              <div className="text-center mb-12">
-                <h1 className="text-4xl font-black text-fh-green uppercase tracking-tighter mb-2">Faithhouse Chapel International</h1>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.5em]">General Oversight • Ministry Distribution Summary</p>
-                <p className="text-xs font-bold text-slate-500 mt-4">Report Generated: {new Date().toLocaleString()}</p>
-              </div>
+              {isPrintMode ? (
+                <MinistryReportDocument ministries={ministries} />
+              ) : (
+                <>
+                  <div className="text-center mb-12">
+                    <h1 className="text-4xl font-black text-fh-green uppercase tracking-tighter mb-2">Faithhouse Chapel International</h1>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.5em]">General Oversight • Ministry Distribution Summary</p>
+                  </div>
 
-              <div className="grid grid-cols-3 gap-8 mb-12">
-                <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100 text-center">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Total Ministries</p>
-                  <h2 className="text-3xl font-black text-fh-green">{ministries.length}</h2>
-                </div>
-                <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100 text-center">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Active Ministries</p>
-                  <h2 className="text-3xl font-black text-emerald-600">{ministries.filter(m => m.status === 'Active').length}</h2>
-                </div>
-                <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100 text-center">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Inactive Ministries</p>
-                  <h2 className="text-3xl font-black text-rose-500">{ministries.filter(m => m.status === 'Inactive').length}</h2>
-                </div>
-              </div>
+                  <div className="grid grid-cols-3 gap-8 mb-12">
+                    <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100 text-center">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Total Ministries</p>
+                      <h2 className="text-3xl font-black text-fh-green">{ministries.length}</h2>
+                    </div>
+                    <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100 text-center">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Active Ministries</p>
+                      <h2 className="text-3xl font-black text-emerald-600">{ministries.filter(m => m.status === 'Active').length}</h2>
+                    </div>
+                    <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100 text-center">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Operational Health</p>
+                      <h2 className="text-3xl font-black text-fh-gold">98%</h2>
+                    </div>
+                  </div>
 
-              <div className="space-y-8">
-                <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest border-b-2 border-slate-900 pb-2">Ministry Distribution Ledger</h4>
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="text-[10px] font-black uppercase text-slate-400 border-b border-slate-100">
-                      <th className="py-4">Ministry Name</th>
-                      <th className="py-4">Ministry Head</th>
-                      <th className="py-4">Deputy Head</th>
-                      <th className="py-4">Schedule</th>
-                      <th className="py-4 text-right">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {ministries.map(min => (
-                      <tr key={min.id} className="text-[10px] font-bold text-slate-700">
-                        <td className="py-4 uppercase">{min.name}</td>
-                        <td className="py-4">{min.lead ? `${min.lead.first_name} ${min.lead.last_name}` : (min.leader_name || '---')}</td>
-                        <td className="py-4">{min.deputy ? `${min.deputy.first_name} ${min.deputy.last_name}` : (min.deputy_name || '---')}</td>
-                        <td className="py-4">{min.meeting_schedule || '---'}</td>
-                        <td className="py-4 text-right">
-                          <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider ${
-                            min.status === 'Active' ? 'text-emerald-600' : 'text-slate-400'
-                          }`}>
-                            {min.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="mt-20 pt-10 border-t-2 border-dashed border-slate-200 grid grid-cols-2 gap-20 text-center">
-                <div className="space-y-12">
-                  <div className="h-px bg-slate-300 w-48 mx-auto"></div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">General Overseer Signature</p>
-                </div>
-                <div className="space-y-12">
-                  <div className="h-px bg-slate-300 w-48 mx-auto"></div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Council of Ministry Heads</p>
-                </div>
-              </div>
+                  <div className="space-y-8">
+                    <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-widest border-b-2 border-slate-900 pb-2">Ministry Distribution Ledger</h4>
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="text-[10px] font-black uppercase text-slate-400 border-b border-slate-100">
+                          <th className="py-4">Ministry Name</th>
+                          <th className="py-4">Ministry Head</th>
+                          <th className="py-4 text-right">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {ministries.map(min => (
+                          <tr key={min.id} className="text-[10px] font-bold text-slate-700">
+                            <td className="py-4 uppercase">{min.name}</td>
+                            <td className="py-4">{min.lead ? `${min.lead.first_name} ${min.lead.last_name}` : (min.leader_name || '---')}</td>
+                            <td className="py-4 text-right">
+                              <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider ${
+                                min.status === 'Active' ? 'text-emerald-600' : 'text-slate-400'
+                              }`}>
+                                {min.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

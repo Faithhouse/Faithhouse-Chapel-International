@@ -67,7 +67,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
   const [todayTasks, setTodayTasks] = useState<any[]>([]);
   const [upcomingBirthdays, setUpcomingBirthdays] = useState<Member[]>([]);
-  const [upcomingAnniversaries, setUpcomingAnniversaries] = useState<Member[]>([]);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState('This Month');
@@ -247,25 +246,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ setActiveItem, currentUse
       });
       setUpcomingBirthdays(upcomingBdays);
 
-      const upcomingAnnis = members.filter(m => {
-        if (!m.wedding_anniversary) return false;
-        const anni = new Date(m.wedding_anniversary);
-        const today = new Date();
-        const next7Days = new Date();
-        next7Days.setDate(today.getDate() + 7);
-        
-        const anniThisYear = new Date(today.getFullYear(), anni.getMonth(), anni.getDate());
-        if (anniThisYear < today && anni.getMonth() === 0 && today.getMonth() === 11) {
-          anniThisYear.setFullYear(today.getFullYear() + 1);
-        }
-        return anniThisYear >= today && anniThisYear <= next7Days;
-      }).sort((a, b) => {
-        const dateA = new Date(a.wedding_anniversary!);
-        const dateB = new Date(b.wedding_anniversary!);
-        return dateA.getMonth() - dateB.getMonth() || dateA.getDate() - dateB.getDate();
-      });
-      setUpcomingAnniversaries(upcomingAnnis);
-
       setTableMissing(false);
     } catch (err: any) {
       console.error("Dashboard Data Sync Error:", err);
@@ -386,43 +366,7 @@ CREATE TABLE IF NOT EXISTS public.members (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- 4. PIPELINE: ENROLLMENT QUEUE
-CREATE TABLE IF NOT EXISTS public.member_enrollment_queue (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  first_name TEXT NOT NULL,
-  last_name TEXT NOT NULL,
-  email TEXT,
-  phone TEXT,
-  gender TEXT,
-  dob DATE,
-  wedding_anniversary DATE,
-  date_joined DATE DEFAULT CURRENT_DATE,
-  branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
-  status TEXT DEFAULT 'Pending',
-  follow_up_status TEXT DEFAULT 'Pending',
-  latitude DOUBLE PRECISION,
-  longitude DOUBLE PRECISION,
-  ministry TEXT,
-  gps_address TEXT,
-  maps_url TEXT,
-  location_area TEXT,
-  marital_status TEXT,
-  occupation TEXT,
-  place_of_work TEXT,
-  educational_level TEXT,
-  water_baptised BOOLEAN DEFAULT false,
-  holy_ghost_baptised BOOLEAN DEFAULT false,
-  hometown TEXT,
-  spouse_name TEXT,
-  spouse_phone TEXT,
-  children JSONB DEFAULT '[]',
-  emergency_contact_name TEXT,
-  emergency_contact_relationship TEXT,
-  emergency_contact_phone TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
-);
-
--- 5. LEADERSHIP & MINISTRIES
+-- 4. LEADERSHIP & MINISTRIES
 CREATE TABLE IF NOT EXISTS public.leadership (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   first_name TEXT NOT NULL,
@@ -479,7 +423,6 @@ END $$;
 -- 8. SECURITY (RLS)
 ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.member_enrollment_queue ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.leadership ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ministries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tithe_entries ENABLE ROW LEVEL SECURITY;
@@ -488,10 +431,7 @@ DROP POLICY IF EXISTS "Allow all access" ON public.branches;
 CREATE POLICY "Allow all access" ON public.branches FOR ALL USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow all access" ON public.members;
-CREATE POLICY "Allow all access" ON public.members FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Allow all access" ON public.member_enrollment_queue;
-CREATE POLICY "Allow all access" ON public.member_enrollment_queue FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Bold Direct Access" ON public.members FOR ALL USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow all access" ON public.leadership;
 CREATE POLICY "Allow all access" ON public.leadership FOR ALL USING (true) WITH CHECK (true);
@@ -650,7 +590,16 @@ NOTIFY pgrst, 'reload schema';`;
           isLoading={isLoading}
         />
         <KPICard 
-          title="Active Souls" 
+          title="Direct Enroll" 
+          value="Enabled" 
+          trend={100} 
+          icon={<Zap className="w-5 h-5" />} 
+          status="growth"
+          sparkline={[1, 1, 1, 1, 1, 1, 1]}
+          isLoading={isLoading}
+        />
+        <KPICard 
+          title="Soul Count" 
           value={stats.activeMembers.value} 
           trend={stats.activeMembers.trend} 
           icon={<Heart className="w-5 h-5" />} 
@@ -659,7 +608,7 @@ NOTIFY pgrst, 'reload schema';`;
           isLoading={isLoading}
         />
         <KPICard 
-          title="Attendance" 
+          title="Engagement" 
           value={`${stats.attendanceRate.value}%`} 
           trend={stats.attendanceRate.trend} 
           icon={<UserCheck className="w-5 h-5" />} 
@@ -668,21 +617,12 @@ NOTIFY pgrst, 'reload schema';`;
           isLoading={isLoading}
         />
         <KPICard 
-          title="Action Items" 
+          title="Pending Visit" 
           value={stats.followUpsPending.value} 
           trend={stats.followUpsPending.trend} 
-          icon={<TrendingUp className="w-5 h-5" />} 
+          icon={<Clock className="w-5 h-5" />} 
           status={stats.followUpsPending.status}
           sparkline={stats.followUpsPending.sparkline}
-          isLoading={isLoading}
-        />
-        <KPICard 
-          title="Follow-ups" 
-          value={stats.inactiveMembers.value} 
-          trend={stats.inactiveMembers.trend} 
-          icon={<UserMinus className="w-5 h-5" />} 
-          status={stats.inactiveMembers.status}
-          sparkline={stats.inactiveMembers.sparkline}
           isLoading={isLoading}
         />
       </div>
@@ -880,34 +820,6 @@ NOTIFY pgrst, 'reload schema';`;
                   )}
                 </div>
               </div>
-
-              {/* Anniversaries */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-1.5 h-1.5 rounded-full bg-amber-400"></div>
-                  <h4 className="text-[9px] font-black uppercase tracking-widest text-slate-400">Wedding Anniversaries</h4>
-                </div>
-                <div className="space-y-3">
-                  {upcomingAnniversaries.length > 0 ? upcomingAnniversaries.map((m, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 rounded-2xl bg-amber-50/30 border border-amber-100 group hover:border-amber-400 transition-all">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-xl bg-white border border-amber-200 flex items-center justify-center text-[10px] font-black text-slate-900">
-                          <Heart className="w-3 h-3 text-rose-400" />
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-black text-slate-800 uppercase tracking-tight">{m.first_name} {m.last_name}</p>
-                          <p className="text-[8px] font-bold text-amber-600 uppercase">{new Date(m.wedding_anniversary!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
-                        </div>
-                      </div>
-                      <button className="p-2 bg-white rounded-lg border border-amber-200 text-amber-400 hover:text-amber-600 transition-all opacity-0 group-hover:opacity-100">
-                        <MessageSquare className="w-3 h-3" />
-                      </button>
-                    </div>
-                  )) : (
-                    <p className="text-[9px] text-slate-300 font-bold uppercase text-center py-2">No anniversaries this week</p>
-                  )}
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -921,7 +833,7 @@ NOTIFY pgrst, 'reload schema';`;
           <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-fh-green" />
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Recent Members</h3>
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Recently Enrolled (Direct)</h3>
             </div>
             <button onClick={() => setActiveItem('Members')} className="text-[10px] font-black text-fh-green uppercase tracking-widest flex items-center gap-1 hover:gap-2 transition-all">
               View Directory <ChevronRight className="w-3 h-3" />

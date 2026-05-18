@@ -82,7 +82,6 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
     emergency_contact_phone: '',
     notify_birthday: true,
     notify_events: true,
-    wedding_anniversary: '',
     status: 'Active' as Member['status'],
     follow_up_status: 'Pending' as Member['follow_up_status'],
     latitude: 0,
@@ -111,6 +110,21 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
 
   const isReadOnly = currentUser && isMinistryRole(currentUser.role);
 
+  // --- STATS CALCULATION ---
+  const memberStats = useMemo(() => {
+    const total = members.length;
+    const active = members.filter(m => m.status === 'Active').length;
+    const probation = members.filter(m => m.status === 'Probation').length;
+    const inactive = members.filter(m => m.status === 'Inactive').length;
+
+    return {
+      total: { value: total, trend: 12, status: 'growth' as const },
+      active: { value: active, trend: 8, status: 'growth' as const },
+      probation: { value: probation, trend: -5, status: 'attention' as const },
+      inactive: { value: inactive, trend: 2, status: 'warning' as const }
+    };
+  }, [members]);
+
   useEffect(() => {
     fetchInitialData();
   }, [statusFilter, searchTerm]);
@@ -135,7 +149,6 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
           emergency_contact_phone: memberToEdit.emergency_contact_phone || '',
           notify_birthday: memberToEdit.notify_birthday ?? true,
           notify_events: memberToEdit.notify_events ?? true,
-          wedding_anniversary: memberToEdit.wedding_anniversary || '',
           status: memberToEdit.status,
           follow_up_status: memberToEdit.follow_up_status || 'Pending',
           latitude: memberToEdit.latitude || 0,
@@ -219,8 +232,7 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
     }
   };
 
-  if (tableMissing) {
-    const repairSQL = `-- COMPREHENSIVE REGISTRY DATABASE REPAIR SCRIPT v6.0
+  const repairSQL = `-- COMPREHENSIVE REGISTRY DATABASE REPAIR SCRIPT v6.0
 -- This script ensures branches, members, and enrollment queue tables are fully synchronized.
 
 -- 1. EXTENSIONS
@@ -250,7 +262,6 @@ CREATE TABLE IF NOT EXISTS public.members (
   phone TEXT,
   gender TEXT,
   dob DATE,
-  wedding_anniversary DATE,
   date_joined DATE DEFAULT CURRENT_DATE,
   branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
   status TEXT DEFAULT 'Active',
@@ -310,12 +321,16 @@ BEGIN
   BEGIN ALTER TABLE public.members ADD COLUMN maps_url TEXT; EXCEPTION WHEN duplicate_column THEN END;
   BEGIN ALTER TABLE public.members ADD COLUMN ministry TEXT; EXCEPTION WHEN duplicate_column THEN END;
   BEGIN ALTER TABLE public.members ADD COLUMN children JSONB DEFAULT '[]'; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN place_of_work TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN educational_level TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN date_joined DATE DEFAULT CURRENT_DATE; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN water_baptised BOOLEAN DEFAULT false; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN holy_ghost_baptised BOOLEAN DEFAULT false; EXCEPTION WHEN duplicate_column THEN END;
 END $$;
 
 -- 7. RLS SETTINGS
 ALTER TABLE public.branches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.member_enrollment_queue ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tithe_entries ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Allow all for staff" ON public.branches;
@@ -323,9 +338,6 @@ CREATE POLICY "Allow all for staff" ON public.branches FOR ALL USING (true) WITH
 
 DROP POLICY IF EXISTS "Allow all for staff" ON public.members;
 CREATE POLICY "Allow all for staff" ON public.members FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Allow staff manage enrollment" ON public.member_enrollment_queue;
-CREATE POLICY "Allow staff manage enrollment" ON public.member_enrollment_queue FOR ALL TO public USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow all for staff" ON public.tithe_entries;
 CREATE POLICY "Allow all for staff" ON public.tithe_entries FOR ALL USING (true) WITH CHECK (true);
@@ -337,30 +349,29 @@ NOTIFY pgrst, 'reload schema';
 NOTIFY pgrst, 'reload schema';
 NOTIFY pgrst, 'reload schema';`;
 
+  if (tableMissing) {
     return (
-      <div className="max-w-4xl mx-auto py-12 px-4 animate-in zoom-in-95 duration-500">
-        <div className="royal-card p-12 md:p-16 rounded-[4rem] bg-white text-center border-2 border-rose-100 shadow-2xl overflow-hidden relative">
-          <div className="absolute top-0 inset-x-0 h-2 bg-rose-500"></div>
-          <div className="w-24 h-24 bg-rose-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-10 shadow-inner">
-             <svg className="w-12 h-12 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          </div>
-          <h2 className="text-3xl font-black text-slate-900 uppercase mb-4 tracking-tighter">Membership Registry Inaccessible</h2>
-          <p className="text-slate-500 mb-10 font-medium max-w-lg mx-auto leading-relaxed">
-            The congregant database is missing. Run the restoration script to establish connectivity.
-          </p>
-          <pre className="bg-slate-900 text-fh-gold-pale p-8 rounded-[2rem] text-[10px] font-mono text-left h-48 overflow-y-auto mb-10 shadow-inner leading-relaxed border border-fh-gold/10 scrollbar-hide">
-            {repairSQL}
-          </pre>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button onClick={() => { navigator.clipboard.writeText(repairSQL); alert('SQL Script copied.'); }} className="px-10 py-5 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all">Copy Script</button>
-            <button onClick={fetchInitialData} className="px-16 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl active:scale-95 transition-all border-b-4 border-black">Verify Restoration</button>
+        <div className="max-w-4xl mx-auto py-12 px-4 animate-in zoom-in-95 duration-500">
+          <div className="royal-card p-12 md:p-16 rounded-[4rem] bg-white text-center border-2 border-rose-100 shadow-2xl overflow-hidden relative">
+            <div className="absolute top-0 inset-x-0 h-2 bg-rose-500"></div>
+            <div className="w-24 h-24 bg-rose-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-10 shadow-inner">
+              <svg className="w-12 h-12 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </div>
+            <h2 className="text-3xl font-black text-slate-900 uppercase mb-4 tracking-tighter">Membership Registry Inaccessible</h2>
+            <p className="text-slate-500 mb-10 font-medium max-w-lg mx-auto leading-relaxed">
+              The congregant database is missing. Run the restoration script to establish connectivity.
+            </p>
+            <pre className="bg-slate-900 text-fh-gold-pale p-8 rounded-[2rem] text-[10px] font-mono text-left h-48 overflow-y-auto mb-10 shadow-inner leading-relaxed border border-fh-gold/10 scrollbar-hide">
+              {repairSQL}
+            </pre>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button onClick={() => { navigator.clipboard.writeText(repairSQL); alert('SQL Script copied.'); }} className="px-10 py-5 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-200 transition-all">Copy Script</button>
+              <button onClick={fetchInitialData} className="px-16 py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl active:scale-95 transition-all border-b-4 border-black">Verify Restoration</button>
+            </div>
           </div>
         </div>
-      </div>
-    );
-  }
-
-  // --- DUPLICATE RESOLUTION LOGIC ---
+      );
+    }
 
   const findRegistryDuplicates = () => {
     const groups: Record<string, Member[]> = {};
@@ -531,7 +542,7 @@ NOTIFY pgrst, 'reload schema';`;
       first_name: '', last_name: '', gender: 'Male', phone: '', email: '', gps_address: '', dob: '',
       date_joined: new Date().toISOString().split('T')[0], branch_id: branches[0]?.id || '', ministry: 'N/A',
       emergency_contact_name: '', emergency_contact_phone: '', notify_birthday: true, notify_events: true, 
-      wedding_anniversary: '', status, follow_up_status: 'Pending', latitude: 0, longitude: 0,
+      status, follow_up_status: 'Pending', latitude: 0, longitude: 0,
       location_area: '', maps_url: '', marital_status: 'Single', invited_by: '', prayer_request: '',
       occupation: '', place_of_work: '', educational_level: '', hometown: '', water_baptised: false, holy_ghost_baptised: false,
       spouse_name: '', spouse_phone: '', children: [], emergency_contact_relationship: ''
@@ -566,7 +577,6 @@ NOTIFY pgrst, 'reload schema';`;
         ...formData,
         email: formData.email.trim() || null,
         dob: formData.dob || null,
-        wedding_anniversary: formData.wedding_anniversary || null,
         date_joined: formData.date_joined || null,
         gps_address: formData.gps_address.trim() || null,
       };
@@ -598,32 +608,31 @@ NOTIFY pgrst, 'reload schema';`;
   };
 
   const deleteMember = async (id: string) => {
-    if (!window.confirm("Are you sure you want to permanently delete this member? This action cannot be undone.")) return;
+    if (!window.confirm("Are you sure you want to permanently delete this member? This action cannot be undone. All associated records (tithes, attendance, etc.) will also be removed.")) return;
     
     try {
+      showNotify("Initiating record purge...", 'success');
+      
+      // Cleanup sequential to handle foreign key constraints if not cascaded
+      const cleanupTables = ['tithe_records', 'tithe_entries', 'attendance_records', 'visitation_records', 'cell_attendance', 'ministry_members'];
+      
+      for (const table of cleanupTables) {
+        try {
+          await supabase.from(table).delete().eq('member_id', id);
+        } catch (e) {
+          console.warn(`Cleanup skipped for ${table}:`, e);
+        }
+      }
+
       const { error } = await supabase.from('members').delete().eq('id', id);
       if (error) throw error;
+      
       showNotify("Member record purged successfully.");
       fetchInitialData();
     } catch (err: any) {
       showNotify(err.message, 'error');
     }
   };
-
-  // --- STATS CALCULATION ---
-  const memberStats = useMemo(() => {
-    const total = members.length;
-    const active = members.filter(m => m.status === 'Active').length;
-    const probation = members.filter(m => m.status === 'Probation').length;
-    const inactive = members.filter(m => m.status === 'Inactive').length;
-
-    return {
-      total: { value: total, trend: 12, status: 'growth' as const },
-      active: { value: active, trend: 8, status: 'growth' as const },
-      probation: { value: probation, trend: -5, status: 'attention' as const },
-      inactive: { value: inactive, trend: 2, status: 'warning' as const }
-    };
-  }, [members]);
 
   const handleWhatsAppOutreach = (phone: string | undefined, firstName: string) => {
     if (!phone) return showNotify("Relay Error: No phone number associated.", 'error');
@@ -971,7 +980,6 @@ NOTIFY pgrst, 'reload schema';`;
                                   follow_up_status: m.follow_up_status || 'Pending',
                                   latitude: m.latitude || 0,
                                   longitude: m.longitude || 0,
-                                  wedding_anniversary: m.wedding_anniversary || '',
                                   location_area: m.location_area || '',
                                   marital_status: m.marital_status || 'Single',
                                   invited_by: m.invited_by || '',
@@ -1285,7 +1293,6 @@ NOTIFY pgrst, 'reload schema';`;
                 <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Gender</label><select name="gender" value={formData.gender} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner"><option>Male</option><option>Female</option></select></div>
                 <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Date of Birth</label><input type="date" name="dob" value={formData.dob} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
                 <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Marital Status</label><select name="marital_status" value={formData.marital_status} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner"><option>Single</option><option>Married</option><option>Widowed</option><option>Divorced</option></select></div>
-                <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Wedding Anniversary</label><input type="date" name="wedding_anniversary" value={formData.wedding_anniversary} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
                 <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Hometown</label><input name="hometown" value={formData.hometown} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" placeholder="e.g. Kumasi" /></div>
 
                     <div className="md:col-span-2 lg:col-span-3 border-b border-slate-100 pb-4 mt-12 mb-4">
@@ -1367,8 +1374,12 @@ NOTIFY pgrst, 'reload schema';`;
                     <div className="md:col-span-2 lg:col-span-3 border-b border-slate-100 pb-4 mt-12 mb-4">
                       <h4 className="text-[10px] font-black text-fh-green uppercase tracking-[0.3em]">4. Family & Household Information</h4>
                     </div>
-                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Spouse Name</label><input name="spouse_name" value={formData.spouse_name} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" placeholder="Full name of spouse" /></div>
-                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Spouse Phone</label><input name="spouse_phone" value={formData.spouse_phone} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" placeholder="+233..." /></div>
+                    {formData.marital_status === 'Married' && (
+                      <>
+                        <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Spouse Name</label><input name="spouse_name" value={formData.spouse_name} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" placeholder="Full name of spouse" /></div>
+                        <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Spouse Phone</label><input name="spouse_phone" value={formData.spouse_phone} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" placeholder="+233..." /></div>
+                      </>
+                    )}
                     
                     <div className="md:col-span-2 lg:col-span-3 space-y-6 mt-4">
                       <div className="flex items-center justify-between">
@@ -1413,7 +1424,7 @@ NOTIFY pgrst, 'reload schema';`;
                     </div>
                     <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Occupation</label><input name="occupation" value={formData.occupation} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
                     <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Place of Work</label><input name="place_of_work" value={formData.place_of_work} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
-                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Educational Level</label><select name="educational_level" value={formData.educational_level} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner"><option value="">Select Level...</option><option>Secondary</option><option>Tertiary</option><option>Post-Graduate</option><option>None</option></select></div>
+                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Educational Level</label><select name="educational_level" value={formData.educational_level} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner"><option value="">Select Level...</option><option>None</option><option>Primary</option><option>JHS</option><option>SHS</option><option>Vocational/Tech</option><option>Diploma</option><option>First Degree</option><option>Master's</option><option>PhD</option><option>Professional</option></select></div>
 
                     <div className="md:col-span-2 lg:col-span-3 border-b border-slate-100 pb-4 mt-12 mb-4">
                       <h4 className="text-[10px] font-black text-fh-green uppercase tracking-[0.3em]">6. Emergency Protocols</h4>
