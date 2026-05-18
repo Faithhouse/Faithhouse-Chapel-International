@@ -160,8 +160,14 @@ CREATE OR REPLACE FUNCTION public.enroll_or_update_member(
   p_water_baptised BOOLEAN DEFAULT false, 
   p_holy_ghost_baptised BOOLEAN DEFAULT false
 ) RETURNS JSONB SECURITY DEFINER LANGUAGE plpgsql AS $$
-DECLARE v_id UUID;
+  DECLARE v_id UUID;
+  DECLARE v_final_ministry TEXT;
 BEGIN
+  v_final_ministry := p_ministry;
+  IF p_dob IS NOT NULL AND EXTRACT(YEAR FROM age(CURRENT_DATE, p_dob)) < 18 THEN
+    v_final_ministry := 'Youth & Children';
+  END IF;
+
   -- Direct Match (Match by first and last name)
   SELECT id INTO v_id FROM public.members 
   WHERE LOWER(TRIM(first_name)) = LOWER(TRIM(p_first_name)) 
@@ -178,7 +184,7 @@ BEGIN
     VALUES (
       p_first_name, p_last_name, p_gender, p_dob, p_phone, p_email, p_hometown, p_gps_address, p_latitude, p_longitude, p_maps_url, 
       p_occupation, p_place_of_work, p_educational_level, p_marital_status, p_spouse_name, p_spouse_phone, p_date_joined, p_children, p_emergency_contact_name, 
-      p_emergency_contact_relationship, p_emergency_contact_phone, p_branch_id, p_ministry, p_water_baptised, p_holy_ghost_baptised, 'Probation'
+      p_emergency_contact_relationship, p_emergency_contact_phone, p_branch_id, v_final_ministry, p_water_baptised, p_holy_ghost_baptised, 'Probation'
     ) RETURNING id INTO v_id;
     RETURN jsonb_build_object('action', 'created', 'member_id', v_id);
 
@@ -206,7 +212,9 @@ BEGIN
       emergency_contact_relationship = CASE WHEN p_emergency_contact_relationship != '' THEN p_emergency_contact_relationship ELSE emergency_contact_relationship END,
       emergency_contact_phone = CASE WHEN p_emergency_contact_phone != '' THEN p_emergency_contact_phone ELSE emergency_contact_phone END,
       branch_id = COALESCE(p_branch_id, branch_id),
-      ministry = CASE WHEN p_ministry != 'N/A' THEN p_ministry ELSE ministry END,
+      ministry = CASE WHEN v_final_ministry != 'N/A' THEN v_final_ministry 
+                      WHEN EXTRACT(YEAR FROM age(CURRENT_DATE, p_dob)) < 18 THEN 'Youth & Children'
+                      ELSE ministry END,
       water_baptised = water_baptised OR p_water_baptised,
       holy_ghost_baptised = holy_ghost_baptised OR p_holy_ghost_baptised
     WHERE id = v_id;

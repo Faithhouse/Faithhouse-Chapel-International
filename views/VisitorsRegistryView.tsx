@@ -37,6 +37,7 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
     full_name: '',
     phone: '',
     email: '',
+    dob: '',
     home_address: '',
     gps_address: '',
     maps_url: '',
@@ -72,6 +73,7 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
           full_name TEXT NOT NULL,
           phone TEXT NOT NULL,
           email TEXT,
+          dob DATE,
           home_address TEXT,
           gps_address TEXT,
           maps_url TEXT,
@@ -108,6 +110,10 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
         -- Ensure columns exist if table was created previously
         DO $$ 
         BEGIN 
+          BEGIN
+            ALTER TABLE visitors ADD COLUMN dob DATE;
+          EXCEPTION WHEN duplicate_column THEN END;
+          
           BEGIN
             ALTER TABLE visitors ADD COLUMN gps_address TEXT;
           EXCEPTION WHEN duplicate_column THEN END;
@@ -299,12 +305,26 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
       const firstName = nameParts[0];
       const lastName = nameParts.slice(1).join(' ');
 
+      let finalMinistry = 'N/A';
+      if (visitor.dob) {
+        const birthDate = new Date(visitor.dob);
+        const age = new Date().getFullYear() - birthDate.getFullYear();
+        const m = new Date().getMonth() - birthDate.getMonth();
+        const actualAge = (m < 0 || (m === 0 && new Date().getDate() < birthDate.getDate())) ? age - 1 : age;
+        
+        if (actualAge < 18) {
+          finalMinistry = 'Youth & Children';
+        }
+      }
+
       await supabase.from('members').insert([{
         first_name: firstName,
         last_name: lastName || 'N/A',
         phone: visitor.phone,
         email: visitor.email || '',
+        dob: visitor.dob || null,
         location_area: visitor.home_address || '',
+        ministry: finalMinistry,
         status: 'New',
         date_joined: new Date().toISOString().split('T')[0],
         gender: 'Male', // Default, can be updated later

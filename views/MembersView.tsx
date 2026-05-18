@@ -384,6 +384,10 @@ BEGIN
     SELECT member_id FROM public.attendance_records 
     GROUP BY member_id HAVING count(*) >= 5
   );
+
+  -- Ensure Youth & Children Ministry is flagged (optional, but keep it clean)
+  UPDATE public.members SET ministry = 'Youth & Children' 
+  WHERE ministry = 'N/A' AND dob IS NOT NULL AND EXTRACT(YEAR FROM age(CURRENT_DATE, dob)) < 18;
 END $$;
 
 -- 7. RLS SETTINGS
@@ -631,8 +635,21 @@ NOTIFY pgrst, 'reload schema';`;
     if (!formData.branch_id) return showNotify('Branch assignment is mandatory.', 'error');
     setIsSubmitting(true);
     try {
+      let finalMinistry = formData.ministry;
+      if (formData.dob) {
+        const birthDate = new Date(formData.dob);
+        const age = new Date().getFullYear() - birthDate.getFullYear();
+        const m = new Date().getMonth() - birthDate.getMonth();
+        const actualAge = (m < 0 || (m === 0 && new Date().getDate() < birthDate.getDate())) ? age - 1 : age;
+        
+        if (actualAge < 18) {
+          finalMinistry = 'Youth & Children';
+        }
+      }
+
       let payload: any = {
         ...formData,
+        ministry: finalMinistry,
         email: formData.email.trim() || null,
         dob: formData.dob || null,
         date_joined: formData.date_joined || null,
