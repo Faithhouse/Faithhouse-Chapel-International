@@ -356,9 +356,6 @@ const App: React.FC = () => {
           return <SettingsView currentUser={currentUser} />;
 
         // Dynamic Ministry Modules
-        case 'Youth & Children Ministry':
-          return <YouthChildrenDashboardView />;
-
         case 'Children Ministry':
         case 'Children\'s Ministry':
           return <ChildrenMinistryView />;
@@ -366,6 +363,8 @@ const App: React.FC = () => {
         case 'Teens Ministry':
           return <TeensMinistryView />;
 
+        case 'Youth & Children':
+        case 'Youth & Children Ministry':
         case 'Media Ministry':
         case 'Media Department':
         case 'Music Ministry':
@@ -444,7 +443,7 @@ const App: React.FC = () => {
                 />
               </div>
               <main className="flex-1 p-4 md:p-8 print:p-0">
-                <div className="max-w-7xl mx-auto print:max-w-none">
+                <div className="w-full print:max-w-none">
                   {renderContent()}
                 </div>
               </main>

@@ -232,7 +232,7 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
 
       toast.success('Visitor registered successfully');
       setRegForm({
-        full_name: '', phone: '', email: '', home_address: '', gps_address: '', maps_url: '', latitude: 0, longitude: 0,
+        full_name: '', phone: '', email: '', dob: '', home_address: '', gps_address: '', maps_url: '', latitude: 0, longitude: 0,
         date_of_first_visit: new Date().toISOString().split('T')[0],
         service_attended: 'Sunday Service', heard_about_us: 'Friend/Family', referred_by_name: '', referred_by_contact: '',
         prayer_requests: '', membership_interest: 'Maybe', welcomed_by: '',
@@ -375,7 +375,7 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
         <div className="fixed top-4 right-4 flex gap-2 no-print z-[200]">
           <button 
             onClick={() => window.print()} 
-            className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-2xl hover:scale-105 transition-all"
+            className="flex items-center gap-2 px-6 py-3 bg-fh-green text-fh-gold rounded-xl font-black uppercase text-[10px] tracking-widest shadow-2xl hover:scale-105 transition-all border-b-2 border-black/20"
           >
             <Printer className="w-4 h-4" />
             Print Report
@@ -400,42 +400,32 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
   }
 
   return (
-    <div className="flex-1 min-h-screen bg-slate-50/50 ml-0 lg:ml-64 transition-all duration-300 flex flex-col relative z-0">
-      <div className="flex-1 p-4 md:p-8 space-y-8 max-w-7xl mx-auto w-full">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mt-16 lg:mt-0">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm">
-                <Users className="w-5 h-5" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Visitors Registry</h1>
-              </div>
-            </div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest max-w-md">
-              Track and shepherd our guests towards full membership
-            </p>
+    <>
+      <div className="space-y-6 animate-in fade-in duration-500">
+      {/* 1. Protocol Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-1">
+            <h2 className="text-2xl md:text-4xl font-black text-fh-green tracking-tighter uppercase leading-none">Visitors Registry</h2>
+            <p className="text-[9px] md:text-[10px] text-slate-400 font-black uppercase tracking-[0.4em]">Guest Intake & Shepherding Protocol</p>
           </div>
-
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex items-center gap-3">
              <button 
                 onClick={() => setIsLogVisitModalOpen(true)}
-                className="flex items-center justify-center gap-2 px-6 py-3.5 bg-white text-indigo-600 rounded-2xl text-xs font-black uppercase tracking-widest border border-indigo-200 hover:bg-indigo-50 transition-all shadow-sm"
+                className="px-4 py-3 bg-white text-slate-600 rounded-xl font-black uppercase text-[9px] md:text-[10px] tracking-widest border border-slate-200 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
               >
-                <Clock className="w-4 h-4" /> Log Return Visit
+                Log Return Visit
              </button>
              <button 
                 onClick={() => setIsRegisterModalOpen(true)}
-                className="flex items-center justify-center gap-2 px-6 py-3.5 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-600/20 transition-all active:scale-95"
+                className="px-6 md:px-10 py-3 md:py-5 bg-fh-green text-fh-gold rounded-xl md:rounded-[1.75rem] font-black uppercase text-[9px] md:text-[10px] tracking-widest shadow-2xl active:scale-95 transition-all border-b-2 md:border-b-4 border-black/20"
               >
-                <UserPlus className="w-4 h-4" /> Guest Intake
+                + Guest Intake
              </button>
           </div>
         </div>
 
-        {/* 1.5 Compact KPI Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-1">
+        {/* 2. Compact KPI Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 px-1">
           <KPICard 
             title="Total Guests" 
             value={visitorStats.total.value} 
@@ -455,7 +445,7 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
             isLoading={isLoading}
           />
           <KPICard 
-            title="Follow Ups" 
+            title="Follow-ups" 
             value={visitorStats.pending.value} 
             trend={visitorStats.pending.trend} 
             icon={<Activity />} 
@@ -464,7 +454,7 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
             isLoading={isLoading}
           />
           <KPICard 
-            title="Conv Rate" 
+            title="Conversion" 
             value={visitorStats.conversion.value} 
             trend={visitorStats.conversion.trend} 
             icon={<Sparkles />} 
@@ -474,13 +464,17 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
           />
         </div>
 
-        {/* Global Tabs */}
-        <div className="bg-white p-2 rounded-[2rem] border border-slate-200/50 shadow-sm inline-flex overflow-x-auto w-full md:w-auto">
+        {/* 3. Global Tabs (Aligned Style) */}
+        <div className="bg-white p-2 rounded-2xl md:rounded-[2rem] border border-slate-200 shadow-sm inline-flex overflow-x-auto w-full md:w-auto">
           {['Directory', 'Follow Up', 'Reports'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab as any)}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`}
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl md:rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                activeTab === tab 
+                  ? 'bg-fh-green text-fh-gold shadow-lg ring-4 ring-fh-green/5' 
+                  : 'text-slate-400 hover:text-fh-green hover:bg-slate-50'
+              }`}
             >
               {tab === 'Directory' && <Users className="w-3.5 h-3.5" />}
               {tab === 'Follow Up' && <Activity className="w-3.5 h-3.5" />}
@@ -490,86 +484,124 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
           ))}
         </div>
 
+        {/* 4. Search & Discovery */}
+        <div className="relative group">
+          <div className="absolute left-6 top-1/2 -translate-y-1/2">
+            <Search className="w-5 h-5 text-slate-400 group-focus-within:text-fh-green transition-colors" />
+          </div>
+          <input 
+            type="text" 
+            placeholder="Search registry by name, phone or guest ID..." 
+            className="w-full pl-16 pr-8 py-5 md:py-6 bg-white border border-slate-200 rounded-2xl md:rounded-[2rem] font-black uppercase text-[10px] md:text-xs tracking-widest outline-none focus:ring-4 ring-fh-green/5 transition-all shadow-sm"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+
         {/* Directory View */}
         {activeTab === 'Directory' && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <div className="flex flex-col md:flex-row gap-4">
-               <div className="relative flex-1">
-                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5 pointer-events-none" />
-                 <input
-                   type="text"
-                   value={searchQuery}
-                   onChange={(e) => setSearchQuery(e.target.value)}
-                   placeholder="Search registry by name, phone or ID..."
-                   className="w-full pl-14 pr-6 py-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-medium focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all shadow-sm"
-                 />
-               </div>
-             </div>
-
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {isLoading ? (
-                  <div className="col-span-full py-12 text-center text-slate-400">Loading guests...</div>
-                ) : filteredVisitors.length > 0 ? (
-                  filteredVisitors.map((v, i) => (
-                    <motion.div 
-                      key={i}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col group hover:shadow-lg hover:border-indigo-200 transition-all"
-                    >
-                      <div className="p-6 border-b border-slate-100/50">
-                        <div className="flex justify-between items-start mb-4">
-                           <div className="flex items-center gap-3">
-                             <div className="w-10 h-10 rounded-full bg-indigo-50 border border-indigo-100 flex justify-center items-center font-bold text-indigo-700">
-                               {v.full_name[0]}
-                             </div>
-                             <div>
-                               <h3 className="font-bold text-slate-900 leading-tight">{v.full_name}</h3>
-                               <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{v.visitor_id}</p>
-                             </div>
-                           </div>
-                           <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${v.is_registered_member ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                             {v.is_registered_member ? 'Member' : 'Guest'}
-                           </span>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-slate-50 border-b border-slate-100 text-[10px] uppercase font-bold text-slate-400 tracking-widest">
+                  <tr>
+                    <th className="px-6 py-4">Guest Identity</th>
+                    <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4">Contact Detail</th>
+                    <th className="px-6 py-4">Engagement</th>
+                    <th className="px-6 py-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {isLoading && filteredVisitors.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic text-sm">
+                        Synchronizing registry data...
+                      </td>
+                    </tr>
+                  ) : filteredVisitors.length > 0 ? (
+                    filteredVisitors.map((v) => (
+                      <tr key={v.id} className="hover:bg-slate-50/80 transition-colors group">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-fh-green/5 text-fh-green rounded-xl flex items-center justify-center font-bold text-xs border border-fh-green/10 shadow-inner group-hover:scale-110 transition-transform">
+                              {v.full_name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-slate-800">{v.full_name}</p>
+                              <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{v.visitor_id}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${
+                            v.is_registered_member 
+                              ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
+                              : 'bg-fh-gold/10 text-fh-gold border-fh-gold/20'
+                          }`}>
+                            {v.is_registered_member ? 'Member' : 'Guest'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                              <Phone className="w-3 h-3 text-slate-400" />
+                              {v.phone}
+                            </div>
+                            <div className="flex items-center gap-2 text-[10px] text-slate-400 font-medium">
+                              <MapPin className="w-3 h-3" />
+                              {v.home_address || 'No Address'}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col gap-0.5">
+                            <div className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">
+                              Visits: <span className="text-fh-green">{v.visit_count}</span>
+                            </div>
+                            <div className="text-[10px] font-medium text-slate-500">
+                              Last: {new Date(v.last_visit_date).toLocaleDateString()}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2 lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-200 transform lg:translate-x-2 lg:group-hover:translate-x-0">
+                            {!v.is_registered_member && (
+                              <button 
+                                onClick={() => handleConvertToMember(v)}
+                                className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                                title="Convert to Member"
+                              >
+                                <ShieldCheck className="w-5 h-5" />
+                              </button>
+                            )}
+                            <button 
+                              onClick={() => {
+                                setSelectedVisitor(v);
+                                // Logic for viewing details could be added here
+                              }}
+                              className="p-2 text-slate-400 hover:text-fh-green hover:bg-fh-green/5 rounded-lg transition-all"
+                              title="View Details"
+                            >
+                              <ChevronRight className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-24 text-center">
+                        <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                          <Users className="w-8 h-8 text-slate-200" />
                         </div>
-
-                        <div className="space-y-2 mt-4 text-xs font-medium text-slate-600">
-                          <div className="flex items-center gap-2"><Phone className="w-3.5 h-3.5 text-slate-400" /> {v.phone}</div>
-                          {v.email && <div className="flex items-center gap-2"><Mail className="w-3.5 h-3.5 text-slate-400" /> {v.email}</div>}
-                          <div className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5 text-slate-400" /> {v.home_address || 'No address'}</div>
-                        </div>
-                      </div>
-                      
-                      <div className="p-4 bg-slate-50 flex items-center justify-between text-xs mt-auto">
-                        <div className="font-bold text-slate-500 uppercase tracking-widest text-[9px]">
-                          Visits: <span className="text-indigo-600 text-xs">{v.visit_count}</span>
-                        </div>
-                        <div className="font-bold text-slate-500 uppercase tracking-widest text-[9px]">
-                          Last: <span className="text-slate-800">{new Date(v.last_visit_date).toLocaleDateString()}</span>
-                        </div>
-                      </div>
-
-                      {!v.is_registered_member && (
-                        <div className="px-4 pb-4 bg-slate-50 border-t border-slate-100 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                           <button 
-                             onClick={() => handleConvertToMember(v)}
-                             className="text-[10px] flex items-center gap-1 font-black text-emerald-600 uppercase tracking-widest hover:text-emerald-700"
-                           >
-                             <ShieldCheck className="w-3 h-3" /> Mark as Member
-                           </button>
-                        </div>
-                      )}
-                    </motion.div>
-                  ))
-                ) : (
-                  <div className="col-span-full py-20 text-center">
-                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Users className="w-8 h-8 text-slate-300" />
-                    </div>
-                    <h3 className="text-sm font-bold uppercase tracking-widest text-slate-400">No visitors found</h3>
-                  </div>
-                )}
-             </div>
+                        <h3 className="text-sm font-bold uppercase tracking-widest text-slate-400">No visitors found</h3>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -596,7 +628,7 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
                          <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Due Date</p>
                          <p className="text-sm font-bold text-slate-800">{v.follow_up_due_date ? new Date(v.follow_up_due_date).toLocaleDateString() : 'N/A'}</p>
                       </div>
-                      <button className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold shadow-sm hover:bg-slate-50">View Details</button>
+                      <button className="px-5 py-2.5 bg-fh-green text-fh-gold rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-fh-green/10 hover:bg-fh-green/90 transition-all border-b-2 border-black/10 active:scale-95">Verify Assignment</button>
                    </div>
                  </div>
                )) : (
@@ -614,7 +646,7 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm text-center">
                  <h4 className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-2">Total Registry</h4>
-                 <p className="text-4xl font-black text-indigo-600">{visitors.length}</p>
+                 <p className="text-4xl font-black text-fh-green">{visitors.length}</p>
                </div>
                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm text-center border-emerald-100">
                  <h4 className="text-[10px] uppercase font-bold tracking-widest text-emerald-400 mb-2">Converted to Members</h4>
@@ -631,7 +663,7 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
                  <h3 className="font-bold text-slate-800">Guests Missing 30+ Days</h3>
                  <button 
                    onClick={() => setIsPrintMode(true)}
-                   className="flex items-center gap-2 px-6 py-3 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all shadow-sm"
+                   className="flex items-center gap-2 px-6 py-3 bg-fh-green/5 text-fh-green border border-fh-green/20 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-fh-green/10 transition-all shadow-sm"
                  >
                    <FileText className="w-4 h-4" />
                    Print Registry Report
@@ -664,10 +696,15 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
                exit={{ opacity: 0, scale: 0.95 }}
                className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
              >
-               <div className="p-6 md:p-8 border-b border-slate-100 flex justify-between items-center bg-indigo-50/50">
-                 <div>
-                   <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">Guest Intake Form</h2>
-                   <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Register a new visitor</p>
+               <div className="p-6 md:p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                 <div className="flex items-center gap-4">
+                   <div className="w-12 h-12 bg-fh-green text-white rounded-2xl flex items-center justify-center shadow-lg shadow-fh-green/20">
+                     <UserPlus className="w-6 h-6" />
+                   </div>
+                   <div>
+                     <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">Guest Intake Form</h2>
+                     <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Protocol V1.0</p>
+                   </div>
                  </div>
                  <button onClick={() => setIsRegisterModalOpen(false)} className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 shadow-sm border border-slate-200 transition-all">
                    <X className="w-5 h-5" />
@@ -678,21 +715,21 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                    <div className="space-y-1">
                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Full Name *</label>
-                     <input type="text" required value={regForm.full_name} onChange={e => setRegForm({...regForm, full_name: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all outline-none" />
+                     <input type="text" required value={regForm.full_name} onChange={e => setRegForm({...regForm, full_name: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none" />
                    </div>
                    <div className="space-y-1">
                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Phone Number *</label>
-                     <input type="tel" required value={regForm.phone} onChange={e => setRegForm({...regForm, phone: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all outline-none" />
+                     <input type="tel" required value={regForm.phone} onChange={e => setRegForm({...regForm, phone: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none" />
                    </div>
                    <div className="space-y-1">
                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Email Address (Optional)</label>
-                     <input type="email" value={regForm.email} onChange={e => setRegForm({...regForm, email: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all outline-none" />
+                     <input type="email" value={regForm.email} onChange={e => setRegForm({...regForm, email: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none" />
                    </div>
                    <div className="space-y-2 md:col-span-2">
                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Home Address (Optional)</label>
                      <div className="flex gap-2">
-                       <input type="text" value={regForm.home_address} onChange={e => setRegForm({...regForm, home_address: e.target.value})} placeholder="Physical address..." className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all outline-none" />
-                       <button type="button" onClick={() => setShowMapPicker(true)} className="shrink-0 px-4 py-3 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all flex items-center gap-2">
+                       <input type="text" value={regForm.home_address} onChange={e => setRegForm({...regForm, home_address: e.target.value})} placeholder="Physical address..." className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none" />
+                       <button type="button" onClick={() => setShowMapPicker(true)} className="shrink-0 px-4 py-3 bg-fh-green/5 text-fh-green border border-fh-green/10 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-fh-green/10 transition-all flex items-center gap-2">
                          <MapPin className="w-4 h-4" /> Pin Map
                        </button>
                      </div>
@@ -721,11 +758,11 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
                    </div>
                    <div className="space-y-1">
                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Date of First Visit *</label>
-                     <input type="date" required value={regForm.date_of_first_visit} onChange={e => setRegForm({...regForm, date_of_first_visit: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all outline-none" />
+                     <input type="date" required value={regForm.date_of_first_visit} onChange={e => setRegForm({...regForm, date_of_first_visit: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none" />
                    </div>
                    <div className="space-y-1">
                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Service Attended *</label>
-                     <select value={regForm.service_attended} onChange={e => setRegForm({...regForm, service_attended: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all outline-none">
+                     <select value={regForm.service_attended} onChange={e => setRegForm({...regForm, service_attended: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none">
                         <option value="">-- Select Event --</option>
                         {events.map(ev => <option key={ev.id} value={ev.title}>{ev.title}</option>)}
                         <option>Sunday Service</option>
@@ -735,7 +772,7 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
                    </div>
                    <div className="space-y-1">
                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Heard About Us Via *</label>
-                     <select value={regForm.heard_about_us} onChange={e => setRegForm({...regForm, heard_about_us: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all outline-none">
+                     <select value={regForm.heard_about_us} onChange={e => setRegForm({...regForm, heard_about_us: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none">
                         <option>Friend/Family</option>
                         <option>Social Media</option>
                         <option>Flyer/Invitation</option>
@@ -744,20 +781,20 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
                      </select>
                    </div>
                    {['Friend/Family', 'Other'].includes(regForm.heard_about_us) && (
-                     <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 border border-slate-100 p-4 rounded-2xl">
+                     <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 bg-white border border-slate-100 p-4 rounded-2xl shadow-sm">
                        <div className="space-y-1">
                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Referred By (Name)</label>
-                         <input type="text" value={regForm.referred_by_name} onChange={e => setRegForm({...regForm, referred_by_name: e.target.value})} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all outline-none" />
+                         <input type="text" value={regForm.referred_by_name} onChange={e => setRegForm({...regForm, referred_by_name: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none" />
                        </div>
                        <div className="space-y-1">
                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Referred By (Contact)</label>
-                         <input type="text" value={regForm.referred_by_contact} onChange={e => setRegForm({...regForm, referred_by_contact: e.target.value})} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all outline-none" />
+                         <input type="text" value={regForm.referred_by_contact} onChange={e => setRegForm({...regForm, referred_by_contact: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none" />
                        </div>
                      </div>
                    )}
                    <div className="space-y-1">
                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Interest in Membership *</label>
-                     <select value={regForm.membership_interest} onChange={e => setRegForm({...regForm, membership_interest: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all outline-none">
+                     <select value={regForm.membership_interest} onChange={e => setRegForm({...regForm, membership_interest: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none">
                         <option>Maybe</option>
                         <option>Yes</option>
                         <option>No</option>
@@ -767,12 +804,12 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
 
                  <div className="space-y-1">
                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Prayer Requests (Optional)</label>
-                   <textarea rows={3} value={regForm.prayer_requests} onChange={e => setRegForm({...regForm, prayer_requests: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all outline-none resize-none"></textarea>
+                   <textarea rows={3} value={regForm.prayer_requests} onChange={e => setRegForm({...regForm, prayer_requests: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none resize-none px-5 py-4 placeholder:text-slate-300"></textarea>
                  </div>
                  
                  <div className="space-y-1">
                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Welcomed By (Name/Team)</label>
-                   <input type="text" value={regForm.welcomed_by} onChange={e => setRegForm({...regForm, welcomed_by: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all outline-none" />
+                   <input type="text" value={regForm.welcomed_by} onChange={e => setRegForm({...regForm, welcomed_by: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none" />
                  </div>
 
                  {/* Follow UP Flag */}
@@ -787,14 +824,14 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-hidden pt-2">
                          <div className="space-y-1">
                            <label className="text-[10px] font-black uppercase tracking-widest text-amber-700">Assign To (Leader)</label>
-                           <select value={regForm.follow_up_assigned_name} onChange={e => setRegForm({...regForm, follow_up_assigned_name: e.target.value})} className="w-full px-4 py-3 bg-white border border-amber-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-amber-600/20 focus:border-amber-600 transition-all outline-none">
+                           <select value={regForm.follow_up_assigned_name} onChange={e => setRegForm({...regForm, follow_up_assigned_name: e.target.value})} className="w-full px-4 py-3 bg-white border border-amber-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all outline-none">
                              <option value="">-- Choose Leader --</option>
                              {leaders.map(l => <option key={l.id} value={`${l.first_name} ${l.last_name}`}>{l.first_name} {l.last_name} ({l.position})</option>)}
                            </select>
                          </div>
                          <div className="space-y-1">
                            <label className="text-[10px] font-black uppercase tracking-widest text-amber-700">Due Date</label>
-                           <input type="date" value={regForm.follow_up_due_date} onChange={e => setRegForm({...regForm, follow_up_due_date: e.target.value})} className="w-full px-4 py-3 bg-white border border-amber-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-amber-600/20 focus:border-amber-600 transition-all outline-none" />
+                           <input type="date" value={regForm.follow_up_due_date} onChange={e => setRegForm({...regForm, follow_up_due_date: e.target.value})} className="w-full px-4 py-3 bg-white border border-amber-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all outline-none" />
                          </div>
                        </motion.div>
                      )}
@@ -802,8 +839,8 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
                  </div>
 
                  <div className="pt-4 border-t border-slate-100 flex justify-end">
-                   <button type="submit" disabled={isLoading} className="px-8 py-4 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 active:scale-95 transition-all w-full md:w-auto shadow-lg shadow-indigo-600/20">
-                     {isLoading ? 'Saving...' : 'Save Visitor Profile'}
+                   <button type="submit" disabled={isLoading} className="px-8 py-4 bg-fh-green text-fh-gold rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-fh-green/90 active:scale-95 transition-all w-full md:w-auto shadow-xl shadow-fh-green/10 border-b-2 border-black/20">
+                     {isLoading ? 'Processing Protocol...' : 'Confirm Guest Intake'}
                    </button>
                  </div>
                </form>
@@ -823,8 +860,14 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
                className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden flex flex-col"
              >
                <div className="p-6 md:p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                 <div>
-                   <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">Log Return Visit</h2>
+                 <div className="flex items-center gap-4">
+                   <div className="w-12 h-12 bg-fh-gold text-white rounded-2xl flex items-center justify-center shadow-lg shadow-fh-gold/20">
+                     <Clock className="w-6 h-6" />
+                   </div>
+                   <div>
+                     <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">Return Visit Log</h2>
+                     <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Protocol V1.0</p>
+                   </div>
                  </div>
                  <button onClick={() => setIsLogVisitModalOpen(false)} className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 shadow-sm border border-slate-200 transition-all">
                    <X className="w-5 h-5" />
@@ -838,7 +881,7 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
                      required
                      value={visitLogForm.visitor_id} 
                      onChange={e => setVisitLogForm({...visitLogForm, visitor_id: e.target.value})} 
-                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all outline-none"
+                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none"
                    >
                      <option value="">-- Choose Guest --</option>
                      {activeVisitors.map(v => (
@@ -848,11 +891,11 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
                  </div>
                  <div className="space-y-1">
                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Date of Visit *</label>
-                   <input type="date" required value={visitLogForm.visit_date} onChange={e => setVisitLogForm({...visitLogForm, visit_date: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all outline-none" />
+                   <input type="date" required value={visitLogForm.visit_date} onChange={e => setVisitLogForm({...visitLogForm, visit_date: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none" />
                  </div>
                  <div className="space-y-1">
                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Service Attended *</label>
-                   <select value={visitLogForm.service_attended} onChange={e => setVisitLogForm({...visitLogForm, service_attended: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all outline-none">
+                   <select value={visitLogForm.service_attended} onChange={e => setVisitLogForm({...visitLogForm, service_attended: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none">
                       <option value="">-- Select Event --</option>
                       {events.map(ev => <option key={ev.id} value={ev.title}>{ev.title}</option>)}
                       <option>Sunday Service</option>
@@ -861,8 +904,8 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
                    </select>
                  </div>
                  <div className="pt-4 border-t border-slate-100 flex justify-end">
-                   <button type="submit" disabled={isLoading} className="px-8 py-4 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 active:scale-95 transition-all w-full shadow-lg shadow-indigo-600/20">
-                     Log Visit
+                   <button type="submit" disabled={isLoading} className="px-8 py-4 bg-fh-gold text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-fh-gold/90 active:scale-95 transition-all w-full shadow-xl shadow-fh-gold/10 border-b-2 border-black/20">
+                     Log Return Activity
                    </button>
                  </div>
                </form>
@@ -877,7 +920,7 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
         onConfirm={handleLocationConfirm}
         initialCoords={mapPickerCoords}
       />
-    </div>
+    </>
   );
 };
 
@@ -885,13 +928,13 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
 const KPICard = ({ title, value, trend, icon, status, sparkline, isLoading }: any) => {
   const isPositive = trend >= 0;
   const statusClasses: any = {
-    growth: 'text-indigo-600 bg-indigo-50 border-indigo-100',
+    growth: 'text-fh-green bg-fh-green/5 border-fh-green/10',
     attention: 'text-rose-600 bg-rose-50 border-rose-100',
     warning: 'text-amber-600 bg-amber-50 border-amber-100',
     neutral: 'text-slate-600 bg-slate-50 border-slate-100'
   };
 
-  const trendColor = status === 'growth' ? 'text-emerald-600' : status === 'attention' ? 'text-rose-600' : status === 'warning' ? 'text-amber-600' : 'text-slate-600';
+  const trendColor = status === 'growth' ? 'text-fh-green' : status === 'attention' ? 'text-rose-600' : status === 'warning' ? 'text-amber-600' : 'text-slate-600';
 
   return (
     <div className="bg-white p-3 rounded-2xl border border-slate-200/50 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between min-h-[90px] md:min-h-[110px]">

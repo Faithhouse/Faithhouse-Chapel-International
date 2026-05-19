@@ -422,6 +422,35 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName })
     }
   };
 
+  // Handle member search in dropdown
+  useEffect(() => {
+    const searchMembers = async () => {
+      // Don't trigger for very short terms unless clearing
+      if (memberSearchTerm.length > 0 && memberSearchTerm.length < 2) return;
+      
+      let query = supabase
+        .from('members')
+        .select('*')
+        .order('first_name')
+        .limit(100);
+      
+      if (memberSearchTerm) {
+        query = query.or(`first_name.ilike.%${memberSearchTerm}%,last_name.ilike.%${memberSearchTerm}%`);
+      }
+
+      const { data, error } = await query;
+      if (!error && data) {
+        setAllMembers(data);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      searchMembers();
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [memberSearchTerm]);
+
   const fetchPersonnel = async () => {
     if (!currentMinistryId) return;
     setIsLoading(true);
@@ -440,11 +469,12 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName })
 
       setMinistryMembers(enrichedMembers);
 
-      // 2. Get ALL members for assignment dropdown
+      // 2. Initial load of members (limited for initial dropdown view)
       const { data: available, error: availableErr } = await supabase
         .from('members')
         .select('*')
-        .order('first_name');
+        .order('first_name')
+        .limit(200);
       
       if (availableErr) throw availableErr;
       setAllMembers(available || []);
@@ -667,16 +697,18 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName })
   };
 
   // Filter members for the search dropdown: 
-  // 1. Don't show people already in THIS ministry.
+  // 1. Don't show people already in THIS ministry (using join table state).
   // 2. Filter by search text.
   const filteredAvailableMembers = allMembers.filter(m => {
-    const ministryFilter = ministryName === 'Children Ministry' 
-      ? ['Children Ministry', 'Teens Ministry', 'Young Adults Ministry'] 
-      : [ministryName];
+    // AUTHORITATIVE CHECK: Is this person already in our personnel list?
+    const isAlreadyIn = ministryMembers.some(mm => mm.id === m.id);
     
-    return !ministryFilter.includes(m.ministry || '') && 
-    (`${m.first_name} ${m.last_name}`).toLowerCase().includes(memberSearchTerm.toLowerCase())
-  }).slice(0, 10); // Limit to top 10 for performance
+    // Search match
+    const fullName = `${m.first_name} ${m.last_name}`.toLowerCase();
+    const searchMatch = fullName.includes(memberSearchTerm.toLowerCase());
+    
+    return !isAlreadyIn && searchMatch;
+  }).slice(0, 20); // Limit to top 20 for performance and clarity
 
   interface MinistryConfig {
     icon: string | React.ReactNode;
