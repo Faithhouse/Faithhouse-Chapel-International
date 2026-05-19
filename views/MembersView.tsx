@@ -1366,7 +1366,32 @@ NOTIFY pgrst, 'reload schema';`;
                 <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">First Name *</label><input required name="first_name" value={formData.first_name} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
                 <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Last Name *</label><input required name="last_name" value={formData.last_name} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
                 <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Gender</label><select name="gender" value={formData.gender} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner"><option>Male</option><option>Female</option></select></div>
-                <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Date of Birth</label><input type="date" name="dob" value={formData.dob} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Date of Birth (DD/MM/YYYY)</label>
+                  <input 
+                    type="text" 
+                    name="dob" 
+                    placeholder="25/12/1990"
+                    value={formData.dob ? formData.dob.split('-').reverse().join('/') : ''} 
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      // Basic auto-formatter for DD/MM/YYYY
+                      let formatted = val.replace(/\D/g, '');
+                      if (formatted.length > 2) formatted = formatted.slice(0,2) + '/' + formatted.slice(2);
+                      if (formatted.length > 5) formatted = formatted.slice(0,5) + '/' + formatted.slice(5, 9);
+                      
+                      const parts = formatted.split('/');
+                      if (parts.length === 3 && parts[2].length === 4) {
+                        setFormData({...formData, dob: `${parts[2]}-${parts[1]}-${parts[0]}`});
+                      } else {
+                        // Keep raw in state if not complete, or handle differently
+                        // For now we'll just allow the text to flow and only update state when valid-ish
+                        setFormData({...formData, dob: val}); 
+                      }
+                    }}
+                    className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner outline-none focus:ring-4 ring-fh-gold/5 focus:border-fh-gold transition-all" 
+                  />
+                </div>
                 <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Marital Status</label><select name="marital_status" value={formData.marital_status} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner"><option>Single</option><option>Married</option><option>Widowed</option><option>Divorced</option></select></div>
                 <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Hometown</label><input name="hometown" value={formData.hometown} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" placeholder="e.g. Kumasi" /></div>
 
@@ -1475,8 +1500,26 @@ NOTIFY pgrst, 'reload schema';`;
                               <input value={child.name} onChange={(e) => handleChildChange(idx, 'name', e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl font-bold text-slate-700 text-xs" />
                             </div>
                             <div className="space-y-1">
-                              <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-2">DOB</label>
-                              <input type="date" value={child.dob} onChange={(e) => handleChildChange(idx, 'dob', e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl font-bold text-slate-700 text-xs" />
+                              <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-2">DOB (DD/MM/YYYY)</label>
+                              <input 
+                                type="text" 
+                                placeholder="DD/MM/YYYY"
+                                value={child.dob ? child.dob.split('-').reverse().join('/') : ''} 
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  let formatted = val.replace(/\D/g, '');
+                                  if (formatted.length > 2) formatted = formatted.slice(0,2) + '/' + formatted.slice(2);
+                                  if (formatted.length > 5) formatted = formatted.slice(0,5) + '/' + formatted.slice(5, 9);
+                                  
+                                  const parts = formatted.split('/');
+                                  if (parts.length === 3 && parts[2].length === 4) {
+                                    handleChildChange(idx, 'dob', `${parts[2]}-${parts[1]}-${parts[0]}`);
+                                  } else {
+                                    handleChildChange(idx, 'dob', val);
+                                  }
+                                }} 
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl font-bold text-slate-700 text-xs outline-none" 
+                              />
                             </div>
                             <div className="space-y-1">
                               <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-2">Gender</label>

@@ -574,8 +574,26 @@ NOTIFY pgrst, 'reload schema';`;
                       </select>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-2">Date of Birth *</label>
-                      <input type="date" name="dob" value={formData.dob} onChange={handleInputChange} className="w-full px-6 py-4 bg-slate-50 rounded-2xl font-bold outline-none" />
+                      <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-2">Date of Birth (DD/MM/YYYY) *</label>
+                      <input 
+                        type="text" 
+                        placeholder="DD/MM/YYYY"
+                        value={formData.dob ? formData.dob.split('-').reverse().join('/') : ''} 
+                        onChange={e => {
+                          const val = e.target.value;
+                          let formatted = val.replace(/\D/g, '');
+                          if (formatted.length > 2) formatted = formatted.slice(0,2) + '/' + formatted.slice(2);
+                          if (formatted.length > 5) formatted = formatted.slice(0,5) + '/' + formatted.slice(5, 9);
+                          
+                          const parts = formatted.split('/');
+                          if (parts.length === 3 && parts[2].length === 4) {
+                            setFormData({...formData, dob: `${parts[2]}-${parts[1]}-${parts[0]}`});
+                          } else {
+                            setFormData({...formData, dob: val});
+                          }
+                        }}
+                        className="w-full px-6 py-4 bg-slate-50 rounded-2xl font-bold outline-none" 
+                      />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-2">Date Joined *</label>
@@ -765,8 +783,26 @@ NOTIFY pgrst, 'reload schema';`;
                                <input value={child.name} onChange={(e) => updateChild(idx, 'name', e.target.value)} className="w-full px-4 py-3 bg-white rounded-xl font-bold text-sm outline-none" />
                              </div>
                              <div className="space-y-1">
-                               <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest px-2">Child DOB</label>
-                               <input type="date" value={child.dob} onChange={(e) => updateChild(idx, 'dob', e.target.value)} className="w-full px-4 py-3 bg-white rounded-xl font-bold text-sm outline-none" />
+                               <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest px-2">Child DOB (DD/MM/YYYY)</label>
+                               <input 
+                                 type="text" 
+                                 placeholder="DD/MM/YYYY"
+                                 value={child.dob ? child.dob.split('-').reverse().join('/') : ''} 
+                                 onChange={e => {
+                                   const val = e.target.value;
+                                   let formatted = val.replace(/\D/g, '');
+                                   if (formatted.length > 2) formatted = formatted.slice(0,2) + '/' + formatted.slice(2);
+                                   if (formatted.length > 5) formatted = formatted.slice(0,5) + '/' + formatted.slice(5, 9);
+                                   
+                                   const parts = formatted.split('/');
+                                   if (parts.length === 3 && parts[2].length === 4) {
+                                     updateChild(idx, 'dob', `${parts[2]}-${parts[1]}-${parts[0]}`);
+                                   } else {
+                                     updateChild(idx, 'dob', val);
+                                   }
+                                 }}
+                                 className="w-full px-4 py-3 bg-white rounded-xl font-bold text-sm outline-none" 
+                               />
                              </div>
                              <div className="space-y-1">
                                <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest px-2">Child Gender</label>

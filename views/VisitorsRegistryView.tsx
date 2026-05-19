@@ -718,6 +718,28 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
                      <input type="text" required value={regForm.full_name} onChange={e => setRegForm({...regForm, full_name: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none" />
                    </div>
                    <div className="space-y-1">
+                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Date of Birth (DD/MM/YYYY)</label>
+                     <input 
+                       type="text" 
+                       placeholder="DD/MM/YYYY"
+                       value={regForm.dob ? regForm.dob.split('-').reverse().join('/') : ''} 
+                       onChange={e => {
+                         const val = e.target.value;
+                         let formatted = val.replace(/\D/g, '');
+                         if (formatted.length > 2) formatted = formatted.slice(0,2) + '/' + formatted.slice(2);
+                         if (formatted.length > 5) formatted = formatted.slice(0,5) + '/' + formatted.slice(5, 9);
+                         
+                         const parts = formatted.split('/');
+                         if (parts.length === 3 && parts[2].length === 4) {
+                           setRegForm({...regForm, dob: `${parts[2]}-${parts[1]}-${parts[0]}`});
+                         } else {
+                           setRegForm({...regForm, dob: val});
+                         }
+                       }}
+                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none" 
+                     />
+                   </div>
+                   <div className="space-y-1">
                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Phone Number *</label>
                      <input type="tel" required value={regForm.phone} onChange={e => setRegForm({...regForm, phone: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none" />
                    </div>
