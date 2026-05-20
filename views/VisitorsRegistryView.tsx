@@ -216,6 +216,8 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
     try {
       const { data: insertedVisitor, error } = await supabase.from('visitors').insert([{
         ...regForm,
+        dob: regForm.dob || null,
+        follow_up_due_date: regForm.follow_up_due_date || null,
         visitor_id: newVisitorId,
         last_visit_date: regForm.date_of_first_visit,
         visit_count: 1
@@ -717,28 +719,7 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Full Name *</label>
                      <input type="text" required value={regForm.full_name} onChange={e => setRegForm({...regForm, full_name: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none" />
                    </div>
-                   <div className="space-y-1">
-                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Date of Birth (DD/MM/YYYY)</label>
-                     <input 
-                       type="text" 
-                       placeholder="DD/MM/YYYY"
-                       value={regForm.dob ? regForm.dob.split('-').reverse().join('/') : ''} 
-                       onChange={e => {
-                         const val = e.target.value;
-                         let formatted = val.replace(/\D/g, '');
-                         if (formatted.length > 2) formatted = formatted.slice(0,2) + '/' + formatted.slice(2);
-                         if (formatted.length > 5) formatted = formatted.slice(0,5) + '/' + formatted.slice(5, 9);
-                         
-                         const parts = formatted.split('/');
-                         if (parts.length === 3 && parts[2].length === 4) {
-                           setRegForm({...regForm, dob: `${parts[2]}-${parts[1]}-${parts[0]}`});
-                         } else {
-                           setRegForm({...regForm, dob: val});
-                         }
-                       }}
-                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none" 
-                     />
-                   </div>
+
                    <div className="space-y-1">
                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Phone Number *</label>
                      <input type="tel" required value={regForm.phone} onChange={e => setRegForm({...regForm, phone: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none" />
@@ -779,8 +760,27 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
                      )}
                    </div>
                    <div className="space-y-1">
-                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Date of First Visit *</label>
-                     <input type="date" required value={regForm.date_of_first_visit} onChange={e => setRegForm({...regForm, date_of_first_visit: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none" />
+                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Date of First Visit (DD/MM/YYYY) *</label>
+                     <input 
+                       type="text" 
+                       required 
+                       placeholder="DD/MM/YYYY"
+                       value={regForm.date_of_first_visit ? regForm.date_of_first_visit.split('-').reverse().join('/') : ''} 
+                       onChange={e => {
+                         const val = e.target.value;
+                         let formatted = val.replace(/\D/g, '');
+                         if (formatted.length > 2) formatted = formatted.slice(0,2) + '/' + formatted.slice(2);
+                         if (formatted.length > 5) formatted = formatted.slice(0,5) + '/' + formatted.slice(5, 9);
+                         
+                         const parts = formatted.split('/');
+                         if (parts.length === 3 && parts[2].length === 4) {
+                           setRegForm({...regForm, date_of_first_visit: `${parts[2]}-${parts[1]}-${parts[0]}`});
+                         } else {
+                           setRegForm({...regForm, date_of_first_visit: val});
+                         }
+                       }}
+                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none" 
+                     />
                    </div>
                    <div className="space-y-1">
                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Service Attended *</label>
@@ -852,8 +852,26 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
                            </select>
                          </div>
                          <div className="space-y-1">
-                           <label className="text-[10px] font-black uppercase tracking-widest text-amber-700">Due Date</label>
-                           <input type="date" value={regForm.follow_up_due_date} onChange={e => setRegForm({...regForm, follow_up_due_date: e.target.value})} className="w-full px-4 py-3 bg-white border border-amber-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all outline-none" />
+                           <label className="text-[10px] font-black uppercase tracking-widest text-amber-700">Due Date (DD/MM/YYYY)</label>
+                           <input 
+                             type="text" 
+                             placeholder="DD/MM/YYYY"
+                             value={regForm.follow_up_due_date ? regForm.follow_up_due_date.split('-').reverse().join('/') : ''} 
+                             onChange={e => {
+                               const val = e.target.value;
+                               let formatted = val.replace(/\D/g, '');
+                               if (formatted.length > 2) formatted = formatted.slice(0,2) + '/' + formatted.slice(2);
+                               if (formatted.length > 5) formatted = formatted.slice(0,5) + '/' + formatted.slice(5, 9);
+                               
+                               const parts = formatted.split('/');
+                               if (parts.length === 3 && parts[2].length === 4) {
+                                 setRegForm({...regForm, follow_up_due_date: `${parts[2]}-${parts[1]}-${parts[0]}`});
+                               } else {
+                                 setRegForm({...regForm, follow_up_due_date: val});
+                               }
+                             }}
+                             className="w-full px-4 py-3 bg-white border border-amber-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all outline-none" 
+                           />
                          </div>
                        </motion.div>
                      )}
@@ -912,8 +930,27 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
                    </select>
                  </div>
                  <div className="space-y-1">
-                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Date of Visit *</label>
-                   <input type="date" required value={visitLogForm.visit_date} onChange={e => setVisitLogForm({...visitLogForm, visit_date: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none" />
+                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Date of Visit (DD/MM/YYYY) *</label>
+                   <input 
+                     type="text" 
+                     required 
+                     placeholder="DD/MM/YYYY"
+                     value={visitLogForm.visit_date ? visitLogForm.visit_date.split('-').reverse().join('/') : ''} 
+                     onChange={e => {
+                       const val = e.target.value;
+                       let formatted = val.replace(/\D/g, '');
+                       if (formatted.length > 2) formatted = formatted.slice(0,2) + '/' + formatted.slice(2);
+                       if (formatted.length > 5) formatted = formatted.slice(0,5) + '/' + formatted.slice(5, 9);
+                       
+                       const parts = formatted.split('/');
+                       if (parts.length === 3 && parts[2].length === 4) {
+                         setVisitLogForm({...visitLogForm, visit_date: `${parts[2]}-${parts[1]}-${parts[0]}`});
+                       } else {
+                         setVisitLogForm({...visitLogForm, visit_date: val});
+                       }
+                     }}
+                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-fh-green/5 focus:border-fh-green transition-all outline-none" 
+                   />
                  </div>
                  <div className="space-y-1">
                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Service Attended *</label>

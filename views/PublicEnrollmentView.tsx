@@ -596,8 +596,27 @@ NOTIFY pgrst, 'reload schema';`;
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-2">Date Joined *</label>
-                      <input type="date" name="date_joined" value={formData.date_joined} onChange={handleInputChange} className="w-full px-6 py-4 bg-slate-50 rounded-2xl font-bold outline-none border-2 border-fh-gold/20" />
+                      <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-2">Date Joined (DD/MM/YYYY) *</label>
+                      <input 
+                        type="text" 
+                        placeholder="DD/MM/YYYY"
+                        name="date_joined" 
+                        value={formData.date_joined ? formData.date_joined.split('-').reverse().join('/') : ''} 
+                        onChange={e => {
+                          const val = e.target.value;
+                          let formatted = val.replace(/\D/g, '');
+                          if (formatted.length > 2) formatted = formatted.slice(0,2) + '/' + formatted.slice(2);
+                          if (formatted.length > 5) formatted = formatted.slice(0,5) + '/' + formatted.slice(5, 9);
+                          
+                          const parts = formatted.split('/');
+                          if (parts.length === 3 && parts[2].length === 4) {
+                            setFormData({...formData, date_joined: `${parts[2]}-${parts[1]}-${parts[0]}`});
+                          } else {
+                            setFormData({...formData, date_joined: val});
+                          }
+                        }}
+                        className="w-full px-6 py-4 bg-slate-50 rounded-2xl font-bold outline-none border-2 border-fh-gold/20" 
+                      />
                     </div>
                   </div>
 

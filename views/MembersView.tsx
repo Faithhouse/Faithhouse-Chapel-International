@@ -1446,7 +1446,29 @@ NOTIFY pgrst, 'reload schema';`;
                         {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                       </select>
                     </div>
-                    <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Date Joined Church</label><input type="date" name="date_joined" value={formData.date_joined} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" /></div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Date Joined Church (DD/MM/YYYY)</label>
+                      <input 
+                        type="text" 
+                        placeholder="DD/MM/YYYY"
+                        name="date_joined" 
+                        value={formData.date_joined ? formData.date_joined.split('-').reverse().join('/') : ''} 
+                        onChange={e => {
+                          const val = e.target.value;
+                          let formatted = val.replace(/\D/g, '');
+                          if (formatted.length > 2) formatted = formatted.slice(0,2) + '/' + formatted.slice(2);
+                          if (formatted.length > 5) formatted = formatted.slice(0,5) + '/' + formatted.slice(5, 9);
+                          
+                          const parts = formatted.split('/');
+                          if (parts.length === 3 && parts[2].length === 4) {
+                            setFormData({...formData, date_joined: `${parts[2]}-${parts[1]}-${parts[0]}`});
+                          } else {
+                            setFormData({...formData, date_joined: val});
+                          }
+                        }}
+                        className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner" 
+                      />
+                    </div>
                     <div className="space-y-1">
                       <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-4">Assigned Ministry</label>
                       <select name="ministry" value={formData.ministry} onChange={handleInputChange} className="w-full px-7 py-5 bg-slate-50 border border-slate-200 rounded-3xl font-black text-slate-800 shadow-inner">

@@ -527,7 +527,7 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName })
         last_name: regForm.last_name,
         phone: regForm.phone,
         email: regForm.email,
-        dob: regForm.dob,
+        dob: regForm.dob || null,
         gender: regForm.gender,
         ministry: ministryName,
         status: 'Active'
