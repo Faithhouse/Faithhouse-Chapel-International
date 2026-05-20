@@ -410,13 +410,9 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
       setEditingRecordId(null);
       fetchInitialData();
     } catch (err: any) {
-      if (err.message?.includes('schema cache') || err.message?.includes('not found') || err.message?.includes('Could not find')) {
-        setTableMissing(true);
-        setIsPinModalOpen(false);
-        setIsModalOpen(false);
-      } else {
-        toast.error(`Database Sync Failure: ${err.message}`);
-      }
+      toast.error(`Database Sync Failure: ${err.message || "Unknown error"}. Please make sure you have executed the schema setup or repair SQL.`);
+      setIsPinModalOpen(false);
+      setIsModalOpen(false);
     } finally {
       setIsSubmitting(false);
     }

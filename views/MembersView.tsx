@@ -385,6 +385,15 @@ BEGIN
   BEGIN ALTER TABLE public.members ADD COLUMN date_joined DATE DEFAULT CURRENT_DATE; EXCEPTION WHEN duplicate_column THEN END;
   BEGIN ALTER TABLE public.members ADD COLUMN water_baptised BOOLEAN DEFAULT false; EXCEPTION WHEN duplicate_column THEN END;
   BEGIN ALTER TABLE public.members ADD COLUMN holy_ghost_baptised BOOLEAN DEFAULT false; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN follow_up_status TEXT DEFAULT 'Pending'; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN location_area TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN invited_by TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN prayer_request TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN role TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN last_seen TIMESTAMP WITH TIME ZONE; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN spouse_name TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN spouse_phone TEXT; EXCEPTION WHEN duplicate_column THEN END;
+  BEGIN ALTER TABLE public.members ADD COLUMN emergency_contact_relationship TEXT; EXCEPTION WHEN duplicate_column THEN END;
 
   -- Reforce Active Protocol
   UPDATE public.members SET status = 'Probation' WHERE status = 'Active' AND id NOT IN (
@@ -695,11 +704,7 @@ NOTIFY pgrst, 'reload schema';`;
       resetForm();
       fetchInitialData();
     } catch (err: any) {
-      if (err.message?.includes('schema cache') || err.message?.includes('not found') || err.message?.includes('Could not find')) {
-        setTableMissing(true);
-      } else {
-        showNotify(err.message, 'error');
-      }
+      showNotify(`Save Failed: ${err.message || "Unknown error"}. Copy and run the updated Restructuring/Repair SQL script inside your Supabase SQL Editor to add any missing database columns.`, 'error');
     } finally {
       setIsSubmitting(false);
     }
