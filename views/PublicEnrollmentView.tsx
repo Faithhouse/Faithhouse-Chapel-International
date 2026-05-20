@@ -31,6 +31,13 @@ const DEFAULT_SLIDESHOW = [
   "https://images.unsplash.com/photo-1523059623039-a240d06f214d"
 ];
 
+const isValidISODate = (dateStr: string | null | undefined): boolean => {
+  if (!dateStr) return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
+  const d = new Date(dateStr);
+  return d instanceof Date && !isNaN(d.getTime());
+};
+
 const PublicEnrollmentView: React.FC = () => {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -674,6 +681,14 @@ NOTIFY pgrst, 'reload schema';`;
                         toast.error("Please fill all required fields marked with *");
                         return;
                       }
+                      if (!isValidISODate(formData.dob)) {
+                        toast.error("Please enter a valid Date of Birth (DD/MM/YYYY)");
+                        return;
+                      }
+                      if (!isValidISODate(formData.date_joined)) {
+                        toast.error("Please enter a valid Date Joined (DD/MM/YYYY)");
+                        return;
+                      }
                       setStep(2);
                     }}
                     className="w-full py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center justify-center gap-2 hover:translate-y-[-2px] transition-all"
@@ -844,7 +859,19 @@ NOTIFY pgrst, 'reload schema';`;
                     <button onClick={() => setStep(2)} className="flex-1 py-5 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-2">
                        <ChevronLeft className="w-4 h-4" /> Back
                     </button>
-                    <button onClick={() => setStep(4)} className="flex-[2] py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center justify-center gap-2">
+                    <button 
+                      onClick={() => {
+                        for (let i = 0; i < formData.children.length; i++) {
+                          const child = formData.children[i];
+                          if (child.dob && !isValidISODate(child.dob)) {
+                            toast.error(`Please enter a valid DOB for child "${child.name || i+1}" in DD/MM/YYYY format.`);
+                            return;
+                          }
+                        }
+                        setStep(4);
+                      }}
+                      className="flex-[2] py-5 bg-fh-green text-fh-gold rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center justify-center gap-2"
+                    >
                        Continue <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>

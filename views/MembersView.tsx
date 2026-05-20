@@ -22,6 +22,13 @@ import {
   ResponsiveContainer 
 } from 'recharts';
 
+const isValidISODate = (dateStr: string | null | undefined): boolean => {
+  if (!dateStr) return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
+  const d = new Date(dateStr);
+  return d instanceof Date && !isNaN(d.getTime());
+};
+
 interface MembersViewProps {
   onSelectMember?: (id: string) => void;
   initialEditId?: string | null;
@@ -633,6 +640,22 @@ NOTIFY pgrst, 'reload schema';`;
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.branch_id) return showNotify('Branch assignment is mandatory.', 'error');
+
+    if (formData.dob && !isValidISODate(formData.dob)) {
+      return showNotify('Please enter a valid Date of Birth (DD/MM/YYYY)', 'error');
+    }
+
+    if (formData.date_joined && !isValidISODate(formData.date_joined)) {
+      return showNotify('Please enter a valid Date Joined Church (DD/MM/YYYY)', 'error');
+    }
+
+    for (let i = 0; i < formData.children.length; i++) {
+      const child = formData.children[i];
+      if (child.dob && !isValidISODate(child.dob)) {
+        return showNotify(`Please enter a valid Date of Birth for child "${child.name || i+1}" (DD/MM/YYYY)`, 'error');
+      }
+    }
+
     setIsSubmitting(true);
     try {
       let finalMinistry = formData.ministry;

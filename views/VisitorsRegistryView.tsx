@@ -17,6 +17,13 @@ import {
 import { MapPickerModal } from '../components/MapPickerModal';
 import VisitorReportDocument from '../src/components/VisitorReportDocument';
 
+const isValidISODate = (dateStr: string | null | undefined): boolean => {
+  if (!dateStr) return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
+  const d = new Date(dateStr);
+  return d instanceof Date && !isNaN(d.getTime());
+};
+
 const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
   const [activeTab, setActiveTab] = useState<'Directory' | 'Log Visit' | 'Follow Up' | 'Reports'>('Directory');
   const [visitors, setVisitors] = useState<any[]>([]);
@@ -209,6 +216,18 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
       toast.error('Name and Phone are required.');
       return;
     }
+
+    if (!regForm.date_of_first_visit || !isValidISODate(regForm.date_of_first_visit)) {
+      toast.error('Please enter a valid Date of First Visit (DD/MM/YYYY)');
+      return;
+    }
+
+    if (regForm.needs_follow_up && regForm.follow_up_due_date) {
+      if (!isValidISODate(regForm.follow_up_due_date)) {
+        toast.error('Please enter a valid Follow-up Due Date (DD/MM/YYYY)');
+        return;
+      }
+    }
     
     setIsLoading(true);
     const newVisitorId = `VIS-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -253,6 +272,11 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
     e.preventDefault();
     if (!visitLogForm.visitor_id) {
       toast.error("Please select a visitor");
+      return;
+    }
+
+    if (!visitLogForm.visit_date || !isValidISODate(visitLogForm.visit_date)) {
+      toast.error("Please enter a valid Date of Visit (DD/MM/YYYY)");
       return;
     }
 
