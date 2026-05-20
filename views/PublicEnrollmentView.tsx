@@ -522,7 +522,7 @@ NOTIFY pgrst, 'reload schema';`;
       <div className="max-w-xl w-full relative z-10">
         {/* Branding */}
         <div className="flex flex-col items-center mb-10 text-center">
-          <div className="w-20 h-20 bg-white rounded-2xl p-1 shadow-2xl mb-6 transform rotate-3 border-4 border-fh-green">
+          <div className="w-20 h-20 bg-white rounded-2xl p-1 shadow-2xl mb-6 border-4 border-fh-green">
              <div className="w-full h-full bg-slate-50 rounded-xl flex items-center justify-center overflow-hidden p-2">
                <img src="https://lh3.googleusercontent.com/d/1la57sO6NOuNEZaqa9zDxuxRnWPBavkjH" alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
              </div>
