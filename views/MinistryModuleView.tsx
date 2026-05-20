@@ -16,7 +16,6 @@ import {
 import { toast } from 'sonner';
 import Markdown from 'react-markdown';
 import MinistryReportsView from './MinistryReportsView';
-import { GoogleGenAI } from "@google/genai";
 import VisitationView from './VisitationView';
 
 interface MinistryModuleViewProps {
@@ -397,26 +396,42 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName })
     }
   };
 
-  const generateResourceContent = async (title: string) => {
+  const generateResourceContent = async (title: string, topic?: string, category?: string) => {
     if (!title) return;
     setIsGenerating(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `Generate a professional church resource document for the ${ministryName} ministry titled "${title}". 
-        The content should be in Markdown format, comprehensive, and practical for ministry heads. 
-        Include sections like Introduction, Objectives, Guidelines, and Action Steps.`,
+      const response = await fetch("/api/gemini/research", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          ministryName,
+          title,
+          topic: topic || "",
+          category: category || "General"
+        })
       });
 
-      const content = response.text;
-      if (content) {
-        setSelectedResource(prev => ({ ...prev, content }));
-        toast.success("Content generated successfully!");
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP error ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.content) {
+        setSelectedResource(prev => ({ 
+          ...(prev || {}), 
+          title: title,
+          category: category || prev?.category || "General",
+          content: data.content 
+        }));
+        
+        toast.success("Advanced grounded research completed successfully!");
       }
     } catch (err: any) {
       console.error('AI Generation Error:', err);
-      toast.error('Failed to generate content: ' + err.message);
+      toast.error('Failed to run research: ' + err.message);
     } finally {
       setIsGenerating(false);
     }
@@ -1734,36 +1749,46 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
         <motion.div 
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          className="bg-white w-full max-w-6xl h-full max-h-[90vh] rounded-[3rem] shadow-2xl flex flex-col overflow-hidden border border-slate-100"
+          className="bg-white w-full max-w-7xl h-full max-h-[90vh] rounded-[3rem] shadow-2xl flex flex-col overflow-hidden border border-slate-100"
         >
           {/* Editor Header */}
           <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-1">
               <button 
                 onClick={() => setIsEditingResource(false)}
                 className="p-3 hover:bg-white rounded-2xl transition-all text-slate-400 hover:text-slate-900"
               >
                 <ChevronLeft className="w-6 h-6" />
               </button>
-              <div>
+              <div className="flex-1">
                 <input 
                   type="text" 
                   value={selectedResource.title}
                   onChange={(e) => setSelectedResource({ ...selectedResource, title: e.target.value })}
-                  className="text-2xl font-black text-slate-900 uppercase tracking-tighter bg-transparent border-none outline-none focus:ring-0 w-full max-w-md"
+                  className="text-2xl font-black text-slate-900 uppercase tracking-tighter bg-transparent border-none outline-none focus:ring-0 w-full"
                   placeholder="Resource Title..."
                 />
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Editing Ministry Resource</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Editing Ministry Resource</p>
+                  <span className="text-slate-300">•</span>
+                  <input 
+                    type="text" 
+                    value={selectedResource.category || 'General'}
+                    onChange={(e) => setSelectedResource({ ...selectedResource, category: e.target.value })}
+                    className="text-[10px] font-black text-[#C5A85A] uppercase tracking-widest bg-transparent border-none outline-none focus:ring-0 p-0 w-32"
+                    placeholder="Enter category..."
+                  />
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <button 
-                onClick={() => generateResourceContent(selectedResource.title)}
+                onClick={() => generateResourceContent(selectedResource.title, "", selectedResource.category)}
                 disabled={isGenerating}
                 className="flex items-center gap-2 px-6 py-3 bg-indigo-50 text-indigo-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all disabled:opacity-50"
               >
                 <Wand2 className={`w-4 h-4 ${isGenerating ? 'animate-pulse' : ''}`} />
-                {isGenerating ? 'Generating...' : 'AI Generate'}
+                {isGenerating ? 'Researching...' : 'AI Re-Research'}
               </button>
               <button 
                 onClick={() => saveResource(selectedResource)}
@@ -1783,7 +1808,35 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
           </div>
 
           {/* Editor Body */}
-          <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex overflow-hidden relative">
+            
+            {/* Loading/Research Progress State */}
+            {isGenerating && (
+              <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex flex-col items-center justify-center p-8 text-center text-white">
+                <div className="w-20 h-20 bg-slate-900 rounded-full border-4 border-fh-green border-t-transparent animate-spin mb-8 flex items-center justify-center">
+                  <Wand2 className="w-8 h-8 text-fh-green animate-pulse" />
+                </div>
+                <h4 className="text-2xl font-black uppercase tracking-widest mb-2">Advanced Grounded Research In Progress</h4>
+                <p className="text-xs text-slate-400 uppercase tracking-widest font-black text-[#C5A85A] mb-8">Using Google Search grounding & AI Analysis</p>
+                
+                <div className="max-w-md w-full space-y-3.5 text-left bg-slate-900/60 p-6 rounded-2xl border border-slate-855">
+                  <div className="flex items-center gap-3 text-xs text-fh-green font-bold animate-pulse">
+                    <span className="w-2 h-2 rounded-full bg-fh-green animate-ping"></span>
+                    <span>Establishing live search grounding channels...</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-slate-300 font-bold">
+                    <span>• Analyzing contemporary theology & administration methodologies...</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-slate-300 font-bold">
+                    <span>• Structuring operational manuals, curricula, and metrics...</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-slate-300 font-bold">
+                    <span>• Compiling reputable references and citation hyperlinks...</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Input Area */}
             <div className="flex-1 border-r border-slate-50 flex flex-col">
               <div className="p-4 bg-slate-50/50 border-b border-slate-50 flex items-center gap-4">
@@ -1792,7 +1845,7 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
               <textarea 
                 value={selectedResource.content || ''}
                 onChange={(e) => setSelectedResource({ ...selectedResource, content: e.target.value })}
-                className="flex-1 p-10 text-sm font-medium text-slate-700 bg-white outline-none resize-none scrollbar-hide leading-relaxed"
+                className="flex-1 p-10 text-sm font-medium text-slate-700 bg-white outline-none resize-none scrollbar-hide leading-relaxed font-mono"
                 placeholder="Start typing your resource content here... (Markdown supported)"
               />
             </div>
@@ -1845,57 +1898,343 @@ CREATE POLICY "Allow all for authenticated" ON public.ministry_resources FOR ALL
       );
     }
 
+    const getPredefinedResearchTemplates = (ministry: string) => {
+      const m = ministry.toLowerCase();
+      if (m.includes("music") || m.includes("choir")) {
+        return [
+          {
+            title: "Choral Excellence & Vocal Training Manual",
+            category: "Training Manual",
+            topic: "Vocal techniques, warm-up exercises, harmonizing, choir leadership, and breathing control for contemporary charismatic ensembles.",
+            icon: "Mic2",
+            gradient: "from-blue-500 to-indigo-650"
+          },
+          {
+            title: "Acoustics & Sound Engineering Soundcheck Protocol",
+            category: "Operational Standard",
+            topic: "Mastering live monitor mixes, EQ standards, system soundchecks, feedback prevention, and digital console presets for church services.",
+            icon: "Headphones",
+            gradient: "from-purple-500 to-fuchsia-650"
+          },
+          {
+            title: "Worship Leader Rehearsal & Team Building Standard",
+            category: "Leadership Guide",
+            topic: "Developing worship leading patterns, flow design, team coordination, conflict resolution, and audition criteria.",
+            icon: "Users",
+            gradient: "from-amber-500 to-orange-550"
+          }
+        ];
+      }
+      if (m.includes("children")) {
+        return [
+          {
+            title: "Syllabus for Children's Sunday School (Ages 4-12)",
+            category: "Curriculum Guide",
+            topic: "Tailored monthly curricula, interactive games, biblical stories, memory verse challenges, and evaluation criteria.",
+            icon: "BookOpen",
+            gradient: "from-emerald-500 to-teal-550"
+          },
+          {
+            title: "Child Safeguarding, Security & Protection Standards",
+            category: "Compliance Standard",
+            topic: "Check-in check-out protocols, emergency plans, volunteer screening, safe environment setups, and first aid procedures.",
+            icon: "Shield",
+            gradient: "from-rose-500 to-red-550"
+          },
+          {
+            title: "Interactive Storytelling & Spiritual Growth for Minors",
+            category: "Pedagogic Manual",
+            topic: "Leveraging puppets, visual aids, active dramatization, and music to communicate profound biblical mysteries to young hearts.",
+            icon: "Baby",
+            gradient: "from-indigo-500 to-violet-550"
+          }
+        ];
+      }
+      if (m.includes("teens") || m.includes("youth") || m.includes("young adult")) {
+        return [
+          {
+            title: "Youth Apologetics & Contemporary Culture Masterclass",
+            category: "Curriculum Guide",
+            topic: "Deconstruction prevention, answering complex questions on science vs. faith, identity, peer pressure, and securing faith.",
+            icon: "MessageCircle",
+            gradient: "from-sky-500 to-blue-650"
+          },
+          {
+            title: "Digital Ministry & Smartphone Outreach Campaign Blueprint",
+            category: "Outreach Strategy",
+            topic: "Creating TikTok/Instagram short lessons, running interactive online devotionals, virtual small group engagement strategies.",
+            icon: "Globe",
+            gradient: "from-indigo-500 to-purple-650"
+          },
+          {
+            title: "Youth Mentorship & Career Guidance Alignment Structure",
+            category: "Leadership Manual",
+            topic: "Structuring a professional mentoring program, resume workshops, digital skills training, and entrepreneurship within the church.",
+            icon: "Layers",
+            gradient: "from-emerald-500 to-cyan-555"
+          }
+        ];
+      }
+      if (m.includes("evangelism") || m.includes("outreach") || m.includes("follow-up") || m.includes("visitation")) {
+        return [
+          {
+            title: "Membership Retention & Church Growth Manual",
+            category: "Corporate Standard",
+            topic: "The official corporate manual prepared for Apostle Prince Monovis covering the 8 Retention Pillars, strict 24/72 Follow-Up rule, 8-week discipleship syllabus, and 'Faith Circles' cell dynamics.",
+            icon: "TrendingUp",
+            gradient: "from-amber-500 to-emerald-600"
+          },
+          {
+            title: "First-Time Visitor Assimilation Flowchart",
+            category: "Assimilation SOP",
+            topic: "Comprehensive roadmap for taking a visitor from 'first-time guest' to 'fully registered, serving church member' within 90 days.",
+            icon: "Users",
+            gradient: "from-emerald-500 to-green-650"
+          },
+          {
+            title: "Modern Personal Evangelism & Street Outreach Guidelines",
+            category: "Training Manual",
+            topic: "Approaching strangers politely, leading conversations, sharing testimonies under 3 minutes, and handling objections with compassion.",
+            icon: "Sparkles",
+            gradient: "from-amber-500 to-orange-650"
+          },
+          {
+            title: "Post-Visitation Pastoral Care & Home Welfare Protocols",
+            category: "Care Standard",
+            topic: "Setting schedules, visitation ethics, spiritual checklist during home visits, praying for critical needs, and escalation flows.",
+            icon: "Heart",
+            gradient: "from-rose-500 to-pink-650"
+          }
+        ];
+      }
+      if (m.includes("prayer") || m.includes("intercessor")) {
+        return [
+          {
+            title: "Spiritual Warfare Techniques & Prayer Team Protocols",
+            category: "Intercession Manual",
+            topic: "Guidelines for altar workers, handling prayer lines, prophetic intercession protocols, maintaining spiritual sanity.",
+            icon: "Activity",
+            gradient: "from-indigo-500 to-sky-650"
+          },
+          {
+            title: "24/7 Prayer Chain & Global Intercessors Setup Manual",
+            category: "Operational Guide",
+            topic: "Scheduling prayer hours, distributing prayer points, virtual Zoom/WhatsApp continuous prayer coordinates.",
+            icon: "Clock",
+            gradient: "from-purple-500 to-pink-655"
+          },
+          {
+            title: "Spiritual Fasting & Congregational Breakthrough Outlines",
+            category: "Curriculum Guide",
+            topic: "Developing 21-day Fasting guidelines, thematic prayer bulletins, and spiritual watchman scriptures.",
+            icon: "Zap",
+            gradient: "from-red-500 to-amber-650"
+          }
+        ];
+      }
+      if (m.includes("media") || m.includes("tech") || m.includes("production")) {
+        return [
+          {
+            title: "High-Definition Video Broadcasting & Live Camera Workflows",
+            category: "Technical SOP",
+            topic: "Rules of thirds, white balance configs, multi-camera live switching (Vmix/OBS), video resolution standards, overlay schedules.",
+            icon: "Video",
+            gradient: "from-violet-500 to-fuchsia-650"
+          },
+          {
+            title: "Sermon Snippet Marketing & Audio/Visual Distribution Outline",
+            category: "Media Strategy",
+            topic: "Creating graphic visuals and text cards, sermon editing using CapCut/Canva, scheduled releases, and SEO optimization formulas.",
+            icon: "Radio",
+            gradient: "from-cyan-500 to-blue-650"
+          },
+          {
+            title: "Acoustics & Stage Lighting Control Blueprint",
+            category: "Hardware SOP",
+            topic: "DMX controller protocols, preset scenes for worship vs sermon, microphone frequencies, and church acoustic treatment calculations.",
+            icon: "Zap",
+            gradient: "from-amber-500 to-yellow-550"
+          }
+        ];
+      }
+      // Default general templates for other ministries
+      return [
+        {
+          title: "Excellent Departmental Leadership & Team Administration Guide",
+          category: "Leadership Guide",
+          topic: "Recruiting volunteers, assigning schedules, setting quarterly goals, and running highly productive weekly department syncs.",
+          icon: "Users",
+          gradient: "from-slate-750 to-slate-900"
+        },
+        {
+          title: "Standard Operating Procedures (SOP) & Volunteer Handbook",
+          category: "Operations SOP",
+          topic: "Code of conduct, performance expectations, grievance procedures, and direct communication lines for team members.",
+          icon: "FileText",
+          gradient: "from-indigo-500 to-blue-655"
+        },
+        {
+          title: "Quarterly Departmental Growth & Budget Blueprint",
+          category: "Strategy Manual",
+          topic: "Optimizing budget allocations, presenting requests to executive leadership, and creating clear growth targets.",
+          icon: "TrendingUp",
+          gradient: "from-emerald-500 to-teal-655"
+        }
+      ];
+    };
+
+    const renderTemplateIcon = (iconName: string) => {
+      switch (iconName) {
+        case 'Mic2': return <Mic2 className="w-5 h-5 animate-pulse" />;
+        case 'Headphones': return <Headphones className="w-5 h-5" />;
+        case 'Users': return <Users className="w-5 h-5" />;
+        case 'BookOpen': return <BookOpen className="w-5 h-5" />;
+        case 'Shield': return <Shield className="w-5 h-5" />;
+        case 'Baby': return <Baby className="w-5 h-5" />;
+        case 'MessageCircle': return <MessageCircle className="w-5 h-5" />;
+        case 'Globe': return <Globe className="w-5 h-5" />;
+        case 'Layers': return <Layers className="w-5 h-5" />;
+        case 'Sparkles': return <Sparkles className="w-5 h-5" />;
+        case 'Heart': return <Heart className="w-5 h-5" />;
+        case 'Activity': return <Activity className="w-5 h-5 animate-pulse" />;
+        case 'Clock': return <Clock className="w-5 h-5" />;
+        case 'Zap': return <Zap className="w-5 h-5" />;
+        case 'Video': return <Video className="w-5 h-5" />;
+        case 'Radio': return <Radio className="w-5 h-5" />;
+        case 'TrendingUp': return <TrendingUp className="w-5 h-5" />;
+        default: return <FileText className="w-5 h-5" />;
+      }
+    };
+
+    const templates = getPredefinedResearchTemplates(ministryName);
+
     return (
-      <div className="space-y-8 animate-in fade-in duration-700">
+      <div className="space-y-12 animate-in fade-in duration-700">
         {isEditingResource && renderEditableResourceEditor()}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {editableResources.map((res, i) => (
-            <div 
-              key={res.id || i} 
-              onClick={() => { setSelectedResource(res); setIsEditingResource(true); }}
-              className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all group cursor-pointer relative overflow-hidden"
-            >
-              <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 blur-2xl rounded-full translate-x-1/2 -translate-y-1/2"></div>
-              <div className="flex items-center justify-between mb-6 relative z-10">
-                <div className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center group-hover:bg-slate-900 group-hover:text-white transition-all">
-                  <FileText className="w-6 h-6" />
-                </div>
-                <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{res.category || 'Document'}</span>
-              </div>
-              <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight mb-2 group-hover:text-indigo-600 transition-colors relative z-10">{res.title}</h4>
-              <p className="text-[10px] text-slate-400 font-medium line-clamp-2 mb-6 relative z-10">
-                {res.content ? res.content.substring(0, 100) + '...' : 'No content yet. Click to edit.'}
-              </p>
-              <div className="flex items-center justify-between mt-auto relative z-10">
-                <span className="text-[9px] font-bold text-slate-300 uppercase">Last updated: {new Date(res.updated_at || res.created_at).toLocaleDateString()}</span>
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 text-indigo-500 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
-                    <span className="text-[9px] font-black uppercase tracking-widest">Edit</span>
-                    <Edit3 className="w-3 h-3" />
-                  </div>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); deleteResource(res.id); }}
-                    className="p-1.5 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
+        {/* Advanced Research Lab Section */}
+        <div className="relative overflow-hidden bg-slate-900 rounded-[2.5rem] p-10 text-white shadow-xl">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-fh-green/10 blur-[80px] rounded-full translate-x-1/3 -translate-y-1/3"></div>
+          <div className="absolute -left-10 -bottom-10 w-60 h-60 bg-indigo-500/10 blur-[60px] rounded-full"></div>
           
-          <div 
-            onClick={() => {
-              setSelectedResource({ title: 'New Resource', content: '', category: 'General' });
-              setIsEditingResource(true);
-            }}
-            className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center group cursor-pointer hover:bg-white hover:border-indigo-500 transition-all min-h-[240px]"
-          >
-             <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center shadow-sm group-hover:shadow-indigo-100 group-hover:scale-110 transition-all mb-4">
-                <Plus className="w-8 h-8 text-slate-300 group-hover:text-indigo-500" />
-             </div>
-             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-indigo-500">Create New Resource</p>
+          <div className="relative z-10 max-w-3xl">
+            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[9px] font-black uppercase tracking-wider mb-6">
+              <Sparkles className="w-3" />
+              Advanced Research Laboratory
+            </span>
+            <h3 className="text-3xl font-black uppercase tracking-tighter mb-3">
+              Research & Formulation Studio
+            </h3>
+            <p className="text-sm text-slate-300 font-medium leading-relaxed mb-8">
+              Generate elite, authoritative standard operating procedures, training manuals, and curriculum structures tailored dynamically to the <strong className="text-fh-green font-black">{ministryName}</strong> using Google Search grounding and advanced academic theological mapping.
+            </p>
+          </div>
+
+          {/* Preset Research Packs */}
+          <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-6">
+            {templates.map((tpl, idx) => (
+              <div 
+                key={idx}
+                className="bg-slate-800/40 backdrop-blur-md border border-slate-700/50 p-6 rounded-2xl flex flex-col justify-between hover:border-fh-green/50 hover:bg-slate-800/80 transition-all group"
+              >
+                <div>
+                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${tpl.gradient} text-white flex items-center justify-center mb-6 shadow-md shadow-slate-950/20`}>
+                    {renderTemplateIcon(tpl.icon)}
+                  </div>
+                  <span className="text-[8px] font-extrabold text-[#C5A85A] uppercase tracking-widest">{tpl.category}</span>
+                  <h4 className="text-sm font-bold text-white tracking-tight mt-1 mb-2 group-hover:text-fh-green transition-colors">{tpl.title}</h4>
+                  <p className="text-xs text-slate-400 leading-normal line-clamp-3 mb-6">{tpl.topic}</p>
+                </div>
+                
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedResource({ title: tpl.title, content: "", category: tpl.category });
+                    setIsEditingResource(true);
+                    generateResourceContent(tpl.title, tpl.topic, tpl.category);
+                  }}
+                  className="w-full mt-auto py-2.5 bg-slate-800 border border-slate-750 text-white rounded-xl text-[9px] font-black uppercase tracking-wider group-hover:bg-fh-green group-hover:border-fh-green group-hover:text-slate-950 transition-all flex items-center justify-center gap-2"
+                >
+                  <Wand2 className="w-3.5 h-3.5" />
+                  Formulate Resource
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Existing Resources Section */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">
+                Departmental Knowledge Base
+              </h3>
+              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">
+                A Comprehensive Vault of Curated Assets & Standard manuals
+              </p>
+            </div>
+            
+            <button 
+              onClick={() => {
+                setSelectedResource({ title: 'New Resource', content: '', category: 'General' });
+                setIsEditingResource(true);
+              }}
+              className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-slate-800 transition-all active:scale-95"
+            >
+              <Plus className="w-4 h-4" />
+              Create Document
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {editableResources.map((res, i) => (
+              <div 
+                key={res.id || i} 
+                onClick={() => { setSelectedResource(res); setIsEditingResource(true); }}
+                className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all group cursor-pointer relative overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 blur-2xl rounded-full translate-x-1/2 -translate-y-1/2"></div>
+                <div className="flex items-center justify-between mb-6 relative z-10">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center group-hover:bg-slate-900 group-hover:text-white transition-all">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{res.category || 'Document'}</span>
+                </div>
+                <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight mb-2 group-hover:text-fh-green transition-colors relative z-10">{res.title}</h4>
+                <p className="text-[10px] text-slate-400 font-medium line-clamp-2 mb-6 relative z-10">
+                  {res.content ? res.content.substring(0, 100) + '...' : 'No content yet. Click to edit.'}
+                </p>
+                <div className="flex items-center justify-between mt-auto relative z-10">
+                  <span className="text-[9px] font-bold text-slate-300 uppercase">Last updated: {new Date(res.updated_at || res.created_at).toLocaleDateString()}</span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 text-fh-green opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+                      <span className="text-[9px] font-black uppercase tracking-widest">Edit</span>
+                      <Edit3 className="w-3 h-3" />
+                    </div>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); deleteResource(res.id); }}
+                      className="p-1.5 text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            
+            <div 
+              onClick={() => {
+                setSelectedResource({ title: 'New Resource', content: '', category: 'General' });
+                setIsEditingResource(true);
+              }}
+              className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center group cursor-pointer hover:bg-white hover:border-fh-green transition-all min-h-[220px]"
+            >
+               <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center shadow-sm group-hover:shadow-indigo-100 group-hover:scale-110 transition-all mb-4">
+                  <Plus className="w-8 h-8 text-slate-300 group-hover:text-fh-green" />
+               </div>
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-fh-green">Create Empty Document</p>
+            </div>
           </div>
         </div>
       </div>
@@ -2022,15 +2361,7 @@ NOTIFY pgrst, 'reload schema';`;
         </div>
       )}
 
-      {activeTab === 'Resources' && ministryName !== 'Music Ministry' && (
-        <div className="bg-white p-20 rounded-[4rem] border border-slate-100 shadow-sm text-center animate-in fade-in duration-500">
-           <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mx-auto mb-8 text-slate-300">
-              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
-           </div>
-           <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-2">Knowledge Base</h3>
-           <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Departmental Assets & Training Materials Pending Upload</p>
-        </div>
-      )}
+
 
       {activeTab === 'Reports' && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
