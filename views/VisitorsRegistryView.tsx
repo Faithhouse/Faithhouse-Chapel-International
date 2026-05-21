@@ -175,7 +175,25 @@ const VisitorsRegistryView = ({ setActiveItem, currentUser }: any) => {
       }
       
       const { data: vData2 } = await supabase.from('visitors').select('*').order('created_at', { ascending: false });
-      setVisitors(vData2 || []);
+      const { data: mData } = await supabase.from('members').select('id, first_name, last_name, phone');
+      
+      const memberNames = new Set(
+        (mData || []).map((m: any) => `${m.first_name || ''} ${m.last_name || ''}`.trim().toLowerCase())
+      );
+      const memberPhones = new Set(
+        (mData || []).map((m: any) => (m.phone || '').trim().replace(/\s+/g, '')).filter(Boolean)
+      );
+
+      const filteredV = (vData2 || []).filter((v: any) => {
+        if (v.is_registered_member) return false;
+        const name = (v.full_name || '').trim().toLowerCase();
+        if (memberNames.has(name)) return false;
+        const phone = (v.phone || '').trim().replace(/\s+/g, '');
+        if (phone && memberPhones.has(phone)) return false;
+        return true;
+      });
+
+      setVisitors(filteredV);
 
       const { data: aData } = await supabase.from('visitor_attendance').select('*').order('visit_date', { ascending: false });
       setAttendance(aData || []);

@@ -128,7 +128,26 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
 
     // Add guests
     if (exportFilterType === 'all' || exportFilterType === 'guests') {
+      const memberNames = new Set(
+        members.map((m) => `${m.first_name || ''} ${m.last_name || ''}`.trim().toLowerCase())
+      );
+      const memberPhones = new Set(
+        members.map((m) => (m.phone || '').trim().replace(/\s+/g, '')).filter(Boolean)
+      );
+
       guests.forEach((g) => {
+        if (g.is_registered_member) {
+          return;
+        }
+        const guestName = (g.full_name || '').trim().toLowerCase();
+        if (memberNames.has(guestName)) {
+          return;
+        }
+        const guestPhone = (g.phone || '').trim().replace(/\s+/g, '');
+        if (guestPhone && memberPhones.has(guestPhone)) {
+          return;
+        }
+
         list.push({
           id: `guest-${g.id}`,
           type: 'Guest',
