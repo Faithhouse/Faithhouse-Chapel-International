@@ -248,6 +248,20 @@ const App: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    const handleJwtExpired = () => {
+      if (currentUser || isDemoMode) {
+        toast.error("Your session has expired or is invalid. Please log in again.", {
+          id: 'jwt-expired-notification',
+          duration: 6000,
+        });
+        handleLogout();
+      }
+    };
+    window.addEventListener('supabase-jwt-expired', handleJwtExpired);
+    return () => window.removeEventListener('supabase-jwt-expired', handleJwtExpired);
+  }, [currentUser, isDemoMode]);
+
   const renderContent = () => {
     if (isAuthLoading) {
       return (

@@ -199,6 +199,8 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ currentUser }) => {
         setSchemaError("INITIALIZATION_REQUIRED");
       } else if (err.message === "SCHEMA_OUT_OF_SYNC") {
         setSchemaError("REPAIR_REQUIRED");
+      } else if (err.message?.includes("JWT expired") || err.code === "PGRST303") {
+        setNetworkError("Your session has expired. Please wait a moment or reload to log in again.");
       } else {
         const errorMessage = err.message === 'Failed to fetch' || err.name === 'TypeError' 
           ? "Network Error: Unable to connect to the database. Please check your internet connection."

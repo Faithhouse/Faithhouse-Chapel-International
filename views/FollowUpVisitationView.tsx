@@ -803,31 +803,31 @@ END $$;`}
               <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
                 <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Retention Health</h3>
                 <div className="flex items-end gap-2">
-                  <span className="text-4xl font-black text-slate-900">78%</span>
-                  <span className="text-emerald-500 text-sm font-bold mb-1">+5% vs last month</span>
+                  <span className="text-4xl font-black text-slate-900">0%</span>
+                  <span className="text-slate-400 text-sm font-bold mb-1">no change vs last month</span>
                 </div>
                 <div className="mt-6 w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-indigo-600 h-full w-[78%]" />
+                  <div className="bg-indigo-600 h-full w-[0%]" />
                 </div>
               </div>
               <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
                 <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">First Timer Conversion</h3>
                 <div className="flex items-end gap-2">
-                  <span className="text-4xl font-black text-slate-900">42%</span>
-                  <span className="text-amber-500 text-sm font-bold mb-1">-2% vs last month</span>
+                  <span className="text-4xl font-black text-slate-900">0%</span>
+                  <span className="text-slate-400 text-sm font-bold mb-1">no change vs last month</span>
                 </div>
                 <div className="mt-6 w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-amber-500 h-full w-[42%]" />
+                  <div className="bg-amber-500 h-full w-[0%]" />
                 </div>
               </div>
               <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
                 <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Avg. Response Time</h3>
                 <div className="flex items-end gap-2">
-                  <span className="text-4xl font-black text-slate-900">1.2d</span>
-                  <span className="text-emerald-500 text-sm font-bold mb-1">Faster by 4h</span>
+                  <span className="text-4xl font-black text-slate-900">0d</span>
+                  <span className="text-slate-400 text-sm font-bold mb-1">no data recorded</span>
                 </div>
                 <div className="mt-6 w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-emerald-500 h-full w-[90%]" />
+                  <div className="bg-emerald-500 h-full w-[0%]" />
                 </div>
               </div>
             </div>

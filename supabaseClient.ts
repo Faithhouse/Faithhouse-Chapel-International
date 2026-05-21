@@ -43,11 +43,25 @@ if (typeof window !== 'undefined' && (!navigator.locks || typeof navigator.locks
 
 // Create and export the project-wide Supabase client
 const customFetch = async (url: string, options: any) => {
+  const checkAndNotifyJwtExpired = async (res: Response) => {
+    try {
+      const body = await res.clone().text();
+      if (body && (body.includes("JWT expired") || body.includes("PGRST303") || body.includes("token is expired") || res.status === 401)) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('supabase-jwt-expired'));
+        }
+      }
+    } catch (e) {
+      // ignore parsing errors
+    }
+  };
+
   try {
     const response = await fetch(url, options);
     if (!response.ok) {
       const body = await response.clone().text();
       console.warn(`Supabase Request Failed: [${response.status}] ${url}`, body);
+      await checkAndNotifyJwtExpired(response);
     }
     return response;
   } catch (error: any) {
@@ -65,6 +79,9 @@ const customFetch = async (url: string, options: any) => {
         const proxyUrl = `/api/supabase-proxy${urlObj.pathname}${urlObj.search}`;
         
         const proxyResponse = await fetch(proxyUrl, options);
+        if (!proxyResponse.ok) {
+          await checkAndNotifyJwtExpired(proxyResponse);
+        }
         return proxyResponse;
       } catch (proxyError: any) {
         console.error(`Supabase Proxy Fetch Error: ${proxyError.message} for URL: ${url}`);
