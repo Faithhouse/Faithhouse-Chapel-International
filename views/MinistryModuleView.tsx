@@ -97,6 +97,7 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName })
   const [selectedResource, setSelectedResource] = useState<any | null>(null);
   const [isEditingResource, setIsEditingResource] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSeedingResources, setIsSeedingResources] = useState(false);
   const [resourceTableMissing, setResourceTableMissing] = useState(false);
 
   useEffect(() => {
@@ -1204,13 +1205,13 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={[
-                { name: 'Mon', visits: 12 },
-                { name: 'Tue', visits: 18 },
-                { name: 'Wed', visits: 15 },
-                { name: 'Thu', visits: 22 },
-                { name: 'Fri', visits: 30 },
-                { name: 'Sat', visits: 25 },
-                { name: 'Sun', visits: 40 },
+                { name: 'Mon', visits: 0 },
+                { name: 'Tue', visits: 0 },
+                { name: 'Wed', visits: 0 },
+                { name: 'Thu', visits: 0 },
+                { name: 'Fri', visits: 0 },
+                { name: 'Sat', visits: 0 },
+                { name: 'Sun', visits: 0 },
               ]}>
                 <defs>
                   <linearGradient id="colorVisits" x1="0" y1="0" x2="0" y2="1">
@@ -1232,8 +1233,8 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
           <div className="bg-indigo-600 p-8 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden">
              <Users className="absolute -right-4 -bottom-4 w-32 h-32 opacity-10 rotate-12" />
              <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60 mb-2">Active Radar</p>
-             <h4 className="text-2xl font-black mb-1">12 Absentees</h4>
-             <p className="text-xs font-medium opacity-80">Requiring immediate follow-up</p>
+             <h4 className="text-2xl font-black mb-1">0 Absentees</h4>
+             <p className="text-xs font-medium opacity-80">All members actively covered & engaged</p>
              <button 
                onClick={() => setActiveTab('Visitation')}
                className="mt-6 px-6 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
@@ -1243,22 +1244,8 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
           </div>
           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
             <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-6">Recent Activity</h4>
-            <div className="space-y-4">
-              {[
-                { user: 'John Doe', action: 'Visited First Timer', time: '2h ago' },
-                { user: 'Sarah Smith', action: 'Called Absentee', time: '5h ago' },
-                { user: 'Mike Ross', action: 'Sent WhatsApp', time: '1d ago' },
-              ].map((item, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-500">
-                    {item.user[0]}
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-800 uppercase leading-none">{item.user}</p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter mt-1">{item.action} • {item.time}</p>
-                  </div>
-                </div>
-              ))}
+            <div className="space-y-4 text-center py-8">
+              <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest italic">No activity recorded</p>
             </div>
           </div>
         </div>
@@ -2106,6 +2093,68 @@ CREATE POLICY "Allow all for authenticated" ON public.ministry_resources FOR ALL
       }
     };
 
+    const generateAllPresetResources = async () => {
+      setIsSeedingResources(true);
+      const toastId = toast.loading("Formulating and compiling all departmental manuals. Please wait...");
+      try {
+        const templates = getPredefinedResearchTemplates(ministryName);
+        let successCount = 0;
+        
+        for (const tpl of templates) {
+          try {
+            const exists = editableResources.some(r => r.title === tpl.title);
+            if (exists) continue;
+
+            const response = await fetch("/api/gemini/research", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                ministryName,
+                title: tpl.title,
+                topic: tpl.topic || "",
+                category: tpl.category || "General"
+              })
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              if (data.content) {
+                await supabase
+                  .from('ministry_resources')
+                  .insert({
+                    title: tpl.title,
+                    category: tpl.category || "General",
+                    content: data.content,
+                    ministry_name: ministryName,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                  });
+                successCount++;
+              }
+            }
+          } catch (singleErr) {
+            console.error(`Error formulating ${tpl.title}:`, singleErr);
+          }
+        }
+        
+        toast.dismiss(toastId);
+        if (successCount > 0) {
+          toast.success(`Successfully generated and compiled ${successCount} high-standard manual(s) for the ${ministryName}!`);
+          fetchResources();
+        } else {
+          toast.info("All premium manuals are already formulated and present in your Knowledge Base.");
+        }
+      } catch (err: any) {
+        toast.dismiss(toastId);
+        console.error("Seeding resources error:", err);
+        toast.error("Failed to auto-formulate resources: " + err.message);
+      } finally {
+        setIsSeedingResources(false);
+      }
+    };
+
     const templates = getPredefinedResearchTemplates(ministryName);
 
     return (
@@ -2175,16 +2224,27 @@ CREATE POLICY "Allow all for authenticated" ON public.ministry_resources FOR ALL
               </p>
             </div>
             
-            <button 
-              onClick={() => {
-                setSelectedResource({ title: 'New Resource', content: '', category: 'General' });
-                setIsEditingResource(true);
-              }}
-              className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-slate-800 transition-all active:scale-95"
-            >
-              <Plus className="w-4 h-4" />
-              Create Document
-            </button>
+            <div className="flex gap-4">
+              <button 
+                onClick={generateAllPresetResources}
+                disabled={isSeedingResources}
+                className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 hover:border-fh-green border border-emerald-500 disabled:bg-emerald-800 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-95 cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4 text-fh-gold animate-bounce" />
+                {isSeedingResources ? 'Formulating...' : 'Auto-Formulate All Preset manuals'}
+              </button>
+
+              <button 
+                onClick={() => {
+                  setSelectedResource({ title: 'New Resource', content: '', category: 'General' });
+                  setIsEditingResource(true);
+                }}
+                className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-slate-800 transition-all active:scale-95 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                Create Document
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

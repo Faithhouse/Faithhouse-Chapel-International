@@ -7,8 +7,8 @@ import { GoogleGenAI } from "@google/genai";
 
 const __filename = typeof import.meta !== "undefined" && import.meta.url
   ? fileURLToPath(import.meta.url)
-  : (typeof __filename !== "undefined" ? __filename : "");
-const __dirname = __filename ? path.dirname(__filename) : (typeof __dirname !== "undefined" ? __dirname : process.cwd());
+  : (typeof (globalThis as any).__filename !== "undefined" ? (globalThis as any).__filename : "");
+const __dirname = __filename ? path.dirname(__filename) : (typeof (globalThis as any).__dirname !== "undefined" ? (globalThis as any).__dirname : process.cwd());
 
 const app = express();
 const PORT = 3000;

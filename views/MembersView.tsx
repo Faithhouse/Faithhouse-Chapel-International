@@ -13,9 +13,15 @@ import {
   Users,
   UserCheck,
   UserMinus,
-  Clock
+  Clock,
+  Printer,
+  X,
+  Download,
+  Sparkles,
+  Search
 } from 'lucide-react';
 import { MapPickerModal } from '../components/MapPickerModal';
+import DirectoryReportDocument from '../src/components/DirectoryReportDocument';
 import { 
   LineChart, 
   Line, 
@@ -71,6 +77,145 @@ const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId
   const [duplicateGroups, setDuplicateGroups] = useState<Member[][]>([]);
   const [isPurging, setIsPurging] = useState(false);
   const [showDeleteFinalConfirm, setShowDeleteFinalConfirm] = useState(false);
+
+  // Unified Export & Print Directory State
+  const [isExportPrintCenterOpen, setIsExportPrintCenterOpen] = useState(false);
+  const [isExportPrintMode, setIsExportPrintMode] = useState(false);
+  const [exportFilterType, setExportFilterType] = useState<'all' | 'members' | 'guests'>('all');
+  const [exportSearchTerm, setExportSearchTerm] = useState('');
+  const [previewFormat, setPreviewFormat] = useState<'print' | 'csv'>('print');
+  const [guests, setGuests] = useState<any[]>([]);
+  const [loadingGuests, setLoadingGuests] = useState(false);
+
+  const fetchGuests = async () => {
+    setLoadingGuests(true);
+    try {
+      const { data, error } = await supabase
+        .from('visitors')
+        .select('*')
+        .order('full_name', { ascending: true });
+      if (error) throw error;
+      setGuests(data || []);
+    } catch (err: any) {
+      console.error("Error fetching guests for directory export:", err);
+    } finally {
+      setLoadingGuests(false);
+    }
+  };
+
+  const openGlobalDirectoryCenter = () => {
+    setIsExportPrintCenterOpen(true);
+    fetchGuests();
+  };
+
+  const processedExportContacts = useMemo(() => {
+    const list: any[] = [];
+    
+    // Add members
+    if (exportFilterType === 'all' || exportFilterType === 'members') {
+      members.forEach((m) => {
+        list.push({
+          id: `member-${m.id}`,
+          type: 'Member',
+          name: `${m.first_name || ''} ${m.last_name || ''}`.trim(),
+          phone: m.phone || '',
+          email: m.email || '',
+          dateAdded: m.created_at || m.date_joined || '',
+          status: m.status || 'Active'
+        });
+      });
+    }
+
+    // Add guests
+    if (exportFilterType === 'all' || exportFilterType === 'guests') {
+      guests.forEach((g) => {
+        list.push({
+          id: `guest-${g.id}`,
+          type: 'Guest',
+          name: g.full_name || '',
+          phone: g.phone || '',
+          email: g.email || g.home_address || '',
+          dateAdded: g.created_at || '',
+          status: 'Guest'
+        });
+      });
+    }
+
+    // Apply search filter
+    if (exportSearchTerm.trim()) {
+      const s = exportSearchTerm.toLowerCase();
+      return list.filter(item => 
+        item.name.toLowerCase().includes(s) || 
+        item.phone.toLowerCase().includes(s) || 
+        item.email.toLowerCase().includes(s)
+      );
+    }
+
+    return list;
+  }, [members, guests, exportFilterType, exportSearchTerm]);
+
+  const exportDirectoryToCSV = () => {
+    if (processedExportContacts.length === 0) {
+      showNotify("No contacts available to export based on current filters.", "error");
+      return;
+    }
+    
+    const reportType = exportFilterType === 'guests' ? 'visitors registry directory' : (exportFilterType === 'members' ? 'members registry directory' : 'Registry Directory');
+
+    // Headers matched to specific filters (no Type column is present)
+    const tableHeader = exportFilterType === 'members' 
+      ? ['Full Name', 'Contact / Phone']
+      : (exportFilterType === 'guests' 
+          ? ['Full Name', 'Contact / Phone', 'Date Visited']
+          : ['Full Name', 'Contact / Phone', 'Date Visited (Guests Only)']);
+
+    // Header metadata rows imitating the system report format
+    const metadataRows = [
+      ['FAITHHOUSE CHAPEL INTERNATIONAL'],
+      ['THE WONDERS CATHEDRAL'],
+      ['CHURCH LOGO', 'https://lh3.googleusercontent.com/d/1la57sO6NOuNEZaqa9zDxuxRnWPBavkjH'],
+      ['REPORT TYPE', reportType],
+      ['GENERATED ON', new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })],
+      [], // Empty row to separate metadata from the table
+      tableHeader
+    ];
+
+    const dataRows = processedExportContacts.map(c => {
+      if (exportFilterType === 'members') {
+        return [
+          c.name,
+          c.phone ? `\t${c.phone}` : ''
+        ];
+      } else if (exportFilterType === 'guests') {
+        return [
+          c.name,
+          c.phone ? `\t${c.phone}` : '',
+          c.dateAdded ? new Date(c.dateAdded).toLocaleDateString('en-GB') : ''
+        ];
+      } else {
+        return [
+          c.name,
+          c.phone ? `\t${c.phone}` : '',
+          c.type === 'Guest' && c.dateAdded ? new Date(c.dateAdded).toLocaleDateString('en-GB') : ''
+        ];
+      }
+    });
+
+    const csvRows = [...metadataRows, ...dataRows];
+
+    const csvString = csvRows.map(row => 
+      row.map(cell => `"${(cell || '').toString().replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+    const blob = new Blob(["\ufeff" + csvString], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `Faithhouse_Chapel_Ministry_Directory_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showNotify(`Successfully exported ${processedExportContacts.length} records!`, "success");
+  };
 
   // Form State
   const [showMapPicker, setShowMapPicker] = useState(false);
@@ -426,6 +571,40 @@ NOTIFY pgrst, 'reload schema';
 NOTIFY pgrst, 'reload schema';
 NOTIFY pgrst, 'reload schema';
 NOTIFY pgrst, 'reload schema';`;
+
+  if (isExportPrintMode) {
+    const totalMembersInFilteredList = processedExportContacts.filter(c => c.type === 'Member').length;
+    const totalGuestsInFilteredList = processedExportContacts.filter(c => c.type === 'Guest').length;
+    
+    return (
+      <div className="bg-white min-h-screen">
+        <div className="fixed top-4 right-4 flex gap-2 no-print z-[250]">
+          <button 
+            onClick={() => window.print()} 
+            className="flex items-center gap-2 px-6 py-3 bg-slate-900 border border-slate-700 hover:border-fh-green text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-2xl transition-all cursor-pointer"
+          >
+            <Printer className="w-4 h-4 text-fh-gold" />
+            Print Registry
+          </button>
+          <button 
+            onClick={() => setIsExportPrintMode(false)} 
+            className="flex items-center gap-2 px-6 py-3 bg-red-600 border border-red-500 hover:bg-red-700 text-white rounded-xl font-black uppercase text-[10px] tracking-widest shadow-2xl transition-all cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+            Exit Print Mode
+          </button>
+        </div>
+        <DirectoryReportDocument 
+          organizationName="Faithhouse Chapel International"
+          dateGenerated={new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+          contacts={processedExportContacts}
+          totalMembersCount={totalMembersInFilteredList}
+          totalGuestsCount={totalGuestsInFilteredList}
+          filterType={exportFilterType}
+        />
+      </div>
+    );
+  }
 
   if (tableMissing) {
     return (
@@ -882,6 +1061,10 @@ NOTIFY pgrst, 'reload schema';`;
                </button>
              </>
            )}
+           <button onClick={openGlobalDirectoryCenter} className="px-3 md:px-6 py-2 md:py-5 bg-slate-900 border border-slate-800 text-white hover:text-fh-gold rounded-lg md:rounded-[1.75rem] font-black uppercase text-[7px] md:text-[10px] tracking-widest shadow-sm hover:bg-black active:scale-95 transition-all flex items-center gap-1.5 md:gap-3 cursor-pointer">
+              <Printer className="w-2.5 h-2.5 md:w-4 md:h-4 text-fh-gold" />
+              Print/Export Directory
+           </button>
            {selectedIds.length > 0 && !isReadOnly && (
              <button onClick={() => { setMessengerIndex(0); setTemplateType('Service Reminder'); applyTemplate('Service Reminder'); setIsMessengerOpen(true); }} className="px-4 md:px-8 py-2 md:py-5 bg-emerald-500 text-white rounded-lg md:rounded-[1.75rem] font-black uppercase text-[7px] md:text-[10px] tracking-[0.3em] shadow-2xl active:scale-95 transition-all border-b-2 md:border-b-4 border-black/30 flex items-center gap-1.5 md:gap-3">
                <svg className="w-2.5 h-2.5 md:w-4 md:h-4" fill="currentColor" viewBox="0 0 448 512"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-5.5-2.8-23.2-8.5-44.2-27.1-16.4-14.6-27.4-32.6-30.6-37.9-3.2-5.5-.3-8.5 2.5-11.2 2.5-2.5 5.5-6.5 8.3-9.7 2.8-3.3 3.7-5.6 5.6-9.3 1.8-3.7 .9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 13.3 5.7 23.6 9.2 31.7 11.7 13.3 4.2 25.5 3.6 35.1 2.2 10.7-1.5 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/></svg>
@@ -1254,6 +1437,232 @@ NOTIFY pgrst, 'reload schema';`;
                         </button>
                       </>
                    )}
+                </div>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* GLOBAL DIRECTORY PRINT & EXPORT OVERLAY */}
+      {isExportPrintCenterOpen && (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-950/98 backdrop-blur-2xl animate-in fade-in" onClick={() => setIsExportPrintCenterOpen(false)} />
+          <div className="relative bg-white w-full max-w-5xl rounded-[4rem] shadow-2xl overflow-hidden border-b-[16px] border-fh-gold animate-in zoom-in-95">
+             <div className="p-8 md:p-12">
+                <div className="flex items-center justify-between mb-8 md:mb-10">
+                   <div className="flex items-center gap-6">
+                      <div className="w-16 h-16 bg-slate-900 text-fh-gold rounded-[2rem] flex items-center justify-center shadow-xl">
+                         <Printer className="w-8 h-8 text-fh-gold" />
+                      </div>
+                      <div>
+                         <h4 className="text-2xl md:text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">Contacts Registry Directory</h4>
+                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.4em] mt-2">Downloadable and Hardcopy-optimized Archives</p>
+                      </div>
+                   </div>
+                   <button onClick={() => setIsExportPrintCenterOpen(false)} className="p-4 hover:bg-slate-100 rounded-full text-slate-400 transition-all cursor-pointer">
+                      <X className="w-6 h-6" />
+                   </button>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                   {/* Left configuration column */}
+                   <div className="space-y-6 lg:col-span-1">
+                      <div className="space-y-2">
+                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">1. Select Contact Audience</label>
+                         <div className="grid grid-cols-1 gap-2 bg-slate-50 p-3 rounded-3xl border border-slate-100">
+                            {[
+                              { type: 'all', label: 'All Contacts', icon: Users, desc: 'Unified database list' },
+                              { type: 'members', label: 'Members Only', icon: UserCheck, desc: 'Regular church members' },
+                              { type: 'guests', label: 'Guests Only', icon: UserMinus, desc: 'Visitor Intake registry' }
+                            ].map((item) => (
+                              <button
+                                key={item.type}
+                                onClick={() => setExportFilterType(item.type as any)}
+                                className={`w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-all cursor-pointer ${exportFilterType === item.type ? 'bg-slate-900 text-white shadow-xl scale-[1.02]' : 'hover:bg-slate-100 text-slate-700'}`}
+                              >
+                                <item.icon className={`w-5 h-5 ${exportFilterType === item.type ? 'text-fh-gold' : 'text-slate-400'}`} />
+                                <div>
+                                   <p className="text-xs font-black uppercase tracking-tight leading-none">{item.label}</p>
+                                   <p className="text-[9px] font-bold opacity-60 uppercase tracking-tighter mt-1">{item.desc}</p>
+                                </div>
+                              </button>
+                            ))}
+                         </div>
+                      </div>
+
+                      <div className="space-y-2">
+                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">2. Search / Query</label>
+                         <input
+                           type="text"
+                           value={exportSearchTerm}
+                           onChange={(e) => setExportSearchTerm(e.target.value)}
+                           placeholder="Search by name, contact or email..."
+                           className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold focus:ring-4 focus:ring-slate-950/5 outline-none tracking-tight text-slate-800 shadow-inner"
+                         />
+                      </div>
+
+                      <div className="p-6 bg-emerald-50 border border-emerald-100 rounded-3xl space-y-2">
+                         <span className="text-[8px] font-black uppercase text-emerald-800 tracking-widest block">Live Status Summary</span>
+                         <h5 className="text-2xl font-black text-emerald-950 leading-none">{processedExportContacts.length} Contacts</h5>
+                         <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-tighter">
+                            Filtered from {members.length} members & {guests.length} guests
+                         </p>
+                      </div>
+                   </div>
+
+                   {/* Right Live Preview columns */}
+                   <div className="lg:col-span-2 flex flex-col h-[400px] border border-slate-200/60 rounded-[2.5rem] bg-slate-50/50 overflow-hidden">
+                      <div className="p-5 border-b border-slate-100 bg-white flex flex-col sm:flex-row gap-4 items-center justify-between">
+                         <h5 className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Active Directory Preview</h5>
+                         <div className="flex bg-slate-100 p-1 rounded-xl">
+                            <button 
+                              onClick={() => setPreviewFormat('print')}
+                              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${previewFormat === 'print' ? 'bg-slate-900 text-fh-gold shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                            >
+                               A4 Print Layout
+                            </button>
+                            <button 
+                              onClick={() => setPreviewFormat('csv')}
+                              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${previewFormat === 'csv' ? 'bg-slate-900 text-fh-gold shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                            >
+                               CSV Spreadsheet
+                            </button>
+                         </div>
+                      </div>
+                      
+                      <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+                         {loadingGuests ? (
+                           <div className="h-full flex flex-col items-center justify-center gap-3">
+                              <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin"></div>
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pulling records from server...</p>
+                           </div>
+                         ) : processedExportContacts.length === 0 ? (
+                           <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-2 text-slate-400">
+                              <Search className="w-10 h-10 text-slate-300" />
+                              <p className="text-[10px] font-black uppercase tracking-widest">No matching contacts found</p>
+                              <p className="text-[9px] font-bold uppercase tracking-tighter opacity-60">Adjust filters or register new profiles to begin</p>
+                           </div>
+                         ) : previewFormat === 'csv' ? (
+                            /* Simulated spreadsheet preview representing the CSV file structure and custom header rows */
+                            <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-sm font-mono text-[9px] text-slate-700 animate-in fade-in duration-300 w-full mb-4">
+                               <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center gap-2 font-bold text-slate-500 text-[10px]">
+                                  <span className="text-emerald-600">●</span> faithhouse_chapel_directory_export.csv (Simulated CSV Layout)
+                               </div>
+                               <div className="overflow-x-auto">
+                                  <table className="w-full border-collapse text-left">
+                                     <tbody>
+                                        <tr className="border-b border-slate-100 bg-slate-50/50">
+                                           <td className="p-2 border-r border-slate-100 font-bold text-center bg-slate-100 text-[8px] text-slate-400 select-none" style={{ width: '40px' }}>1</td>
+                                           <td colSpan={exportFilterType === 'members' ? 3 : 4} className="p-2 font-black text-slate-900 uppercase font-sans">FAITHHOUSE CHAPEL INTERNATIONAL</td>
+                                        </tr>
+                                        <tr className="border-b border-slate-100 bg-slate-50/50">
+                                           <td className="p-2 border-r border-slate-100 font-bold text-center bg-slate-100 text-[8px] text-slate-400 select-none">2</td>
+                                           <td colSpan={exportFilterType === 'members' ? 3 : 4} className="p-2 font-black text-slate-600 uppercase font-sans">THE WONDERS CATHEDRAL</td>
+                                        </tr>
+                                        <tr className="border-b border-slate-100 bg-slate-50/50">
+                                           <td className="p-2 border-r border-slate-100 font-bold text-center bg-slate-100 text-[8px] text-slate-400 select-none">3</td>
+                                           <td className="p-2 font-bold text-slate-400 font-sans text-[8.5px]">CHURCH LOGO</td>
+                                           <td colSpan={exportFilterType === 'members' ? 2 : 3} className="p-2 text-blue-600 underline break-all font-sans">https://lh3.googleusercontent.com/d/1la57sO6NOuNEZaqa9zDxuxRnWPBavkjH</td>
+                                        </tr>
+                                        <tr className="border-b border-slate-100 bg-slate-50/50">
+                                           <td className="p-2 border-r border-slate-100 font-bold text-center bg-slate-100 text-[8px] text-slate-400 select-none">4</td>
+                                           <td className="p-2 font-bold text-slate-400 font-sans text-[8.5px]">REPORT TYPE</td>
+                                           <td colSpan={exportFilterType === 'members' ? 2 : 3} className="p-2 font-bold text-slate-800 font-sans uppercase">
+                                               {exportFilterType === 'guests' ? 'visitors registry directory' : (exportFilterType === 'members' ? 'members registry directory' : 'Registry Directory')}
+                                            </td>
+                                        </tr>
+                                        <tr className="border-b border-slate-100 bg-slate-50/50">
+                                           <td className="p-2 border-r border-slate-100 font-bold text-center bg-slate-100 text-[8px] text-slate-400 select-none">5</td>
+                                           <td className="p-2 font-bold text-slate-400 font-sans text-[8.5px]">GENERATED ON</td>
+                                           <td colSpan={exportFilterType === 'members' ? 2 : 3} className="p-2 font-bold text-slate-800 font-sans">{new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</td>
+                                        </tr>
+                                        <tr className="border-b border-slate-100 h-6 bg-slate-50/30">
+                                           <td className="p-2 border-r border-slate-100 font-bold text-center bg-slate-100 text-[8px] text-slate-400 select-none">6</td>
+                                           <td colSpan={exportFilterType === 'members' ? 3 : 4} className="p-2 text-slate-300 italic font-sans">[Empty Row]</td>
+                                        </tr>
+                                        <tr className="border-b border-slate-200 bg-slate-900 text-white font-black text-[9px] uppercase tracking-wide">
+                                           <td className="p-2 border-r border-slate-800 font-bold text-center bg-slate-800 text-[8px] text-slate-400 select-none">7</td>
+                                           
+                                           <td className="p-2 whitespace-nowrap font-sans text-[8.5px]">Full Name</td>
+                                           <td className="p-2 whitespace-nowrap font-sans text-[8.5px]">Contact / Phone</td>
+                                           {exportFilterType !== 'members' && (
+                                               <td className="p-2 whitespace-nowrap font-sans text-[8.5px]">
+                                                  {exportFilterType === 'guests' ? 'Date Visited' : 'Date Visited (Guests Only)'}
+                                               </td>
+                                            )}
+                                        </tr>
+                                        {processedExportContacts.slice(0, 10).map((c, idx) => (
+                                           <tr key={c.id || idx} className="border-b border-slate-100 hover:bg-slate-50/70">
+                                              <td className="p-2 border-r border-slate-100 font-bold text-center bg-slate-100 text-[8px] text-slate-400 select-none">{idx + 8}</td>
+                                              <td className="hidden">
+                                                 <span className={`px-1.5 py-0.5 rounded text-[7px] font-black uppercase ${c.type === 'Member' ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'}`}>
+                                                    {c.type}
+                                                 </span>
+                                              </td>
+                                              <td className="p-2 font-semibold text-slate-900 normal-case font-sans text-[10.5px]">{c.name}</td>
+                                              <td className="p-2 whitespace-nowrap text-slate-600 font-bold font-mono text-[10.5px]">{c.phone || '---'}</td>
+                                              {exportFilterType !== 'members' && (
+                                                 <td className="p-2 text-slate-500 font-sans">
+                                                    {c.type === 'Guest' && c.dateAdded ? new Date(c.dateAdded).toLocaleDateString('en-GB') : '---'}
+                                                 </td>
+                                              )}
+                                           </tr>
+                                        ))}
+                                        {processedExportContacts.length > 10 && (
+                                           <tr className="bg-slate-50/50 font-sans">
+                                              <td className="p-2 border-r border-slate-100 font-bold text-center bg-slate-100 text-[8px] text-slate-400 select-none">...</td>
+                                              <td colSpan={4} className="p-3 text-center text-slate-400 font-semibold italic text-[8.5px]">
+                                                 Showing top 10 rows of {processedExportContacts.length} total rows in live preview spreadsheet
+                                              </td>
+                                           </tr>
+                                        )}
+                                     </tbody>
+                                  </table>
+                               </div>
+                            </div>
+                         ) : (
+                           <div className="space-y-2">
+                              {processedExportContacts.map((c, idx) => (
+                                <div key={c.id || idx} className="bg-white p-4 rounded-2xl border border-slate-100 flex items-center justify-between hover:shadow-sm transition-shadow">
+                                   <div className="flex items-center gap-4">
+                                      <span className={`px-2 py-1 rounded-lg text-[7px] font-black uppercase tracking-widest ${c.type === 'Member' ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'}`}>
+                                         {c.type}
+                                      </span>
+                                      <div>
+                                         <p className="text-xs font-black text-slate-900 lowercase first-letter:uppercase">{c.name}</p>
+                                         <p className="text-[10px] font-mono font-bold text-slate-500 mt-0.5">{c.phone || 'No Contact'}</p>
+                                      </div>
+                                   </div>
+                                   <div className="text-right">
+                                      <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Registered</p>
+                                      <p className="text-[9.5px] text-slate-600 font-black mt-0.5">
+                                         {c.dateAdded ? new Date(c.dateAdded).toLocaleDateString('en-GB') : 'N/A'}
+                                      </p>
+                                   </div>
+                                </div>
+                              ))}
+                           </div>
+                         )}
+                      </div>
+
+                      {/* Control bar */}
+                      <div className="p-6 bg-white border-t border-slate-100 flex flex-col sm:flex-row gap-4">
+                         <button
+                           onClick={exportDirectoryToCSV}
+                           className="flex-1 py-5 bg-emerald-600 text-white rounded-3xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-emerald-700 transition-all flex items-center justify-center gap-3 active:scale-95 cursor-pointer"
+                         >
+                            <Download className="w-4 h-4" />
+                            Export CSV File
+                         </button>
+                         <button
+                           onClick={() => { setIsExportPrintMode(true); }}
+                           className="flex-1 py-5 bg-slate-900 hover:bg-black text-fh-gold rounded-3xl font-black uppercase text-[10px] tracking-widest shadow-xl transition-all flex items-center justify-center gap-3 active:scale-95 cursor-pointer border-b-4 border-black/30"
+                         >
+                            <Printer className="w-4 h-4 text-fh-gold" />
+                            Print A4 Directory
+                         </button>
+                      </div>
+                   </div>
                 </div>
              </div>
           </div>

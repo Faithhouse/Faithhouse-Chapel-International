@@ -1297,8 +1297,8 @@ END $$;`}
               <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
                   { label: 'Total Members', value: members.length.toString(), icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
-                  { label: 'Present Today', value: '842', icon: UserCheck, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                  { label: 'Absentees', value: '398', icon: UserMinus, color: 'text-rose-600', bg: 'bg-rose-50' },
+                  { label: 'Present Today', value: selectedSession ? (sessions.find(s => s.id === selectedSession)?.total_attendance || 0).toString() : '0', icon: UserCheck, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                  { label: 'Absentees', value: selectedSession ? absentees.length.toString() : '0', icon: UserMinus, color: 'text-rose-600', bg: 'bg-rose-50' },
                   { label: 'Pending Follow-ups', value: visitationRecords.filter(r => r.status === 'Pending').length.toString(), icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
                 ].map((stat, i) => (
                   <div key={i} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
