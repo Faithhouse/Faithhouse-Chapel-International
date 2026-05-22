@@ -830,10 +830,10 @@ Focus on realistic, solid church growth leadership principles (specifically tail
 
 // Supabase Proxy to solve CORS / "Failed to fetch" issues
 app.all('/api/supabase-proxy/*all', async (req, res) => {
-  const path = req.params.all || req.url.split('/api/supabase-proxy/')[1];
-  if (!path) return res.status(400).json({ error: 'Missing path' });
+  const proxyPath = req.params.all || req.url.split('/api/supabase-proxy/')[1];
+  if (!proxyPath) return res.status(400).json({ error: 'Missing path' });
 
-  const url = `${SUPABASE_URL}/${path.replace(/^\/+/, '')}`;
+  const url = `${SUPABASE_URL}/${proxyPath.replace(/^\/+/, '')}`;
   
   const headers: Record<string, string> = {};
   // Pass through relevant headers
