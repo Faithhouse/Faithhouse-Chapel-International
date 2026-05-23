@@ -61,6 +61,7 @@ export const LeadershipModals: React.FC<LeadershipModalsProps> = ({
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
 
   React.useEffect(() => {
     if (isLeaderModalOpen) {
@@ -68,6 +69,7 @@ export const LeadershipModals: React.FC<LeadershipModalsProps> = ({
       setLastName(editingLeader?.last_name || '');
       setEmail(editingLeader?.email || '');
       setPhone(editingLeader?.phone || '');
+      setImageUrl(editingLeader?.image_url || '');
     }
   }, [editingLeader, isLeaderModalOpen]);
 
@@ -138,6 +140,123 @@ export const LeadershipModals: React.FC<LeadershipModalsProps> = ({
                   </p>
                 </div>
               )}
+
+              {/* Hidden field to pass image URL back to onLeaderSave FormData */}
+              <input type="hidden" name="image_url" value={imageUrl} />
+
+              {/* Profile image placeholder & upload block */}
+              <div className="bg-slate-50 dark:bg-slate-950/45 border border-slate-100 dark:border-slate-800 p-6 rounded-[2rem] space-y-4">
+                <div className="flex flex-col sm:flex-row gap-6 items-center">
+                  {/* Avatar Preview */}
+                  <div className="relative">
+                    {imageUrl ? (
+                      <div className="relative group">
+                        <img 
+                          src={imageUrl} 
+                          alt="Leader Preview" 
+                          className="w-24 h-24 rounded-3xl object-cover border-2 border-fh-gold shadow-md" 
+                          referrerPolicy="no-referrer"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setImageUrl('')}
+                          className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full shadow-lg transition-colors"
+                          title="Remove image"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-24 h-24 rounded-3xl bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 font-black flex items-center justify-center text-4xl border border-slate-300 dark:border-slate-700">
+                        {firstName && lastName ? `${firstName[0]}${lastName[0]}` : <Briefcase className="w-8 h-8" />}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Upload action and file limit validator */}
+                  <div className="flex-1 space-y-2 text-center sm:text-left">
+                    <h4 className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider">Officer Portrait Photo</h4>
+                    <p className="text-[10px] text-slate-405 font-medium leading-normal">Upload a custom profile photo under 5MB (JPEG, PNG, WEBP), or select one of our highly optimized clergy presets below.</p>
+                    
+                    <div className="flex items-center justify-center sm:justify-start gap-3">
+                      <label className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl text-[10px] font-bold uppercase tracking-wider cursor-pointer text-slate-600 dark:text-slate-200 transition-colors">
+                        Choose Photo
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          className="hidden" 
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            if (!file.type.startsWith('image/')) {
+                              toast.error('Please select an image file');
+                              return;
+                            }
+                            if (file.size > 5 * 1024 * 1025) {
+                              toast.error('Image size must be less than 5MB');
+                              return;
+                            }
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              if (event.target?.result) {
+                                setImageUrl(event.target.result as string);
+                                toast.success('Image portrait loaded and scaled!');
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }}
+                        />
+                      </label>
+                      {imageUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setImageUrl('')}
+                          className="px-4 py-2 border border-slate-200 dark:border-slate-800 text-[10px] text-red-500 rounded-xl font-bold uppercase tracking-wider hover:bg-red-50/10 transition-all"
+                        >
+                          Clear Image
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Highly Curated Preset Placeholder options (Tiny sizes, under 15KB each) */}
+                <div className="space-y-2 pt-3 border-t border-slate-200/50 dark:border-slate-800/50">
+                  <p className="text-[9px] font-black text-slate-404 dark:text-slate-500 uppercase tracking-widest">Optimized Clergy & Officer Presets:</p>
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                    {[
+                      { label: 'Elder (M)', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=120&h=120' },
+                      { label: 'Pastor (F)', url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=120&h=120' },
+                      { label: 'Minister (M)', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=120&h=120' },
+                      { label: 'Director (F)', url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=120&h=120' },
+                      { label: 'Board (M)', url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=120&h=120' },
+                      { label: 'Sec (F)', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=120&h=120' }
+                    ].map((preset, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setImageUrl(preset.url);
+                          toast.success(`Selected preset: ${preset.label}`);
+                        }}
+                        className={`flex flex-col items-center p-2 rounded-2xl border transition-all hover:scale-105 ${
+                          imageUrl === preset.url 
+                            ? 'border-fh-gold bg-slate-200 dark:bg-slate-800 shadow-sm' 
+                            : 'border-slate-200/60 dark:border-slate-850 hover:bg-slate-100 dark:hover:bg-slate-900'
+                        }`}
+                      >
+                        <img 
+                          src={preset.url} 
+                          alt="" 
+                          className="w-8 h-8 rounded-full object-cover mb-1 ring-1 ring-slate-200 dark:ring-slate-700" 
+                          referrerPolicy="no-referrer"
+                        />
+                        <span className="text-[8px] font-bold text-slate-500 dark:text-slate-400 text-center truncate w-full">{preset.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
 
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">

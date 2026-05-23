@@ -68,6 +68,10 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName })
     peakAttendance: 0
   });
 
+  const [attendeeSearchQuery, setAttendeeSearchQuery] = useState('');
+  const [searchedChurchMembers, setSearchedChurchMembers] = useState<Member[]>([]);
+  const [isSearchingMembers, setIsSearchingMembers] = useState(false);
+
   const [regForm, setRegForm] = useState({
     first_name: '',
     last_name: '',
@@ -103,19 +107,34 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName })
   useEffect(() => {
     fetchPersonnel();
     fetchResources();
-    // Fetch attendance for all ministries that have an overview using it
-    const ministriesWithAttendance = [
-      'Children Ministry', 'Teens Ministry', 'Young Adult Ministry', 
-      'Evangelism', 'Evangelism Ministry', 'Evangelism Department',
-      'Media Ministry', 'Media Department',
-      'Prayer Ministry', 'Prayer Department',
-      'Ushering Ministry', 'Ushering Department',
-      'Protocol Ministry', 'Protocol Department'
-    ];
-    if (ministriesWithAttendance.some(m => ministryName.toLowerCase().includes(m.toLowerCase()))) {
-      fetchDeptAttendance();
-    }
+    fetchDeptAttendance();
   }, [ministryName]);
+
+  useEffect(() => {
+    if (!attendeeSearchQuery.trim()) {
+      setSearchedChurchMembers([]);
+      return;
+    }
+    const searchGeneralMembers = async () => {
+      setIsSearchingMembers(true);
+      try {
+        const { data, error } = await supabase
+          .from('members')
+          .select('*')
+          .or(`first_name.ilike.%${attendeeSearchQuery}%,last_name.ilike.%${attendeeSearchQuery}%`)
+          .limit(10);
+        if (!error && data) {
+          setSearchedChurchMembers(data);
+        }
+      } catch (err) {
+        console.error('Error searching general members:', err);
+      } finally {
+        setIsSearchingMembers(false);
+      }
+    };
+    const timer = setTimeout(searchGeneralMembers, 300);
+    return () => clearTimeout(timer);
+  }, [attendeeSearchQuery]);
 
   const fetchDeptAttendance = async () => {
     try {
@@ -159,8 +178,29 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName })
       
       if (error) throw error;
       
-      // Pre-populate records for all ministry members
       const existingRecords = records || [];
+
+      // Find any member_id in records that is NOT currently in ministryMembers
+      const existingMemberIds = existingRecords.map(r => r.member_id);
+      const missingMemberIds = existingMemberIds.filter(id => !ministryMembers.some(m => m.id === id));
+
+      if (missingMemberIds.length > 0) {
+        // Fetch details of those missing members from the members database
+        const { data: missingMembers, error: missingErr } = await supabase
+          .from('members')
+          .select('*')
+          .in('id', missingMemberIds);
+
+        if (!missingErr && missingMembers) {
+          // Temporarily append these missing members to our local ministryMembers list
+          setMinistryMembers(prev => {
+            const newMembers = missingMembers.filter(mm => !prev.some(p => p.id === mm.id));
+            return [...prev, ...newMembers];
+          });
+        }
+      }
+      
+      // Pre-populate records for all ministry members
       const fullRecords: AttendanceRecord[] = ministryMembers.map(m => {
         const existing = existingRecords.find(r => r.member_id === m.id);
         if (existing) return existing;
@@ -170,6 +210,13 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName })
           status: 'Unmarked'
         };
       });
+
+      // Also ensure any other loaded general members' records are part of fullRecords
+      existingRecords.forEach(r => {
+        if (!fullRecords.some(fr => fr.member_id === r.member_id)) {
+          fullRecords.push(r);
+        }
+      });
       
       setDeptAttendanceRecords(fullRecords);
     } catch (err) {
@@ -177,6 +224,34 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName })
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const addGeneralMemberToAttendance = (member: any) => {
+    // Check if already in active attendance sheet
+    const exists = deptAttendanceRecords.some(r => r.member_id === member.id);
+    if (exists) {
+      toast.error(`${member.first_name} is already added to this sheet!`);
+      return;
+    }
+
+    const newRecord: AttendanceRecord = {
+      attendance_event_id: activeDeptEvent!.id,
+      member_id: member.id,
+      status: 'Present',
+      notes: ''
+    } as any;
+
+    setDeptAttendanceRecords(prev => [...prev, newRecord]);
+    
+    // Append to local ministryMembers cache so it shows name nicely in preview/UI list
+    setMinistryMembers(prev => {
+      if (prev.some(m => m.id === member.id)) return prev;
+      return [...prev, member];
+    });
+
+    setAttendeeSearchQuery('');
+    setSearchedChurchMembers([]);
+    toast.success(`${member.first_name} ${member.last_name} added to session as Present!`);
   };
 
   const handleDeptStatusChange = (memberId: string, status: AttendanceRecord['status']) => {
@@ -2304,8 +2379,8 @@ CREATE POLICY "Allow all for authenticated" ON public.ministry_resources FOR ALL
   const tabs = ministryName === 'Children Ministry' 
     ? (['Overview', 'Leadership', 'Attendance', 'Curriculum', 'Personnel', 'Operations', 'Resources', 'Reports'] as const)
     : (ministryName === 'Follow-up & Visitation' || ministryName === 'Follow-up & Visitation ministry')
-    ? (['Overview', 'Visitation', 'Personnel', 'Operations', 'Resources', 'Reports'] as const)
-    : (['Overview', 'Personnel', 'Operations', 'Resources', 'Reports'] as const);
+    ? (['Overview', 'Attendance', 'Visitation', 'Personnel', 'Operations', 'Resources', 'Reports'] as const)
+    : (['Overview', 'Attendance', 'Personnel', 'Operations', 'Resources', 'Reports'] as const);
 
   if (schemaError === "REPAIR_REQUIRED") {
     const repairSQL = `-- SCHEMA REPAIR: ADD MISSING COLUMNS & REFRESH CACHE
@@ -2391,7 +2466,7 @@ NOTIFY pgrst, 'reload schema';`;
       {activeTab === 'Overview' && (ministryName.toLowerCase().includes('follow-up') || ministryName.toLowerCase().includes('visitation')) && renderFollowUpOverview()}
       {activeTab === 'Visitation' && (ministryName.toLowerCase().includes('follow-up') || ministryName.toLowerCase().includes('visitation')) && <VisitationView />}
       {activeTab === 'Leadership' && (ministryName.toLowerCase().includes('children')) && renderDeptLeadership()}
-      {activeTab === 'Attendance' && (ministryName.toLowerCase().includes('children')) && renderDeptAttendance()}
+      {activeTab === 'Attendance' && renderDeptAttendance()}
       {activeTab === 'Curriculum' && (ministryName.toLowerCase().includes('children')) && renderChildrenCurriculum()}
 
       {activeTab === 'Overview' && !['Music Ministry', 'Evangelism', 'Media', 'Prayer', 'Ushering', 'Protocol', 'Children', 'Follow-up', 'Visitation'].some(m => ministryName.toLowerCase().includes(m.toLowerCase())) && (
@@ -2689,13 +2764,75 @@ NOTIFY pgrst, 'reload schema';`;
       {isDeptAttendanceModalOpen && activeDeptEvent && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md" onClick={() => !isDeptSubmitting && setIsDeptAttendanceModalOpen(false)} />
-          <div className="relative bg-white w-full max-w-4xl h-[80vh] rounded-[4rem] shadow-2xl overflow-hidden flex flex-col border-b-[16px] border-violet-600">
+          <div className="relative bg-white w-full max-w-4xl h-[85vh] rounded-[4rem] shadow-2xl overflow-hidden flex flex-col border-b-[16px] border-violet-600">
             <div className="p-10 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">{ministryName} Attendance Sheet</h3>
                 <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em] mt-2">{new Date(activeDeptEvent.event_date).toLocaleDateString()} • {activeDeptEvent.event_name}</p>
               </div>
               <button onClick={() => setIsDeptAttendanceModalOpen(false)} className="p-4 hover:bg-white rounded-full transition-all text-slate-400"><Plus className="w-6 h-6 rotate-45" /></button>
+            </div>
+
+            {/* General Registry Search and Lookup */}
+            <div className="px-10 py-6 bg-slate-55 border-b border-slate-100 flex flex-col gap-2 relative">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                Call & Add General Church Members to Session (Church Registry Lookup)
+              </label>
+              <div className="relative">
+                <input 
+                  type="text" 
+                  value={attendeeSearchQuery}
+                  onChange={(e) => setAttendeeSearchQuery(e.target.value)}
+                  placeholder="Search globally by typing member name here..."
+                  className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-violet-600 focus:bg-white transition-all text-xs font-bold text-slate-800 shadow-sm"
+                />
+                
+                {/* Search result popover dropdown */}
+                {attendeeSearchQuery.trim() && (
+                  <div className="absolute left-0 right-0 top-full mt-2 bg-white border border-slate-250 shadow-2xl rounded-[2rem] p-4 z-[120] max-h-56 overflow-y-auto">
+                    {isSearchingMembers ? (
+                      <p className="text-[10px] text-slate-450 uppercase tracking-wider text-center py-4 font-bold flex items-center justify-center gap-2">
+                        <span className="w-3.5 h-3.5 border-2 border-violet-650/30 border-t-violet-600 animate-spin rounded-full"></span>
+                        Retrieving Registry records...
+                      </p>
+                    ) : searchedChurchMembers.length > 0 ? (
+                      <div className="divide-y divide-slate-50">
+                        {searchedChurchMembers.map(member => (
+                          <div 
+                            key={member.id} 
+                            onClick={() => addGeneralMemberToAttendance(member)}
+                            className="flex items-center justify-between py-3 px-4 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center font-black text-xs">
+                                {member.first_name[0]}{member.last_name ? member.last_name[0] : ''}
+                              </div>
+                              <div>
+                                <p className="text-xs font-black text-slate-800 uppercase tracking-tight">
+                                  {member.first_name} {member.last_name}
+                                </p>
+                                <p className="text-[8px] text-slate-400 font-bold uppercase">
+                                  {member.phone || 'No Contact'}
+                                </p>
+                              </div>
+                            </div>
+                            <button 
+                              type="button"
+                              className="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-[8px] font-black uppercase tracking-widest rounded-lg shadow-sm transition-colors"
+                            >
+                              Call to Session
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider text-center py-4 font-bold">
+                        No general church records match your search
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-10">
@@ -2719,20 +2856,33 @@ NOTIFY pgrst, 'reload schema';`;
                           <p className="text-[9px] text-slate-400 font-bold uppercase">{member.phone || 'No Phone'}</p>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        {(['Present', 'Absent'] as const).map(st => (
-                          <button 
-                            key={st} 
-                            onClick={() => handleDeptStatusChange(member.id, st)} 
-                            className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
-                              s === st ? (
-                                st === 'Present' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'bg-rose-500 text-white shadow-lg shadow-rose-200'
-                              ) : 'bg-white text-slate-400 hover:bg-slate-100'
-                            }`}
-                          >
-                            {st}
-                          </button>
-                        ))}
+                      <div className="flex items-center gap-3">
+                        <div className="flex gap-2">
+                          {(['Present', 'Absent'] as const).map(st => (
+                            <button 
+                              key={st} 
+                              onClick={() => handleDeptStatusChange(member.id, st)} 
+                              className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
+                                s === st ? (
+                                  st === 'Present' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'bg-rose-500 text-white shadow-lg shadow-rose-200'
+                                ) : 'bg-white text-slate-400 hover:bg-slate-100'
+                              }`}
+                            >
+                              {st}
+                            </button>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeptAttendanceRecords(prev => prev.filter(r => r.member_id !== member.id));
+                            toast.info(`${member.first_name} removed from sheet`);
+                          }}
+                          className="p-2 text-slate-300 hover:text-rose-500 rounded-lg hover:bg-rose-50 transition-colors"
+                          title="Remove from session sheet"
+                        >
+                          <Plus className="w-4 h-4 rotate-45 stroke-[3]" />
+                        </button>
                       </div>
                     </div>
                   );

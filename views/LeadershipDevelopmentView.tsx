@@ -40,6 +40,7 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [tableMissing, setTableMissing] = useState(false);
+  const [isRepairing, setIsRepairing] = useState(false);
 
   // Ministries management states
   const [ministryItems, setMinistryItems] = useState<Ministry[]>([]);
@@ -84,55 +85,27 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
     status: 'Active' as const
   });
 
-  // Repair & Update Database Script Copy
-  const repairSQL = `
-    -- STEP 1: Execute this script in Supabase's SQL Editor to fully update the leadership module
+  // Reference SQL String for Manual Query Tool or Diagnostic reference
+  const manualMigrationSQL = `
+    -- Execute this migration script inside your Supabase SQL Editor to configure columns and tables
+    -- Path: /supabase/migrations/20260522000000_leadership_fixes.sql
     
-    -- Alter existing columns and safety ensure types
-    ALTER TABLE public.leadership ADD COLUMN IF NOT EXISTS reports_to_id UUID REFERENCES public.leadership(id);
+    ALTER TABLE public.leadership DROP CONSTRAINT IF EXISTS leadership_category_check;
+    
+    ALTER TABLE public.leadership ADD COLUMN IF NOT EXISTS reports_to_id UUID;
     ALTER TABLE public.leadership ADD COLUMN IF NOT EXISTS branch TEXT DEFAULT 'Main Branch';
     ALTER TABLE public.leadership ADD COLUMN IF NOT EXISTS appointment_date DATE DEFAULT CURRENT_DATE;
     ALTER TABLE public.leadership ADD COLUMN IF NOT EXISTS ordination_date DATE;
     ALTER TABLE public.leadership ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Active';
     ALTER TABLE public.leadership ADD COLUMN IF NOT EXISTS notes TEXT;
-    ALTER TABLE public.leadership ADD COLUMN IF NOT EXISTS leadership_history JSONB DEFAULT '[]';
-
-    -- Ensure and seed base governance tables
-    CREATE TABLE IF NOT EXISTS public.leadership_audit_logs (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      timestamp TIMESTAMPTZ DEFAULT now(),
-      actor TEXT NOT NULL,
-      action TEXT NOT NULL,
-      target TEXT NOT NULL,
-      rank TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS public.leadership_announcements (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      title TEXT NOT NULL,
-      message TEXT NOT NULL,
-      target_group TEXT NOT NULL,
-      sent_at TIMESTAMPTZ DEFAULT now(),
-      sender TEXT NOT NULL
-    );
-
-    -- Enable RLS for governance
-    ALTER TABLE public.leadership_audit_logs ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE public.leadership_announcements ENABLE ROW LEVEL SECURITY;
-
-    DROP POLICY IF EXISTS "Allow authenticated audit logs" ON public.leadership_audit_logs;
-    CREATE POLICY "Allow authenticated audit logs" ON public.leadership_audit_logs FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
-    DROP POLICY IF EXISTS "Allow authenticated announcements" ON public.leadership_announcements;
-    CREATE POLICY "Allow authenticated announcements" ON public.leadership_announcements FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
-    NOTIFY pgrst, 'reload schema';
+    ALTER TABLE public.leadership ADD COLUMN IF NOT EXISTS leadership_history JSONB DEFAULT '[]'::jsonb;
+    ALTER TABLE public.leadership ADD COLUMN IF NOT EXISTS ministry TEXT;
+    ALTER TABLE public.leadership ADD COLUMN IF NOT EXISTS email TEXT;
+    ALTER TABLE public.leadership ADD COLUMN IF NOT EXISTS phone TEXT;
+    ALTER TABLE public.leadership ADD COLUMN IF NOT EXISTS image_url TEXT;
   `;
 
-  // Fallback Seeding in memory if database returns empty (made empty for starting fresh)
-  const getInMemoryLeaders = (): Leader[] => [];
-
-  // Helper to log audit trails inside DB or fallback local state
+  // Helper to log audit trails inside Supabase DB with verbose error logging
   const logAuditTrail = async (action: string, target: string, rank: string) => {
     const actorName = currentUser?.full_name || 'Bishop Administrator';
     const newLog: Omit<LeadershipAuditLog, 'id' | 'timestamp'> = {
@@ -142,15 +115,22 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
       rank
     };
 
+    console.log("Supabase Audit Log - Attempting to persist:", JSON.stringify(newLog, null, 2));
+
     try {
       const { data, error } = await supabase.from('leadership_audit_logs').insert([newLog]).select();
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase Audit Log DB Error Object:", error);
+        throw error;
+      }
       if (data && data[0]) {
+        console.log("Supabase Audit Log - Successfully persisted:", data[0]);
         setAuditLogs(prev => [data[0], ...prev]);
       }
-    } catch {
-      // Local memory fallback log
-      const memLog: LeadershipAuditLog = {
+    } catch (err: any) {
+      console.error("Audit log persistence failed. Error context details:", err);
+      // Local runtime list log fallback for session tracking
+      const tempLog: LeadershipAuditLog = {
         id: Math.random().toString(),
         timestamp: new Date().toISOString(),
         actor: actorName,
@@ -158,26 +138,29 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
         target,
         rank
       };
-      setAuditLogs(prev => [memLog, ...prev]);
+      setAuditLogs(prev => [tempLog, ...prev]);
     }
   };
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
+    let hasTableMissingError = false;
+
+    // 1. Fetch main leaders table
     try {
-      // Fetch leaders
       const { data: leadData, error: lError } = await supabase
         .from('leadership')
         .select('*')
         .order('category');
 
-      if (lError && (lError.code === '42P01' || lError.code === 'PGRST205')) {
-        setTableMissing(true);
-        setIsLoading(false);
-        return;
+      if (lError) {
+        if (lError.code === '42P01' || lError.code === 'PGRST205' || lError.message?.includes('column')) {
+          hasTableMissingError = true;
+        } else {
+          throw lError;
+        }
       }
 
-      // Safeguard variables with defensive fallback mapping to handle local schemas beautifully
       let parsedLeaders: Leader[] = [];
       if (leadData && leadData.length > 0) {
         parsedLeaders = leadData.map((l: any) => ({
@@ -199,46 +182,98 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
           leadership_history: Array.isArray(l.leadership_history) ? l.leadership_history : []
         }));
       } else {
-        // Safe seeding so screen doesn't stay empty
-        parsedLeaders = getInMemoryLeaders();
+        parsedLeaders = [];
       }
       setLeaders(parsedLeaders);
+    } catch (err: any) {
+      console.warn("Error loading leaders table:", err);
+      setLeaders([]);
+    }
 
-      // Pipeline
-      const { data: pipeData } = await supabase
+    // 2. Fetch leadership pipeline
+    try {
+      const { data: pipeData, error: pipeError } = await supabase
         .from('leadership_pipeline')
         .select('*, members(*), mentor:mentor_id(full_name)')
         .order('updated_at', { ascending: false });
-      setPipeline(pipeData || []);
+      
+      if (pipeError) {
+        if (pipeError.code === '42P01') hasTableMissingError = true;
+        else throw pipeError;
+      } else {
+        setPipeline(pipeData || []);
+      }
+    } catch (err) {
+      console.warn("Pipeline table missing or read failed:", err);
+    }
 
-      // Members for pipelines & ministry selection
+    // 3. Fetch members (used for validation and selecting new leaders)
+    try {
       const { data: memData } = await supabase
         .from('members')
         .select('*')
         .order('first_name');
       setMembers(memData || []);
+    } catch (err) {
+      console.warn("Members table read failed:", err);
+    }
 
-      // Ministries
+    // 4. Fetch ministries
+    try {
       const { data: minData } = await supabase
         .from('ministries')
         .select('*, lead:leader_id(first_name, last_name, position), deputy:deputy_id(first_name, last_name, position)')
         .order('name');
       setMinistryItems(minData || []);
+    } catch (err) {
+      console.warn("Ministries table read failed:", err);
+    }
 
-      // Ministry members
+    // 5. Fetch ministry members
+    try {
       const { data: minMems } = await supabase.from('ministry_members').select('*');
       setMinistryMembers(minMems || []);
+    } catch (err) {
+      console.warn("Ministry members table read failed:", err);
+    }
 
-      // Ministry Attendance
+    // 6. Fetch ministry attendance
+    try {
       const { data: minAtt } = await supabase.from('ministry_attendance').select('*').order('session_date', { ascending: false });
       setMinistryAttendance(minAtt || []);
+    } catch (err) {
+      console.warn("Ministry attendance table read failed:", err);
+    }
 
-      // Fetch dynamic audits and announcements from DB
-      const { data: auditData } = await supabase.from('leadership_audit_logs').select('*').order('timestamp', { ascending: false }).limit(20);
-      if (auditData) setAuditLogs(auditData);
+    // 7. Fetch audit logs
+    try {
+      const { data: auditData, error: auditError } = await supabase
+        .from('leadership_audit_logs')
+        .select('*')
+        .order('timestamp', { ascending: false })
+        .limit(20);
 
-      const { data: announcData } = await supabase.from('leadership_announcements').select('*').order('sent_at', { ascending: false });
-      if (announcData) {
+      if (auditError) {
+        if (auditError.code === '42P01') hasTableMissingError = true;
+        else throw auditError;
+      } else if (auditData) {
+        setAuditLogs(auditData);
+      }
+    } catch (err) {
+      console.warn("Audit logs table read failed:", err);
+    }
+
+    // 8. Fetch Announcements
+    try {
+      const { data: announcData, error: announcError } = await supabase
+        .from('leadership_announcements')
+        .select('*')
+        .order('sent_at', { ascending: false });
+
+      if (announcError) {
+        if (announcError.code === '42P01') hasTableMissingError = true;
+        else throw announcError;
+      } else if (announcData) {
         setAnnouncements(announcData.map((a: any) => ({
           id: a.id,
           title: a.title,
@@ -248,13 +283,16 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
           sender: a.sender
         })));
       }
-
-    } catch (err: any) {
-      console.warn("Table connection error: using in-memory mock datasets", err);
-      setLeaders(getInMemoryLeaders());
-    } finally {
-      setIsLoading(false);
+    } catch (err) {
+      console.warn("Announcements table read failed:", err);
     }
+
+    if (hasTableMissingError) {
+      setTableMissing(true);
+    } else {
+      setTableMissing(false);
+    }
+    setIsLoading(false);
   }, [currentUser]);
 
   useEffect(() => {
@@ -281,8 +319,11 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
       ordination_date: (formData.get('ordination_date') as string) || null,
       status: formData.get('status') as any,
       reports_to_id: (formData.get('reports_to_id') as string) || null,
-      notes: formData.get('notes') as string
+      notes: formData.get('notes') as string,
+      image_url: (formData.get('image_url') as string) || null
     };
+
+    console.log("Supabase Leader Pre-Save Validate Payload:", JSON.stringify(payload, null, 2));
 
     try {
       if (editingLeader?.id) {
@@ -304,7 +345,11 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
           .update({ ...payload, leadership_history: updatedHistory })
           .eq('id', editingLeader.id);
 
-        if (error) throw error;
+        if (error) {
+          console.error("Supabase Modify Error Object Detail:", error);
+          throw error;
+        }
+        
         toast.success("Leader record modified successfully");
         await logAuditTrail("Modified Leadership Record for", `${payload.first_name} ${payload.last_name}`, "Full Admin Access");
       } else {
@@ -323,7 +368,11 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
           .from('leadership')
           .insert([{ ...payload, leadership_history: seedHistory }]);
 
-        if (error) throw error;
+        if (error) {
+          console.error("Supabase Save Error Object Detail:", error);
+          throw error;
+        }
+        
         toast.success("New ministerial officer appointed successfully!");
         await logAuditTrail("Appointed & Ordained New Officer", `${payload.first_name} ${payload.last_name}`, "Bishop Council Access");
       }
@@ -332,21 +381,8 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
       setEditingLeader(null);
       fetchData();
     } catch (err: any) {
-      // Local testing simulation in case columns don't exist in Supabase yet due to repair missing
-      if (editingLeader?.id) {
-        setLeaders(prev => prev.map(l => l.id === editingLeader.id ? { ...l, ...payload } : l));
-        toast.success("Leader modified successfully (Simulation Model)");
-      } else {
-        const dummyLeader: Leader = {
-          id: Math.random().toString(),
-          ...payload,
-          leadership_history: []
-        } as any;
-        setLeaders(prev => [dummyLeader, ...prev]);
-        toast.success("New Leader appointed successfully (Simulation Model)");
-      }
-      setIsLeaderModalOpen(false);
-      setEditingLeader(null);
+      console.error("Critical Supabase Persistence Save Error:", err);
+      toast.error(`Database Save Error: ${err.message || JSON.stringify(err)}. Persistence failed.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -356,18 +392,23 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
     if (!window.confirm("Verify: Are you sure you want to retire or delete this officer? This action will remove their nodes from the hierarchical authority structure!")) return;
     try {
       const targetOfficer = leaders.find(l => l.id === id);
+      console.log("Supabase Delete Leader - ID and payload check before deletion:", id, targetOfficer);
+      
       // Clean up direct subordinates pointing to this leader first to avoid foreign key violations
       await supabase.from('leadership').update({ reports_to_id: null }).eq('reports_to_id', id);
       
       const { error } = await supabase.from('leadership').delete().eq('id', id);
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase Delete Error Object Detail:", error);
+        throw error;
+      }
       toast.success("Officer record removed from active registry");
       await logAuditTrail("Removed / Deleted Officer", `${targetOfficer?.first_name} ${targetOfficer?.last_name}`, "Super-User");
       
       fetchData();
-    } catch {
-      setLeaders(prev => prev.map(l => l.reports_to_id === id ? { ...l, reports_to_id: undefined } : l).filter(l => l.id !== id));
-      toast.success("Officer removed (Simulation Model)");
+    } catch (err: any) {
+      console.error("Critical Supabase Delete Error:", err);
+      toast.error(`Database Delete Error: ${err.message || JSON.stringify(err)}. Deletion cancelled.`);
     }
   };
 
@@ -389,29 +430,29 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
 
     const updatedHistory = [...(leaderToPromote.leadership_history || []), historyItem];
 
+    console.log("Supabase Promote Action parameters:", id, newRank, historyItem);
+
     try {
       const { error } = await supabase
-        .from('leadership')
-        .update({ 
-          category: newRank,
-          position: `${newRank} of Secretariat`,
-          leadership_history: updatedHistory
-        })
-        .eq('id', id);
+          .from('leadership')
+          .update({ 
+            category: newRank,
+            position: `${newRank} of Secretariat`,
+            leadership_history: updatedHistory
+          })
+          .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase Promote Error Object Detail:", error);
+        throw error;
+      }
+      
       toast.success(`Officer promoted to ${newRank}!`);
       await logAuditTrail("Promoted Church Officer", `${leaderToPromote.first_name} ${leaderToPromote.last_name} to ${newRank}`, "Bishop Governance");
       fetchData();
-    } catch {
-      // Memory update fallback for flawless interaction
-      setLeaders(prev => prev.map(l => l.id === id ? {
-        ...l,
-        category: newRank,
-        position: `${newRank} Admin`,
-        leadership_history: updatedHistory
-      } : l));
-      toast.success(`Officer promoted to ${newRank} (Simulation Mode)`);
+    } catch (err: any) {
+      console.error("Critical Supabase Promotion Error:", err);
+      toast.error(`Database Promote Error: ${err.message || JSON.stringify(err)}`);
     }
   };
 
@@ -432,43 +473,48 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
 
     const updatedHistory = [...(leaderToTransfer.leadership_history || []), historyItem];
 
+    console.log("Supabase Transfer oversight parameters:", id, newBranch, historyItem);
+
     try {
       const { error } = await supabase
-        .from('leadership')
-        .update({
-          branch: newBranch,
-          leadership_history: updatedHistory
-        })
-        .eq('id', id);
+          .from('leadership')
+          .update({
+            branch: newBranch,
+            leadership_history: updatedHistory
+          })
+          .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase Transfer Error Object Detail:", error);
+        throw error;
+      }
       toast.success(`Oversight branch successfully transferred to ${newBranch}`);
       await logAuditTrail("Transferred Oversight Branch for", `${leaderToTransfer.first_name} ${leaderToTransfer.last_name}`, "Bishop Office Council");
       fetchData();
-    } catch {
-      setLeaders(prev => prev.map(l => l.id === id ? {
-        ...l,
-        branch: newBranch,
-        leadership_history: updatedHistory
-      } : l));
-      toast.success(`Oversight branch transferred to ${newBranch} (Simulation Mode)`);
+    } catch (err: any) {
+      console.error("Critical Supabase Transfer Error:", err);
+      toast.error(`Database Transfer Error: ${err.message || JSON.stringify(err)}`);
     }
   };
 
   // Immediate Reporting line re-assignment right within Hierarchy Tree
   const handleUpdateSupervisor = async (leaderId: string, supervisorId: string | undefined) => {
+    console.log("Supabase supervisor update:", leaderId, supervisorId);
     try {
       const { error } = await supabase
-        .from('leadership')
-        .update({ reports_to_id: supervisorId || null })
-        .eq('id', leaderId);
+          .from('leadership')
+          .update({ reports_to_id: supervisorId || null })
+          .eq('id', leaderId);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase Supervisor Update Error Object Detail:", error);
+        throw error;
+      }
       toast.success("Immediate reporting structures reassigned successfully");
       fetchData();
-    } catch {
-      setLeaders(prev => prev.map(l => l.id === leaderId ? { ...l, reports_to_id: supervisorId || undefined } : l));
-      toast.success("Reporting supervisor reassigned (Simulation Mode)");
+    } catch (err: any) {
+      console.error("Critical Supabase Supervisor Update Error:", err);
+      toast.error(`Database Supervisor Error: ${err.message || JSON.stringify(err)}`);
     }
   };
 
@@ -478,13 +524,16 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
     setIsSubmitting(true);
     try {
       const { error } = await supabase.from('leadership').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase Clear All Leaders Error Object Detail:", error);
+        throw error;
+      }
       toast.success("All leader appointments deleted successfully.");
       await logAuditTrail("Cleared All Appointed Leaders", "Global Registry Reset", "Bishop Super Access");
       setLeaders([]);
-    } catch {
-      setLeaders([]);
-      toast.success("All leader appointments deleted successfully (Simulation Model). Ready for fresh starts!");
+    } catch (err: any) {
+      console.error("Critical Supabase Clear Error:", err);
+      toast.error(`Database Clean Error: ${err.message || JSON.stringify(err)}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -494,27 +543,19 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
   const handlePipelineSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    console.log("Supabase Pipeline insert check:", JSON.stringify(pipelineForm, null, 2));
     try {
       const { error } = await supabase.from('leadership_pipeline').insert([pipelineForm]);
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase Pipeline insertion error:", error);
+        throw error;
+      }
       toast.success("Candidate added to training pipeline!");
       setIsPipelineModalOpen(false);
       fetchData();
-    } catch {
-      const cand = members.find(m => m.id === pipelineForm.member_id);
-      const dummyPip: any = {
-        id: Math.random().toString(),
-        member_id: pipelineForm.member_id,
-        current_level: pipelineForm.current_level,
-        progress_percentage: pipelineForm.progress_percentage,
-        notes: pipelineForm.notes,
-        status: 'Active',
-        members: cand,
-        updated_at: new Date().toISOString()
-      };
-      setPipeline(prev => [dummyPip, ...prev]);
-      setIsPipelineModalOpen(false);
-      toast.success("Candidate logged into Ministry Pipeline! (Simulation Mode)");
+    } catch (err: any) {
+      console.error("Critical Supabase Pipeline Submit Error:", err);
+      toast.error(`Pipeline Database Insert Error: ${err.message || JSON.stringify(err)}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -522,6 +563,7 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
 
   // Action broadcast helper for targeted subgroups
   const handleSendAnnouncement = async (announce: Omit<LeadershipAnnouncement, 'id' | 'sentAt'>) => {
+    console.log("Supabase Announcement insert parameters:", announce);
     try {
       const { data, error } = await supabase
         .from('leadership_announcements')
@@ -533,8 +575,12 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
         }])
         .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase Announcement Insertion Error:", error);
+        throw error;
+      }
       if (data && data[0]) {
+        toast.success("Circular message broadcasted successfully!");
         setAnnouncements(prev => [{
           id: data[0].id,
           title: data[0].title,
@@ -544,52 +590,53 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
           sender: data[0].sender
         }, ...prev]);
       }
-    } catch {
-      // Fallback
-      const memAnnounce: LeadershipAnnouncement = {
-        id: Math.random().toString(),
-        ...announce,
-        sentAt: new Date().toLocaleDateString()
-      };
-      setAnnouncements(prev => [memAnnounce, ...prev]);
+    } catch (err: any) {
+      console.error("Critical Supabase Announcement Send Error:", err);
+      toast.error(`Database Announcement Error: ${err.message || JSON.stringify(err)}`);
     }
   };
 
   const handlePipelineMove = async (id: string, newLevel: string) => {
+    console.log("Supabase Pipeline transition update:", id, newLevel);
     try {
-      await supabase.from('leadership_pipeline').update({ current_level: newLevel, updated_at: new Date().toISOString() }).eq('id', id);
+      const { error } = await supabase.from('leadership_pipeline').update({ current_level: newLevel, updated_at: new Date().toISOString() }).eq('id', id);
+      if (error) {
+        console.error("Supabase Pipeline Transition Error Object Detail:", error);
+        throw error;
+      }
       toast.success(`Candidate advanced to ${newLevel}`);
       fetchData();
-    } catch {
-      setPipeline(prev => prev.map(p => p.id === id ? { ...p, current_level: newLevel, updated_at: new Date().toISOString() } : p));
-      toast.success(`Candidate advanced to ${newLevel} (Simulation Mode)`);
+    } catch (err: any) {
+      console.error("Critical Supabase Pipeline Move Error:", err);
+      toast.error(`Database Candidate Advanced Error: ${err.message || JSON.stringify(err)}`);
     }
   };
 
-  // Table missing fallback screen rendering
+  // Table missing fallback screen rendering containing strict manual execution instructions
   if (tableMissing) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
         <div className="w-20 h-20 bg-rose-50 dark:bg-rose-950/20 text-rose-500 rounded-3xl flex items-center justify-center mb-6 shadow-xl border border-rose-100 dark:border-rose-900/30">
           <ShieldCheck className="w-10 h-10 animate-wiggle" />
         </div>
-        <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight mb-2">Leadership Administration Offline</h2>
-        <p className="text-slate-500 dark:text-slate-400 max-w-md mb-8 font-medium">Please authorize these additional columns for the leadership registry. Copy this script, execute it inside your Supabase SQL Editor and click search/refresh!</p>
+        <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight mb-2">Leadership Administration DB Setup Needed</h2>
+        <p className="text-slate-500 dark:text-slate-400 max-w-md mb-8 font-medium">Please execute the migrations script inside your Supabase SQL Editor. The file location is <code>/supabase/migrations/20260522000000_leadership_fixes.sql</code>.</p>
         <div className="w-full max-w-2xl bg-slate-900 dark:bg-slate-900 shadow-2xl rounded-2xl p-6 mb-8 text-left overflow-x-auto border border-slate-850">
-          <pre className="text-fh-gold text-[10px] font-mono leading-relaxed">{repairSQL}</pre>
+          <pre className="text-fh-gold text-[10px] font-mono leading-relaxed">{manualMigrationSQL}</pre>
         </div>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4 justify-center">
           <button 
-            onClick={() => { navigator.clipboard.writeText(repairSQL); toast.success("SQL Script Copied!"); }}
-            className="px-8 py-4 bg-fh-green hover:bg-slate-950 text-fh-gold rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl active:scale-95 transition-all border-b-4 border-black/30"
+            onClick={() => { navigator.clipboard.writeText(manualMigrationSQL); toast.success("SQL Script Copied!"); }}
+            className="px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl active:scale-95 transition-all border-b-4 border-emerald-800 flex items-center gap-2"
           >
-            Copy Script
+            Copy SQL Script
           </button>
           <button 
-            onClick={() => { setTableMissing(false); setLeaders(getInMemoryLeaders()); toast.success("Bypassed layout offline to offline simulation mode."); }}
-            className="px-8 py-4 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-350 hover:bg-slate-300 rounded-2xl font-black uppercase text-xs tracking-widest transition-all"
+            onClick={fetchData}
+            title="Reload registry"
+            className="px-8 py-4 bg-slate-800 hover:bg-slate-900 text-fh-gold rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl active:scale-95 transition-all border-b-4 border-black/30"
           >
-            Bypass to Simulator Model
+            Reload From Supabase
           </button>
         </div>
       </div>
