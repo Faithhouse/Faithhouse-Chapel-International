@@ -23,6 +23,7 @@ import YouthChildrenDashboardView from './views/YouthChildrenDashboardView';
 import FollowUpVisitationView from './views/FollowUpVisitationView';
 import FounderView from './views/FounderView';
 import PlaceholderView from './views/PlaceholderView';
+import FacilityManagementView from './views/FacilityManagementView';
 import RecurringTasksView from './views/RecurringTasksView';
 import UsersView from './views/UsersView';
 import FollowUpMapView from './views/FollowUpMapView';
@@ -37,11 +38,17 @@ import { Toaster, toast } from 'sonner';
 import { NavItem, UserProfile } from './types';
 import { supabase } from './supabaseClient';
 import PublicEnrollmentView from './views/PublicEnrollmentView';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAppStore } from './store/appStore';
+import { nameToPath, pathToName } from './utils/routeMapper';
 
 const App: React.FC = () => {
-  const [activeItem, setActiveItem] = useState<NavItem | string>('Dashboard');
-  const [history, setHistory] = useState<string[]>(['Dashboard']);
-  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const { name: activeItem, id: urlMemberId } = pathToName(location.pathname);
+  const selectedMemberId = urlMemberId;
+
   const [initialEditId, setInitialEditId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -102,11 +109,20 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const handleNavigation = (e: any) => {
-      if (e.detail) handleSetActiveItem(e.detail);
+      if (e.detail) {
+        const path = nameToPath(e.detail, selectedMemberId);
+        navigate(path);
+      }
     };
     window.addEventListener('navigate', handleNavigation);
     return () => window.removeEventListener('navigate', handleNavigation);
-  }, [activeItem]);
+  }, [navigate, selectedMemberId]);
+
+  useEffect(() => {
+    if ((currentUser || isDemoMode) && (location.pathname === '/' || location.pathname === '')) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [currentUser, isDemoMode, location.pathname, navigate]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -213,18 +229,12 @@ const App: React.FC = () => {
   }, [isDemoMode]);
 
   const handleSetActiveItem = (item: string) => {
-    if (item === activeItem) return;
-    setHistory(prev => [...prev, item]);
-    setActiveItem(item);
+    const path = nameToPath(item, selectedMemberId);
+    navigate(path);
   };
 
   const handleBack = () => {
-    if (history.length <= 1) return;
-    const newHistory = [...history];
-    newHistory.pop(); // Remove current
-    const previous = newHistory[newHistory.length - 1];
-    setHistory(newHistory);
-    setActiveItem(previous);
+    navigate(-1);
   };
   
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
@@ -286,9 +296,8 @@ const App: React.FC = () => {
               initialEditId={initialEditId}
               currentUser={currentUser}
               onSelectMember={(id) => { 
-                setSelectedMemberId(id); 
                 setInitialEditId(null);
-                handleSetActiveItem('Member Profile'); 
+                navigate(`/members/${id}`); 
               }} 
             />
           );
@@ -347,6 +356,9 @@ const App: React.FC = () => {
 
         case 'Recurring Tasks':
           return <RecurringTasksView currentUser={currentUser} />;
+
+        case 'Facility Management':
+          return <FacilityManagementView />;
 
         case 'Cell Meeting':
           {
@@ -452,7 +464,7 @@ const App: React.FC = () => {
                   toggleSidebar={toggleSidebar} 
                   activeItem={activeItem as string}
                   onBack={handleBack}
-                  hasHistory={history.length > 1}
+                  hasHistory={location.pathname !== '/dashboard'}
                   currentUser={currentUser}
                 />
               </div>

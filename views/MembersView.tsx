@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
+import { useAppStore } from '../store/appStore';
 import { Member, Branch, UserProfile } from '../types';
 import { 
   ShieldAlert, 
@@ -42,13 +43,38 @@ interface MembersViewProps {
 }
 
 const MembersView: React.FC<MembersViewProps> = ({ onSelectMember, initialEditId, currentUser }) => {
+  const { membersState, setMembersState } = useAppStore();
+
   const [members, setMembers] = useState<Member[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
+  const [searchTerm, setSearchTerm] = useState(membersState.searchTerm);
+  const [statusFilter, setStatusFilter] = useState(membersState.statusFilter);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Sync state with Zustand
+  useEffect(() => {
+    setMembersState({ searchTerm, statusFilter });
+  }, [searchTerm, statusFilter, setMembersState]);
+
+  // Restore & Track Scroll Position
+  useEffect(() => {
+    // Restore scroll position with a micro-task timeout to ensure DOM hydration
+    const timer = setTimeout(() => {
+      window.scrollTo(0, membersState.scrollPosition);
+    }, 50);
+
+    const handleScroll = () => {
+      setMembersState({ scrollPosition: window.scrollY });
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [membersState.scrollPosition, setMembersState]);
   const [taggingId, setTaggingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [tableMissing, setTableMissing] = useState<boolean | null>(false);

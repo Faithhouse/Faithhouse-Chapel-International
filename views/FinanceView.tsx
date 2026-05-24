@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+import { useAppStore } from '../store/appStore';
 import { supabase } from '../supabaseClient';
 import { FinancialRecord, Member, TitheRecord, UserProfile } from '../types';
 import { 
@@ -45,10 +46,12 @@ interface FinanceViewProps {
 }
 
 const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
+  const { financeState, setFinanceState } = useAppStore();
+
   const [records, setRecords] = useState<FinancialRecord[]>([]);
   const [titheRecords, setTitheRecords] = useState<TitheRecord[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
-  const [activeTab, setActiveTab] = useState<'Statements' | 'Tithers'>('Statements');
+  const [activeTab, setActiveTab] = useState<'Statements' | 'Tithers'>((financeState.openTab as any) || 'Statements');
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isReportDropdownOpen, setIsReportDropdownOpen] = useState(false);
@@ -58,10 +61,32 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
   const [tableMissing, setTableMissing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [financialTrends, setFinancialTrends] = useState<any[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(financeState.searchTerm || '');
   const [memberSearch, setMemberSearch] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('All Months');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+
+  // Sync state with Zustand
+  useEffect(() => {
+    setFinanceState({ searchTerm, openTab: activeTab });
+  }, [searchTerm, activeTab, setFinanceState]);
+
+  // Restore & Track Scroll Position
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      window.scrollTo(0, financeState.scrollPosition);
+    }, 50);
+
+    const handleScroll = () => {
+      setFinanceState({ scrollPosition: window.scrollY });
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [financeState.scrollPosition, setFinanceState]);
   const [isEditingRecord, setIsEditingRecord] = useState(false);
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [recordToDelete, setRecordToDelete] = useState<string | null>(null);

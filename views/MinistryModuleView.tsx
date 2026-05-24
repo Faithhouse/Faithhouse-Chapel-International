@@ -166,6 +166,52 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName })
     }
   };
 
+  const exportAttendanceReportToCSV = () => {
+    if (deptAttendanceEvents.length === 0) {
+      toast.error("No attendance data available to export");
+      return;
+    }
+    
+    // Prepare header
+    const headers = [
+      "Service Date", 
+      "Service Type", 
+      "Men Count", 
+      "Women Count", 
+      "Children Count", 
+      "Young Adult Count", 
+      "Teen Count", 
+      "Total Attendance"
+    ];
+    
+    // Create CSV rows
+    const rows = deptAttendanceEvents.map(ev => [
+      new Date(ev.event_date).toLocaleDateString(),
+      ev.event_type || 'N/A',
+      ev.men_count || 0,
+      ev.women_count || 0,
+      ev.children_count || 0,
+      ev.young_adult_count || 0,
+      ev.teen_count || 0,
+      ev.total_attendance || 0
+    ]);
+    
+    // Combine to string with CSV escaping
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+      
+    // Create download element
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    const sanitizedMinistryName = ministryName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    link.setAttribute("download", `${sanitizedMinistryName}_attendance_report.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Attendance report exported successfully as CSV!");
+  };
+
   const openDeptAttendanceSheet = async (event: AttendanceEvent) => {
     setActiveDeptEvent(event);
     setIsDeptAttendanceModalOpen(true);
@@ -1602,7 +1648,13 @@ CREATE POLICY "Allow all for staff" ON public.ministry_members FOR ALL USING (tr
             >
               {isDeptSubmitting ? 'Creating...' : 'Record New Session'}
             </button>
-            <button className="px-6 py-3 bg-slate-50 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all">Export Report</button>
+            <button 
+              onClick={exportAttendanceReportToCSV}
+              className="px-6 py-3 bg-slate-50 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all flex items-center gap-2"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Export Report
+            </button>
           </div>
         </div>
 

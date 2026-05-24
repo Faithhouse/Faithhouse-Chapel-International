@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
+import { useAppStore } from '../store/appStore';
 import { toast } from 'sonner';
 import { AttendanceEvent, AttendanceRecord, Member, Branch, UserProfile } from '../types';
 import AttendanceReportDocument from '../src/components/AttendanceReportDocument';
@@ -62,9 +63,33 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ currentUser }) => {
 
   const isReadOnly = currentUser && isMinistryRole(currentUser.role) && !currentUser.role.toLowerCase().includes('ushering');
 
+  const { attendanceState, setAttendanceState } = useAppStore();
+
   // Filters
-  const [branchFilter, setBranchFilter] = useState('All');
-  const [typeFilter, setTypeFilter] = useState('All');
+  const [branchFilter, setBranchFilter] = useState(attendanceState.branchFilter || 'All');
+  const [typeFilter, setTypeFilter] = useState(attendanceState.serviceFilter || 'All');
+
+  // Sync state with Zustand
+  useEffect(() => {
+    setAttendanceState({ branchFilter, serviceFilter: typeFilter });
+  }, [branchFilter, typeFilter, setAttendanceState]);
+
+  // Restore & Track Scroll Position
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      window.scrollTo(0, attendanceState.scrollPosition);
+    }, 50);
+
+    const handleScroll = () => {
+      setAttendanceState({ scrollPosition: window.scrollY });
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [attendanceState.scrollPosition, setAttendanceState]);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 

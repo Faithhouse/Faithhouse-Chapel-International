@@ -72,7 +72,7 @@ export const MinistryReportDocument: React.FC<MinistryReportDocumentProps> = ({
   // Fallback to the original list view (expected by MinistriesView)
   const allMinistries = ministries || [];
   const activeMinistries = allMinistries.filter(m => m.status === 'Active');
-  const inactiveMinistries = ministries.filter(m => m.status === 'Inactive');
+  const inactiveMinistries = allMinistries.filter(m => m.status === 'Inactive');
 
   return (
     <div className="bg-white p-8 md:p-16 max-w-5xl mx-auto font-serif text-slate-900 border border-slate-200 shadow-xl print:shadow-none print:border-none print:p-0">
@@ -108,7 +108,7 @@ export const MinistryReportDocument: React.FC<MinistryReportDocumentProps> = ({
       {/* Executive Summary Cards */}
       <div className="grid grid-cols-3 gap-6 mb-12">
         {[
-          { label: 'Total Ministries', value: ministries.length, sub: 'Departments provisioned' },
+          { label: 'Total Ministries', value: allMinistries.length, sub: 'Departments provisioned' },
           { label: 'Active Status', value: activeMinistries.length, sub: 'Currently Operational' },
           { label: 'System Health', value: 'Optimal', sub: 'Oversight Verified' }
         ].map((stat, i) => (
@@ -139,7 +139,7 @@ export const MinistryReportDocument: React.FC<MinistryReportDocumentProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {ministries.map((min, i) => (
+                {allMinistries.map((min, i) => (
                   <tr key={i} className={`text-[10px] font-medium text-slate-700 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
                     <td className="px-6 py-4 font-black uppercase text-slate-900">{min.name}</td>
                     <td className="px-6 py-4">{min.lead ? `${min.lead.first_name} ${min.lead.last_name}` : (min.leader_name || '---')}</td>
