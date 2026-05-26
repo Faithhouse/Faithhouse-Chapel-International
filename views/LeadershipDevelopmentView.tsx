@@ -832,7 +832,12 @@ const LeadershipDevelopmentView: React.FC<LeadershipDevelopmentViewProps> = ({ c
                         <div className="space-y-4 flex-1 overflow-y-auto max-h-[380px] scrollbar-hide">
                           {listForLvl.length > 0 ? listForLvl.map(cp => (
                             <div key={cp.id} className="p-4 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-840 rounded-2xl shadow-sm relative space-y-3">
-                              <h4 className="font-black uppercase text-xs">{cp.members?.first_name} {cp.members?.last_name}</h4>
+                              <h4 className="font-black uppercase text-xs">
+                                {(() => {
+                                  const m = cp.members ? (Array.isArray(cp.members) ? cp.members[0] : cp.members) : null;
+                                  return m ? `${m.first_name || ''} ${m.last_name || ''}`.trim() : 'Unknown Member';
+                                })()}
+                              </h4>
                               <div className="w-full bg-slate-150 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
                                 <div className="bg-fh-green h-full" style={{ width: `${cp.progress_percentage}%` }} />
                               </div>

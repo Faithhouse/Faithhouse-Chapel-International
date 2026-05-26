@@ -209,8 +209,9 @@ const FinanceView: React.FC<FinanceViewProps> = ({ currentUser }) => {
 
   const filteredTithes = useMemo(() => {
     return titheRecords.filter(t => {
-      const memberName = t.members 
-        ? `${t.members.first_name} ${t.members.last_name}`.toLowerCase() 
+      const m = t.members ? (Array.isArray(t.members) ? t.members[0] : t.members) : null;
+      const memberName = m 
+        ? `${m.first_name || ''} ${m.last_name || ''}`.toLowerCase() 
         : `member id: ${t.member_id}`.toLowerCase();
       
       const matchesSearch = memberName.includes(searchTerm.toLowerCase());
@@ -1174,7 +1175,10 @@ NOTIFY pgrst, 'reload schema';`;
                                 <Users className="w-4 h-4 text-slate-400" />
                               </div>
                               <p className="font-black text-slate-800 uppercase tracking-tight">
-                                {tithe.members ? `${tithe.members.first_name} ${tithe.members.last_name}` : `Member ID: ${tithe.member_id.substring(0, 8)}...`}
+                                {(() => {
+                                  const m = tithe.members ? (Array.isArray(tithe.members) ? tithe.members[0] : tithe.members) : null;
+                                  return m ? `${m.first_name || ''} ${m.last_name || ''}`.trim() : `Member ID: ${tithe.member_id.substring(0, 8)}...`;
+                                })()}
                               </p>
                             </div>
                           </td>
@@ -1254,7 +1258,10 @@ NOTIFY pgrst, 'reload schema';`;
                         </div>
                       </div>
                       <h4 className="text-lg font-black text-slate-900 uppercase tracking-tighter mb-1">
-                        {tithe.members ? `${tithe.members.first_name} ${tithe.members.last_name}` : `Member ID: ${tithe.member_id.substring(0, 8)}...`}
+                        {(() => {
+                          const m = tithe.members ? (Array.isArray(tithe.members) ? tithe.members[0] : tithe.members) : null;
+                          return m ? `${m.first_name || ''} ${m.last_name || ''}`.trim() : `Member ID: ${tithe.member_id.substring(0, 8)}...`;
+                        })()}
                       </h4>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">
                         {new Date(tithe.payment_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}

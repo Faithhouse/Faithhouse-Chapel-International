@@ -448,7 +448,10 @@ export const LeadershipReports: React.FC<LeadershipReportsProps> = ({
                     <div key={cp.id} className="p-4 rounded-xl border border-slate-200/50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-950/30 flex justify-between items-center text-xs">
                       <div>
                         <h4 className="font-bold uppercase text-slate-800 dark:text-slate-200">
-                          {cp.members?.first_name} {cp.members?.last_name}
+                          {(() => {
+                            const m = cp.members ? (Array.isArray(cp.members) ? cp.members[0] : cp.members) : null;
+                            return m ? `${m.first_name || ''} ${m.last_name || ''}`.trim() : 'Unknown Member';
+                          })()}
                         </h4>
                         <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">Level: <strong className="text-fh-green">{cp.current_level}</strong></p>
                       </div>

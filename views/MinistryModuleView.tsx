@@ -601,7 +601,8 @@ const MinistryModuleView: React.FC<MinistryModuleViewProps> = ({ ministryName })
       if (assignedErr) throw assignedErr;
 
       const enrichedMembers = (assignments || []).map(a => {
-        return { ...a.members, role: a.role || 'Member', assignment_id: a.id };
+        const m = Array.isArray(a.members) ? a.members[0] : a.members;
+        return { ...m, role: a.role || 'Member', assignment_id: a.id };
       });
 
       setMinistryMembers(enrichedMembers);

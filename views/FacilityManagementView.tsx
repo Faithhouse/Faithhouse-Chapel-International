@@ -107,6 +107,23 @@ const FacilityManagementView: React.FC = () => {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    id?: string;
+    type: 'facility' | 'booking' | 'maintenance' | 'asset' | 'reset';
+    message: string;
+    extraData?: string;
+  } | null>(null);
+
+  const handleConfirmDelete = () => {
+    if (!deleteConfirm) return;
+    const { id, type, extraData } = deleteConfirm;
+    if (type === 'reset') executeResetData();
+    else if (type === 'facility' && id && extraData) executeDeleteFacility(id, extraData);
+    else if (type === 'booking' && id) executeDeleteBooking(id);
+    else if (type === 'maintenance' && id) executeDeleteMaintenance(id);
+    else if (type === 'asset' && id) executeDeleteAsset(id);
+    setDeleteConfirm(null);
+  };
 
   // Form states
   const [facilityForm, setFacilityForm] = useState({
@@ -225,14 +242,19 @@ const FacilityManagementView: React.FC = () => {
   };
 
   const handleResetData = () => {
-    if (confirm("This will overwrite your localStorage data with default initial models. Proceed?")) {
-      localStorage.removeItem('fh_facilities');
-      localStorage.removeItem('fh_bookings');
-      localStorage.removeItem('fh_maintenance');
-      localStorage.removeItem('fh_assets');
-      loadLocalData();
-      toast.success("All Facility management states reverted to design defaults!");
-    }
+    setDeleteConfirm({
+      type: 'reset',
+      message: "This will overwrite your localStorage data with default initial models. Proceed?"
+    });
+  };
+
+  const executeResetData = () => {
+    localStorage.removeItem('fh_facilities');
+    localStorage.removeItem('fh_bookings');
+    localStorage.removeItem('fh_maintenance');
+    localStorage.removeItem('fh_assets');
+    loadLocalData();
+    toast.success("All Facility management states reverted to design defaults!");
   };
 
   // Facility Actions (CRUD)
@@ -280,8 +302,15 @@ const FacilityManagementView: React.FC = () => {
   };
 
   const deleteFacility = async (id: string, name: string) => {
-    if (!confirm(`Are you absolutely sure you want to remove the venue: "${name}"? All linked bookings, assets, and logs will be orphaned.`)) return;
-    
+    setDeleteConfirm({
+      id,
+      extraData: name,
+      type: 'facility',
+      message: `Are you absolutely sure you want to remove the venue: "${name}"? All linked bookings, assets, and logs will be orphaned.`
+    });
+  };
+
+  const executeDeleteFacility = async (id: string, name: string) => {
     try {
       if (isUsingSupabase) {
         const { error } = await supabase.from('facilities').delete().eq('id', id);
@@ -398,7 +427,14 @@ const FacilityManagementView: React.FC = () => {
   };
 
   const deleteBooking = async (id: string) => {
-    if (!confirm("Are you sure you want to discard this booking completely?")) return;
+    setDeleteConfirm({
+      id,
+      type: 'booking',
+      message: "Are you sure you want to discard this booking completely?"
+    });
+  };
+
+  const executeDeleteBooking = async (id: string) => {
     try {
       if (isUsingSupabase) {
         const { error } = await supabase.from('facility_bookings').delete().eq('id', id);
@@ -485,7 +521,14 @@ const FacilityManagementView: React.FC = () => {
   };
 
   const deleteMaintenance = async (id: string) => {
-    if (!confirm("Remove this log permanently?")) return;
+    setDeleteConfirm({
+      id,
+      type: 'maintenance',
+      message: "Remove this log permanently?"
+    });
+  };
+
+  const executeDeleteMaintenance = async (id: string) => {
     try {
       if (isUsingSupabase) {
         const { error } = await supabase.from('facility_maintenance').delete().eq('id', id);
@@ -550,7 +593,14 @@ const FacilityManagementView: React.FC = () => {
   };
 
   const deleteAsset = async (id: string) => {
-    if (!confirm("Are you sure this asset should be discarded from inventory?")) return;
+    setDeleteConfirm({
+      id,
+      type: 'asset',
+      message: "Are you sure this asset should be discarded from inventory?"
+    });
+  };
+
+  const executeDeleteAsset = async (id: string) => {
     try {
       if (isUsingSupabase) {
         const { error } = await supabase.from('facility_inventory').delete().eq('id', id);
@@ -2027,6 +2077,35 @@ ON CONFLICT DO NOTHING;`;
         </div>
       )}
 
+      {/* Non-blocking beautiful custom confirmation modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-950 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-rose-100 dark:border-rose-950/50 animate-in zoom-in-95 duration-200">
+            <h3 className="text-sm font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+              ⚠️ Attention Needed
+            </h3>
+            <p className="text-xs text-slate-600 dark:text-slate-350 font-bold leading-relaxed mb-6">
+              {deleteConfirm.message}
+            </p>
+            <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-900">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirm(null)}
+                className="px-5 py-2.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 rounded-xl text-[10px] text-slate-600 dark:text-slate-400 font-black uppercase tracking-widest transition-all"
+              >
+                Abort
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                className="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-650/10 active:scale-95 transition-all"
+              >
+                Confirm ACTION
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
