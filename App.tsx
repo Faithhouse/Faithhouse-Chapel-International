@@ -429,17 +429,6 @@ const App: React.FC = () => {
             if (internalUser) {
               setCurrentUser(internalUser);
               setIsDemoMode(true); 
-            } else {
-              // Handle Demo Login button
-              const mockAdmin: UserProfile = {
-                id: '00000000-0000-0000-0000-000000000000',
-                email: 'systemadmin@faithhouse.church',
-                full_name: 'System Administrator',
-                role: 'system_admin',
-                is_active: true
-              };
-              setCurrentUser(mockAdmin);
-              setIsDemoMode(true);
             }
           }} />
         ) : (

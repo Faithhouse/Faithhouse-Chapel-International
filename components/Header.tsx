@@ -44,7 +44,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, activeItem, onBack, hasH
 
       {/* 2. CENTER: Branding Relay */}
       <div className="flex flex-[3] justify-center items-center gap-2 md:gap-3">
-        <div className="p-0.5 md:p-1 bg-white rounded-md md:rounded-lg overflow-hidden flex-shrink-0">
+        <div className="p-0.5 md:p-1 flex-shrink-0">
           <img 
             src={logoUrl} 
             alt="FaithHouse Logo" 

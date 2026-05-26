@@ -6,10 +6,11 @@ import {
   Lock, 
   RefreshCw, 
   LogIn, 
-  ShieldCheck,
   Zap,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
@@ -29,8 +30,8 @@ const churchImages = [
 const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [images, setImages] = useState<string[]>([
     "https://images.unsplash.com/photo-1438232992991-995b7058bbb3?auto=format&fit=crop&q=80&w=1000",
@@ -83,80 +84,59 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
     setIsLoading(true);
 
     try {
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
+      // Attempt authentication
+      let authError: any = null;
+      try {
+        const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
-          options: {
-            data: {
-              full_name: email.split('@')[0],
-              role: 'system_admin'
-            }
-          }
         });
-        if (error) throw error;
-        toast.success('Account created! Please check your email for confirmation or try logging in.');
-        setIsSignUp(false);
-      } else {
-        // Attempt authentication
-        let authError: any = null;
-        try {
-          const { error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-          });
-          authError = error;
-          
-          if (!authError) {
-            toast.success('Welcome back to FaithHouse CMS');
-            onLoginSuccess();
-            return;
-          }
-        } catch (err: any) {
-          console.warn('Supabase Auth fetch failed, attempting internal profile check...', err);
-          authError = err;
+        authError = error;
+        
+        if (!authError) {
+          toast.success('Welcome back to FaithHouse CMS');
+          onLoginSuccess();
+          return;
         }
-
-        // If standard auth fails or is unreachable, check for internal "Temporary Password" in profiles
-        try {
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .ilike('email', email.trim())
-            .eq('temp_password', password)
-            .single();
-
-          if (profile) {
-            if (!profile.is_active) {
-              toast.error('This account has been deactivated. Please contact the administrator.');
-              return;
-            }
-            localStorage.setItem('fh_cms_user', JSON.stringify(profile));
-            toast.success(`Welcome back, ${profile.full_name}`);
-            onLoginSuccess(profile);
-            return;
-          }
-        } catch (profileErr: any) {
-          console.error('Internal profile check failed:', profileErr);
-        }
-
-        // If both fail, show the most relevant error
-        if (authError && authError.message === 'Failed to fetch') {
-          throw new Error("Unable to reach authentication server. Please check your internet connection or try again later.");
-        }
-        throw authError || new Error("Invalid credentials");
+      } catch (err: any) {
+        console.warn('Supabase Auth fetch failed, attempting internal profile check...', err);
+        authError = err;
       }
+
+      // If standard auth fails or is unreachable, check for internal "Temporary Password" in profiles
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .ilike('email', email.trim())
+          .eq('temp_password', password)
+          .single();
+
+        if (profile) {
+          if (!profile.is_active) {
+            toast.error('This account has been deactivated. Please contact the administrator.');
+            return;
+          }
+          localStorage.setItem('fh_cms_user', JSON.stringify(profile));
+          toast.success(`Welcome back, ${profile.full_name}`);
+          onLoginSuccess(profile);
+          return;
+        }
+      } catch (profileErr: any) {
+        console.error('Internal profile check failed:', profileErr);
+      }
+
+      // If both fail, show the most relevant error
+      if (authError && authError.message === 'Failed to fetch') {
+        throw new Error("Unable to reach authentication server. Please check your internet connection or try again later.");
+      }
+      throw authError || new Error("Invalid credentials");
     } catch (error: any) {
       console.error('Auth error:', error);
       toast.error(error.message || 'Authentication failed');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleDemoLogin = () => {
-    // This is just a UI trigger, App.tsx handles the mock admin
-    onLoginSuccess();
   };
 
   return (
@@ -197,7 +177,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             <div className="absolute top-0 right-0 w-32 h-32 bg-fh-gold/10 rounded-full -mr-16 -mt-16 blur-3xl" />
             
             <div className="relative z-10">
-              <div className="w-20 h-20 bg-white rounded-3xl p-2 mx-auto mb-6 shadow-xl flex items-center justify-center">
+              <div className="w-20 h-20 p-2 mx-auto mb-6 flex items-center justify-center">
                 <img 
                   src={logoUrl} 
                   alt="FaithHouse Logo" 
@@ -208,26 +188,11 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                 />
               </div>
               <h1 className="text-2xl font-black uppercase tracking-tighter">FaithHouse <span className="text-fh-gold">CMS</span></h1>
-              <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2">Management System v1.2</p>
+              <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2">Management System</p>
             </div>
           </div>
 
           <div className="p-10">
-            <div className="flex bg-slate-100/50 p-1 rounded-2xl mb-8">
-              <button 
-                onClick={() => setIsSignUp(false)}
-                className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${!isSignUp ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-              >
-                Sign In
-              </button>
-              <button 
-                onClick={() => setIsSignUp(true)}
-                className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isSignUp ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-              >
-                Sign Up
-              </button>
-            </div>
-
             <form onSubmit={handleAuth} className="space-y-6">
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Staff Email</label>
@@ -245,17 +210,29 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Security Key</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Password</label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
                   <input
                     required
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-fh-gold/20 focus:border-fh-gold transition-all font-medium text-slate-900"
+                    className="w-full pl-12 pr-12 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-fh-gold/20 focus:border-fh-gold transition-all font-medium text-slate-900"
                     placeholder="••••••••"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 focus:outline-none transition-colors"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -267,33 +244,15 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                 {isLoading ? (
                   <>
                     <RefreshCw className="w-5 h-5 animate-spin" />
-                    {isSignUp ? 'Creating Account...' : 'Authenticating...'}
+                    Logging In...
                   </>
                 ) : (
                   <>
-                    {isSignUp ? <Zap className="w-5 h-5" /> : <LogIn className="w-5 h-5" />}
-                    {isSignUp ? 'Create Account' : 'Access System'}
+                    <LogIn className="w-5 h-5" />
+                    Log In
                   </>
                 )}
               </button>
-
-              {!isSignUp && (
-                <div className="pt-4 text-center">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="h-px flex-1 bg-slate-100" />
-                    <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Connectivity Support</span>
-                    <div className="h-px flex-1 bg-slate-100" />
-                  </div>
-                  <button
-                    onClick={handleDemoLogin}
-                    type="button"
-                    className="w-full py-4 border-2 border-dashed border-slate-200 text-slate-400 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:border-fh-gold hover:text-fh-gold transition-all flex items-center justify-center gap-2"
-                  >
-                    <ShieldCheck className="w-4 h-4" />
-                    Enter Demo Mode (Local Only)
-                  </button>
-                </div>
-              )}
             </form>
 
           </div>

@@ -148,7 +148,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeItem, setActiveItem, isOpen, to
           
           {/* LOGO & BRANDING SECTION */}
           <div className="p-6 flex items-center gap-3 border-b border-white/5 bg-[#2c3136]">
-            <div className="bg-white p-1 rounded-lg shadow-lg flex-shrink-0 flex items-center justify-center">
+            <div className="p-1 flex-shrink-0 flex items-center justify-center">
               <img 
                 src={logoUrl} 
                 alt="FaithHouse Logo" 
