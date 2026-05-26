@@ -130,8 +130,8 @@ const initialMembersState = {
 
 const initialAttendanceState = {
   searchTerm: '',
-  serviceFilter: 'All Services',
-  branchFilter: 'All Branches',
+  serviceFilter: 'All',
+  branchFilter: 'All',
   dateFilter: '',
   openTab: 'Log',
   page: 1,

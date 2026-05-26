@@ -66,8 +66,14 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ currentUser }) => {
   const { attendanceState, setAttendanceState } = useAppStore();
 
   // Filters
-  const [branchFilter, setBranchFilter] = useState(attendanceState.branchFilter || 'All');
-  const [typeFilter, setTypeFilter] = useState(attendanceState.serviceFilter || 'All');
+  const [branchFilter, setBranchFilter] = useState(() => {
+    const fromStore = attendanceState.branchFilter;
+    return (fromStore === 'All Branches' || !fromStore) ? 'All' : fromStore;
+  });
+  const [typeFilter, setTypeFilter] = useState(() => {
+    const fromStore = attendanceState.serviceFilter;
+    return (fromStore === 'All Services' || !fromStore) ? 'All' : fromStore;
+  });
 
   // Sync state with Zustand
   useEffect(() => {
@@ -158,8 +164,8 @@ const AttendanceView: React.FC<AttendanceViewProps> = ({ currentUser }) => {
       setBranches(bData || []);
 
       let eventQuery = supabase.from('attendance_events').select('*, branches(*)').order('event_date', { ascending: false });
-      if (branchFilter !== 'All') eventQuery = eventQuery.eq('branch_id', branchFilter);
-      if (typeFilter !== 'All') eventQuery = eventQuery.eq('event_type', typeFilter);
+      if (branchFilter !== 'All' && branchFilter !== 'All Branches') eventQuery = eventQuery.eq('branch_id', branchFilter);
+      if (typeFilter !== 'All' && typeFilter !== 'All Services') eventQuery = eventQuery.eq('event_type', typeFilter);
       
       // Add month/year/quarter/annual filtering
       let startDate, endDate;
@@ -924,7 +930,7 @@ NOTIFY pgrst, 'reload schema';`;
               <h3 className="text-lg md:text-2xl font-black text-slate-900 leading-tight mb-4 md:mb-8 group-hover:text-cms-blue transition-colors uppercase tracking-tight">{ev.event_name}</h3>
               <div className="space-y-3 md:space-y-4 mb-4 md:mb-8">
                  <div className="flex items-center gap-3 md:gap-4 text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest"><svg className="w-3 h-3 md:w-4 md:h-4 text-cms-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7" /></svg>{new Date(ev.event_date).toLocaleDateString()}</div>
-                 <div className="flex items-center gap-3 md:gap-4 text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest"><svg className="w-3 h-3 md:w-4 md:h-4 text-cms-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>{ev.branches?.name || 'Main Campus'}</div>
+                 <div className="flex items-center gap-3 md:gap-4 text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest"><svg className="w-3 h-3 md:w-4 md:h-4 text-cms-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>{ev.branches?.name || 'Wonders Cathedral HQ'}</div>
               </div>
               <div className="flex gap-3">
                 <button 

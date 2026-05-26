@@ -1246,7 +1246,7 @@ NOTIFY pgrst, 'reload schema';`;
                         </div>
                         <div>
                           <p className="font-black text-slate-900 uppercase leading-none mb-2 tracking-tight">{m.first_name} {m.last_name}</p>
-                          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{m.gender} • {m.branches?.name || 'Main Campus'}</p>
+                          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{m.gender} • {m.branches?.name || 'Wonders Cathedral HQ'}</p>
                         </div>
                       </div>
                     </td>
@@ -1795,7 +1795,7 @@ NOTIFY pgrst, 'reload schema';`;
                                        <p className="text-xs font-black uppercase text-slate-800">{row.first_name} {row.last_name}</p>
                                     </td>
                                     <td className="px-6 py-4">
-                                       <span className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-[8px] font-black uppercase text-slate-400">{branches.find(b => b.id === (row.branch_id || branches[0]?.id))?.name || 'Main Campus'}</span>
+                                       <span className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-[8px] font-black uppercase text-slate-400">{branches.find(b => b.id === (row.branch_id || branches[0]?.id))?.name || 'Wonders Cathedral HQ'}</span>
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                        <button onClick={() => setParsedData(prev => prev.filter((_, i) => i !== idx))} className="p-2 text-slate-200 hover:text-rose-500"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>

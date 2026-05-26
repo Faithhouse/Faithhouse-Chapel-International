@@ -196,7 +196,7 @@ const MemberDossierDocument: React.FC<MemberDossierDocumentProps> = ({
         </div>
         <div className="data-item">
           <span className="data-label">Assigned Branch</span>
-          <span className="data-value">{member.branches?.name || 'Main Campus'}</span>
+          <span className="data-value">{member.branches?.name || 'Wonders Cathedral HQ'}</span>
         </div>
         <div className="data-item">
           <span className="data-label">Water Baptism</span>

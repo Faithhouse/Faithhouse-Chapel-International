@@ -154,7 +154,7 @@ const MemberProfileView: React.FC<MemberProfileViewProps> = ({ memberId, onBack,
                 </div>
                 <div>
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Branch</p>
-                  <p className="text-sm font-bold text-slate-700">{member.branches?.name || 'Main Campus'}</p>
+                  <p className="text-sm font-bold text-slate-700">{member.branches?.name || 'Wonders Cathedral HQ'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-4">
